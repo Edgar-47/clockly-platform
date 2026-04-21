@@ -1,0 +1,348 @@
+"""
+app/main.py
+
+FastAPI application entry point for Clockly web.
+
+Architecture overview:
+  app/
+  ├── main.py              ← you are here (app factory + wiring)
+  ├── core/
+  │   └── security.py      ← session secret, build_session_payload()
+  ├── api/
+  │   ├── dependencies.py  ← auth guards, flash messages, template_context()
+  │   └── routes/          ← one module per resource (auth, employees, clock, sessions)
+  ├── services/            ← business logic (unchanged from desktop version)
+  ├── repositories/        ← data access (unchanged from desktop version, lives in database/)
+  ├── models/              ← domain dataclasses (unchanged)
+  ├── templates/           ← Jinja2 HTML templates
+  └── static/              ← CSS, JS, images
+
+Auth strategy: cookie-based sessions (SessionMiddleware).
+  Extend with JWT (app/core/jwt.py) when adding a public REST API.
+
+Database: PostgreSQL via app/database/connection.py.
+  Railway provides DATABASE_URL; local development can load it from .env.
+"""
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+from app.config import (
+    ALLOWED_ORIGINS,
+    DEFAULT_ROUTE,
+    DOCS_ENABLED,
+    IS_PRODUCTION,
+    SECURE_COOKIES,
+    TRUSTED_HOSTS,
+    WEB_STATIC_DIR,
+    ensure_runtime_directories,
+    validate_runtime_config,
+)
+from app.api.v1 import router as api_v1_router
+from app.api.v1.errors import ApiError, api_error_response, error_payload
+from app.core.flow_debug import configure_flow_logging, flow_log
+from app.core.security import SECRET_KEY, SESSION_MAX_AGE, home_path_for_role
+from app.core.templates import templates  # noqa: F401 — imported to register Jinja2 globals
+from app.api.dependencies import (
+    RequiresAdminException,
+    RequiresLoginException,
+    RequiresKioskException,
+    RequiresOnboardingException,
+    RequiresPlatformAdminException,
+)
+from app.api.routes import auth, businesses, clock, dashboard, employees, expenses, kiosk, me, sessions
+from app.api.routes import analytics, schedules
+from app.api.routes import superadmin
+from app.database.schema import initialize_database
+from app.superadmin.dependencies import (
+    RequiresSuperadminException,
+    RequiresSuperadminLoginException,
+)
+
+
+# ---------------------------------------------------------------------------
+# Lifespan: runs once at startup / shutdown
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    validate_runtime_config()
+    ensure_runtime_directories()
+    # Initialize PostgreSQL schema and run all pending migrations on startup.
+    # Safe to call every time — all migrations are idempotent.
+    configure_flow_logging()
+    initialize_database()
+    yield
+
+
+# ---------------------------------------------------------------------------
+# App factory
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title="ClockLy",
+    description="Employee time-tracking web application",
+    version="2.0.0",
+    # Disable auto-generated docs in production; enable for development.
+    # Set CLOCKLY_DOCS_ENABLED=1 to turn them back on.
+    docs_url="/docs" if DOCS_ENABLED else None,
+    redoc_url="/redoc" if DOCS_ENABLED else None,
+    lifespan=lifespan,
+)
+
+
+# ---------------------------------------------------------------------------
+# Middleware
+# ---------------------------------------------------------------------------
+
+if TRUSTED_HOSTS and "*" not in TRUSTED_HOSTS:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
+
+if ALLOWED_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Accept"],
+    )
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    max_age=SESSION_MAX_AGE,
+    same_site="lax",        # CSRF protection for same-origin forms
+    https_only=SECURE_COOKIES,
+)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
+    if IS_PRODUCTION and SECURE_COOKIES:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Static files
+# ---------------------------------------------------------------------------
+
+app.mount("/static", StaticFiles(directory=str(WEB_STATIC_DIR)), name="static")
+
+
+# ---------------------------------------------------------------------------
+# Exception handlers
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(RequiresLoginException)
+async def requires_login_handler(request: Request, exc: RequiresLoginException):
+    """Redirect to login when a protected route is accessed without a session.
+    Special case: kiosk routes redirect to /kiosk/enter instead of /login."""
+    if request.url.path.startswith("/kiosk"):
+        target = (
+            "/kiosk/login"
+            if request.session.get("kiosk_business_id")
+            else "/kiosk/enter"
+        )
+        return RedirectResponse(target, status_code=302)
+    return RedirectResponse("/login", status_code=302)
+
+
+@app.exception_handler(ApiError)
+async def api_error_handler(request: Request, exc: ApiError):
+    return api_error_response(
+        status_code=exc.status_code,
+        code=exc.code,
+        message=exc.message,
+        details=exc.details,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def api_validation_error_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("/api/v1"):
+        return JSONResponse(
+            status_code=422,
+            content=error_payload(
+                "validation_error",
+                "La peticion no cumple el contrato de la API.",
+                {"errors": exc.errors()},
+            ),
+        )
+    return await request_validation_exception_handler(request, exc)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if request.url.path.startswith("/api/v1"):
+        message = "Recurso no encontrado." if exc.status_code == 404 else "No se pudo completar la peticion."
+        code = "not_found" if exc.status_code == 404 else "http_error"
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_payload(code, message),
+        )
+
+    if exc.status_code == 404:
+        return templates.TemplateResponse(
+            request,
+            "errors/404.html",
+            {"request": request},
+            status_code=404,
+        )
+
+    return HTMLResponse(
+        "No se pudo completar la peticion.",
+        status_code=exc.status_code,
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    flow_log(
+        "error.unhandled",
+        path=request.url.path,
+        error_type=type(exc).__name__,
+    )
+    if request.url.path.startswith("/api/v1"):
+        return JSONResponse(
+            status_code=500,
+            content=error_payload(
+                "internal_error",
+                "Ha ocurrido un error inesperado. Intentalo de nuevo.",
+            ),
+        )
+    return templates.TemplateResponse(
+        request,
+        "errors/500.html",
+        {"request": request},
+        status_code=500,
+    )
+
+
+@app.exception_handler(RequiresAdminException)
+async def requires_admin_handler(request: Request, exc: RequiresAdminException):
+    """Redirect non-admin users to their own flow, avoiding dashboard loops."""
+    if request.url.path.startswith("/kiosk"):
+        target = (
+            "/kiosk/login"
+            if request.session.get("kiosk_business_id")
+            else "/kiosk/enter"
+        )
+        return RedirectResponse(target, status_code=302)
+
+    target = (
+        home_path_for_role(
+            request.session.get("user_role"),
+        )
+        if request.session.get("user_id")
+        else "/login"
+    )
+    flow_log(
+        "permission.redirect",
+        path=request.url.path,
+        user_id=request.session.get("user_id"),
+        role=request.session.get("user_role"),
+        target=target,
+    )
+    return RedirectResponse(target, status_code=302)
+
+
+@app.exception_handler(RequiresPlatformAdminException)
+async def requires_platform_admin_handler(request: Request, exc: RequiresPlatformAdminException):
+    """Block tenant admins from global platform operations."""
+    if request.url.path.startswith("/superadmin"):
+        return RedirectResponse("/superadmin/login", status_code=302)
+    target = (
+        home_path_for_role(request.session.get("user_role"))
+        if request.session.get("user_id")
+        else "/login"
+    )
+    flow_log(
+        "permission.redirect_platform_admin",
+        path=request.url.path,
+        user_id=request.session.get("user_id"),
+        role=request.session.get("user_role"),
+        platform_role=request.session.get("user_platform_role"),
+        target=target,
+    )
+    return RedirectResponse(target, status_code=302)
+
+
+@app.exception_handler(RequiresSuperadminLoginException)
+async def requires_superadmin_login_handler(request: Request, exc: RequiresSuperadminLoginException):
+    return RedirectResponse("/superadmin/login", status_code=302)
+
+
+@app.exception_handler(RequiresSuperadminException)
+async def requires_superadmin_handler(request: Request, exc: RequiresSuperadminException):
+    return RedirectResponse("/superadmin/login", status_code=302)
+
+
+@app.exception_handler(RequiresKioskException)
+async def requires_kiosk_handler(request: Request, exc: RequiresKioskException):
+    """Redirect to kiosk entry when kiosk mode is required but not active."""
+    flow_log("kiosk.not_active_redirect", path=request.url.path)
+    return RedirectResponse("/kiosk/enter", status_code=302)
+
+
+@app.exception_handler(RequiresOnboardingException)
+async def requires_onboarding_handler(request: Request, exc: RequiresOnboardingException):
+    """Redirect admins with no businesses to the onboarding / business creation screen."""
+    flow_log("onboarding.redirect", path=request.url.path)
+    return RedirectResponse("/businesses/new", status_code=302)
+
+
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+
+app.include_router(auth.router)
+app.include_router(kiosk.router)
+app.include_router(businesses.router)
+app.include_router(dashboard.router)
+app.include_router(employees.router)
+app.include_router(clock.router)
+app.include_router(sessions.router)
+app.include_router(me.router)
+app.include_router(analytics.router)
+app.include_router(schedules.router)
+app.include_router(expenses.router)
+app.include_router(superadmin.router)
+app.include_router(api_v1_router)
+
+
+# ---------------------------------------------------------------------------
+# Root redirect
+# ---------------------------------------------------------------------------
+
+@app.get("/")
+async def root(request: Request):
+    if DEFAULT_ROUTE and DEFAULT_ROUTE != "/":
+        return RedirectResponse(DEFAULT_ROUTE, status_code=302)
+
+    if not request.session.get("user_id"):
+        return RedirectResponse("/login", status_code=302)
+    return RedirectResponse(
+        home_path_for_role(
+            request.session.get("user_role"),
+        ),
+        status_code=302,
+    )
