@@ -1,1 +1,0 @@
-"""Aplicacion local de fichaje."""

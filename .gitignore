@@ -25,11 +25,6 @@ venv/
 .claude/
 
 # Runtime data
-backend/app/data/*.sqlite3
-backend/app/data/*.sqlite3-*
-backend/app/data/*.db
-backend/app/data/*.db-*
-backend/app/data/_pytest_tmp/
 exports/
 uploads/
 
