@@ -6,6 +6,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.enums import AttendanceMethod, AttendanceStatus
 
 
+class AttendanceEmployeeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    first_name: str
+    last_name: str
+    full_name: str
+    role_title: str | None
+
+
 class AttendanceSessionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -21,6 +31,7 @@ class AttendanceSessionRead(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+    employee: AttendanceEmployeeRead | None = None
 
 
 class AttendanceSessionListResponse(BaseModel):

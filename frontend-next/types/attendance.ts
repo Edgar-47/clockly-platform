@@ -36,8 +36,11 @@ export interface AttendanceSession {
 export interface SessionReport extends AttendanceSession {
   employee?: {
     id: string;
+    first_name?: string;
+    last_name?: string;
     full_name: string;
-    initials: string;
+    initials?: string;
+    role_title?: string | null;
   };
   total_hours?: number;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useDeferredValue, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Search, Plus } from "lucide-react";
@@ -27,15 +27,22 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
   const [search, setSearch] = useState("");
+  // Defer search filtering so typing stays responsive even with large lists.
+  const deferredSearch = useDeferredValue(search);
   const router = useRouter();
   const setActive = useSetEmployeeActive();
 
-  const filtered = employees?.filter(
-    (e) =>
-      e.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      e.dni?.toLowerCase().includes(search.toLowerCase()) ||
-      e.email?.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = useMemo(() => {
+    if (!employees) return undefined;
+    const q = deferredSearch.toLowerCase();
+    if (!q) return employees;
+    return employees.filter(
+      (e) =>
+        e.full_name.toLowerCase().includes(q) ||
+        e.dni?.toLowerCase().includes(q) ||
+        e.email?.toLowerCase().includes(q),
+    );
+  }, [employees, deferredSearch]);
 
   return (
     <div className="rounded-lg border border-border bg-white shadow-xs">

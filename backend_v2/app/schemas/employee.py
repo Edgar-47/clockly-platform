@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class EmployeeCreate(BaseModel):
@@ -36,6 +36,12 @@ class EmployeeCreate(BaseModel):
             raise ValueError("PIN must contain digits only.")
         return value
 
+    @model_validator(mode="after")
+    def password_requires_email(self) -> "EmployeeCreate":
+        if self.password and not self.email:
+            raise ValueError("An email address is required when setting a password.")
+        return self
+
 
 class EmployeeUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=80)
@@ -63,6 +69,7 @@ class EmployeeRead(BaseModel):
     user_id: UUID | None
     first_name: str
     last_name: str
+    full_name: str
     email: str | None
     phone: str | None
     dni: str | None
@@ -75,4 +82,7 @@ class EmployeeRead(BaseModel):
 
 class EmployeeListResponse(BaseModel):
     items: list[EmployeeRead]
+    total: int
+    limit: int | None
+    offset: int
 

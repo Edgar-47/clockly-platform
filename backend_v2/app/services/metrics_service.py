@@ -17,17 +17,19 @@ class MetricsService:
         date_from: datetime | None = None,
         date_to: datetime | None = None,
     ) -> MetricsOverview:
+        # Two queries instead of four:
+        # 1. worked_seconds_by_employee — JOIN + GROUP BY (provides per-employee data)
+        # 2. get_overview_counts       — UNION ALL of two COUNTs (open sessions + active employees)
+        # Total worked_seconds is derived by summing employee_rows, avoiding a redundant SUM query.
         employee_rows = self.attendance.worked_seconds_by_employee(
             date_from=date_from,
             date_to=date_to,
         )
+        counts = self.attendance.get_overview_counts()
         return MetricsOverview(
-            worked_seconds=self.attendance.sum_worked_seconds(
-                date_from=date_from,
-                date_to=date_to,
-            ),
-            open_sessions=self.attendance.count_open_sessions(),
-            active_employees=self.attendance.count_active_employees(),
+            worked_seconds=sum(row[2] for row in employee_rows),
+            open_sessions=counts.open_sessions,
+            active_employees=counts.active_employees,
             employees=[
                 EmployeeHoursSummary(
                     employee_id=employee_id,

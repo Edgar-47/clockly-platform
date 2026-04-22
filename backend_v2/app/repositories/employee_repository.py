@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.employee import Employee
@@ -11,12 +11,28 @@ class EmployeeRepository:
         self.db = db
         self.company_id = company_id
 
-    def list(self, *, include_inactive: bool = False) -> list[Employee]:
+    def list(
+        self,
+        *,
+        include_inactive: bool = False,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[Employee]:
         statement = select(Employee).where(Employee.company_id == self.company_id)
         if not include_inactive:
             statement = statement.where(Employee.is_active.is_(True))
         statement = statement.order_by(Employee.is_active.desc(), Employee.first_name, Employee.last_name)
+        if offset:
+            statement = statement.offset(offset)
+        if limit is not None:
+            statement = statement.limit(limit)
         return list(self.db.scalars(statement))
+
+    def count(self, *, include_inactive: bool = False) -> int:
+        statement = select(func.count(Employee.id)).where(Employee.company_id == self.company_id)
+        if not include_inactive:
+            statement = statement.where(Employee.is_active.is_(True))
+        return int(self.db.scalar(statement) or 0)
 
     def get(self, employee_id: UUID) -> Employee | None:
         return self.db.scalar(
@@ -41,6 +57,14 @@ class EmployeeRepository:
                 Employee.user_id == user_id,
                 Employee.company_id == self.company_id,
                 Employee.is_active.is_(True),
+            )
+        )
+
+    def get_by_dni(self, dni: str) -> Employee | None:
+        return self.db.scalar(
+            select(Employee).where(
+                Employee.company_id == self.company_id,
+                Employee.dni == dni,
             )
         )
 

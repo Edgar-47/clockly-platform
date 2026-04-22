@@ -1,12 +1,18 @@
 from datetime import datetime
+from typing import NamedTuple
 from uuid import UUID
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, literal, select, union_all
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.attendance_session import AttendanceSession
 from app.models.employee import Employee
 from app.models.enums import AttendanceStatus
+
+
+class OverviewCounts(NamedTuple):
+    open_sessions: int
+    active_employees: int
 
 
 class AttendanceRepository:
@@ -23,8 +29,10 @@ class AttendanceRepository:
         date_to: datetime | None = None,
         limit: int = 100,
     ) -> list[AttendanceSession]:
-        statement: Select[tuple[AttendanceSession]] = select(AttendanceSession).where(
-            AttendanceSession.company_id == self.company_id
+        statement: Select[tuple[AttendanceSession]] = (
+            select(AttendanceSession)
+            .options(joinedload(AttendanceSession.employee))
+            .where(AttendanceSession.company_id == self.company_id)
         )
         if employee_id:
             statement = statement.where(AttendanceSession.employee_id == employee_id)
@@ -66,10 +74,15 @@ class AttendanceRepository:
         date_from: datetime | None = None,
         date_to: datetime | None = None,
     ) -> list[tuple[UUID, str, int, int]]:
+        employee_name = (
+            func.coalesce(Employee.first_name, "")
+            + literal(" ")
+            + func.coalesce(Employee.last_name, "")
+        ).label("employee_name")
         statement = (
             select(
                 Employee.id,
-                func.concat(Employee.first_name, " ", Employee.last_name).label("employee_name"),
+                employee_name,
                 func.coalesce(func.sum(AttendanceSession.duration_seconds), 0).label("worked_seconds"),
                 func.count(AttendanceSession.id).label("closed_sessions"),
             )
@@ -123,4 +136,29 @@ class AttendanceRepository:
                 )
             )
             or 0
+        )
+
+    def get_overview_counts(self) -> OverviewCounts:
+        """Return (open_sessions, active_employees) in a single round-trip.
+
+        Uses UNION ALL so the planner can execute both aggregates in one pass.
+        """
+        open_q = select(
+            literal("open_sessions").label("metric"),
+            func.count(AttendanceSession.id).label("value"),
+        ).where(
+            AttendanceSession.company_id == self.company_id,
+            AttendanceSession.status == AttendanceStatus.OPEN,
+        )
+        active_q = select(
+            literal("active_employees").label("metric"),
+            func.count(Employee.id).label("value"),
+        ).where(
+            Employee.company_id == self.company_id,
+            Employee.is_active.is_(True),
+        )
+        rows = {row[0]: int(row[1]) for row in self.db.execute(union_all(open_q, active_q)).all()}
+        return OverviewCounts(
+            open_sessions=rows.get("open_sessions", 0),
+            active_employees=rows.get("active_employees", 0),
         )

@@ -13,6 +13,7 @@ from app.db.base import Base, TimestampMixin
 if TYPE_CHECKING:
     from app.models.attendance_session import AttendanceSession
     from app.models.company import Company
+    from app.models.schedule import Schedule
     from app.models.ticket import Ticket
     from app.models.user import User
 
@@ -38,6 +39,12 @@ class Employee(TimestampMixin, Base):
         nullable=True,
         index=True,
     )
+    schedule_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("schedules.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     first_name: Mapped[str] = mapped_column(String(80), nullable=False)
     last_name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255))
@@ -50,6 +57,7 @@ class Employee(TimestampMixin, Base):
 
     company: Mapped[Company] = relationship(back_populates="employees")
     user: Mapped[User | None] = relationship(back_populates="employee")
+    schedule: Mapped[Schedule | None] = relationship(back_populates="employees")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="employee")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="employee")
 

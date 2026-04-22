@@ -13,6 +13,9 @@ export function useEmployees() {
   return useQuery({
     queryKey: employeeKeys.all,
     queryFn: employeesService.list,
+    // Employee list changes infrequently. 5-minute cache avoids redundant
+    // requests on tab focus, navigation, and concurrent component mounts.
+    staleTime: 5 * 60 * 1000,
   });
 }
 

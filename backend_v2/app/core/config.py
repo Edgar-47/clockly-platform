@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        enable_decoding=False,
     )
 
     app_name: str = Field(default="ClockLy API", validation_alias="CLOCKLY_APP_NAME")
@@ -74,4 +75,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

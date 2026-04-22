@@ -97,7 +97,8 @@ backend web actual durante la migracion.
 ```powershell
 cd backend_v2
 copy .env.example .env
-python -m alembic upgrade head
+python -m pip install -r ..\requirements.txt
+alembic upgrade head
 python -m app.db.bootstrap --company-name "ClockLy Demo" --email admin@clockly.local --password "Admin12345"
 python main.py --host 127.0.0.1 --port 8010 --reload
 ```

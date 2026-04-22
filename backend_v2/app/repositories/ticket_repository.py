@@ -18,6 +18,8 @@ class TicketRepository:
         employee_id: UUID | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[Ticket]:
         statement = select(Ticket).where(Ticket.company_id == self.company_id)
         if employee_id:
@@ -26,7 +28,9 @@ class TicketRepository:
             statement = statement.where(Ticket.occurred_on >= date_from)
         if date_to:
             statement = statement.where(Ticket.occurred_on <= date_to)
-        statement = statement.order_by(Ticket.created_at.desc())
+        statement = (
+            statement.order_by(Ticket.created_at.desc()).offset(offset).limit(limit)
+        )
         return list(self.db.scalars(statement))
 
     def add(self, ticket: Ticket) -> Ticket:

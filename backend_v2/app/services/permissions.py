@@ -5,6 +5,8 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
     UserRole.OWNER: {
         "employees:read",
         "employees:write",
+        "schedules:read",
+        "schedules:write",
         "attendance:read",
         "attendance:write",
         "attendance:manage",
@@ -16,6 +18,8 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
     UserRole.ADMIN: {
         "employees:read",
         "employees:write",
+        "schedules:read",
+        "schedules:write",
         "attendance:read",
         "attendance:write",
         "attendance:manage",
@@ -26,6 +30,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
     },
     UserRole.MANAGER: {
         "employees:read",
+        "schedules:read",
         "attendance:read",
         "attendance:write",
         "attendance:manage",

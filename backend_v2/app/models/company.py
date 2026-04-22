@@ -12,6 +12,7 @@ from app.db.base import Base, TimestampMixin
 if TYPE_CHECKING:
     from app.models.attendance_session import AttendanceSession
     from app.models.employee import Employee
+    from app.models.schedule import Schedule
     from app.models.ticket import Ticket
     from app.models.user import User
 
@@ -29,6 +30,7 @@ class Company(TimestampMixin, Base):
 
     users: Mapped[list[User]] = relationship(back_populates="company", cascade="all, delete-orphan")
     employees: Mapped[list[Employee]] = relationship(back_populates="company", cascade="all, delete-orphan")
+    schedules: Mapped[list[Schedule]] = relationship(back_populates="company", cascade="all, delete-orphan")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="company")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="company")
 

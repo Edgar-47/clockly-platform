@@ -1,16 +1,21 @@
 import { api } from "@/lib/api-client";
 import type { DashboardSummary, MetricsOverview } from "@/types/dashboard";
+import type { MePayload } from "@/types/auth";
 import { attendanceService } from "./attendance.service";
 import { employeesService } from "./employees.service";
 
 export const dashboardService = {
   summary: async (): Promise<DashboardSummary> => {
-    const [metrics, employees, statuses, sessions] = await Promise.all([
+    // Fetch metrics, employees and session history in parallel (3 requests).
+    // Then derive attendance statuses from the already-fetched employee list
+    // to avoid a redundant GET /employees inside attendanceService.current().
+    const [me, metrics, employees, sessions] = await Promise.all([
+      api.get<MePayload>("/auth/me"),
       api.get<MetricsOverview>("/metrics/overview"),
       employeesService.list(),
-      attendanceService.current(),
       attendanceService.history(),
     ]);
+    const statuses = await attendanceService.current(employees);
 
     const clockedIn = statuses.filter((s) => s.is_clocked_in);
     const recentSessions = sessions
@@ -18,8 +23,21 @@ export const dashboardService = {
       .slice(0, 8);
 
     return {
-      business: null,
-      usage: null,
+      business: {
+        id: me.company.id,
+        name: me.company.name,
+        role: me.user.role,
+      },
+      usage: {
+        plan: {
+          code: "mvp",
+          name: "MVP",
+          max_employees: 50,
+          max_admins: 5,
+        },
+        employee_count: employees.filter((employee) => employee.is_active).length,
+        admin_count: ["owner", "admin", "manager"].includes(me.user.role) ? 1 : 0,
+      },
       total_employees: employees.filter((employee) => employee.is_active).length,
       total_clocked_in: clockedIn.length,
       total_clocked_out: Math.max(0, employees.filter((employee) => employee.is_active).length - clockedIn.length),
@@ -37,6 +55,7 @@ export const dashboardService = {
         busiest_hour_today: null,
         busiest_concurrent_today: metrics.open_sessions,
       },
+      metrics,
     };
   },
 };

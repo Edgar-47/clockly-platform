@@ -19,6 +19,8 @@ def list_tickets(
     employee_id: UUID | None = Query(default=None),
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     ctx: TenantContext = Depends(require_permission("tickets:read")),
     db: Session = Depends(get_db),
 ) -> list[TicketRead]:
@@ -26,6 +28,8 @@ def list_tickets(
         employee_id=employee_id,
         date_from=date_from,
         date_to=date_to,
+        limit=limit,
+        offset=offset,
     )
 
 

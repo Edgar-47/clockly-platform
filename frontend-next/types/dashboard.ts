@@ -37,6 +37,7 @@ export interface DashboardSummary {
   clocked_in_statuses: AttendanceStatus[];
   recent_sessions: SessionReport[];
   kpis: DashboardKPIs | null;
+  metrics: MetricsOverview | null;
 }
 
 export interface MetricsOverview {

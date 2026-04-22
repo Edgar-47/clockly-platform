@@ -2,7 +2,11 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { attendanceService } from "@/services/attendance.service";
-import type { AttendanceHistoryFilters, ClockRequest } from "@/types/attendance";
+import type {
+  AttendanceHistoryFilters,
+  AttendanceStatus,
+  ClockRequest,
+} from "@/types/attendance";
 
 export const attendanceKeys = {
   current: ["attendance", "current"] as const,
@@ -11,9 +15,12 @@ export const attendanceKeys = {
 };
 
 export function useCurrentAttendance() {
-  return useQuery({
+  return useQuery<AttendanceStatus[]>({
     queryKey: attendanceKeys.current,
-    queryFn: attendanceService.current,
+    queryFn: () => attendanceService.current(),
+    // Data is considered fresh for the same window as the poll interval,
+    // preventing a redundant fetch on component mount when data was just loaded.
+    staleTime: 30_000,
     refetchInterval: 30_000,
   });
 }

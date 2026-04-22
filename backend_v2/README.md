@@ -41,7 +41,7 @@ Desde `clockly-platform/backend_v2`:
 copy .env.example .env
 docker compose -f ..\docker-compose.yml up -d postgres
 python -m pip install -r ..\requirements.txt
-python -m alembic upgrade head
+alembic upgrade head
 python -m app.db.bootstrap --company-name "ClockLy Demo" --email admin@clockly.local --password "Admin12345"
 python main.py --host 127.0.0.1 --port 8010 --reload
 ```
@@ -92,4 +92,3 @@ controlados desde `businesses -> companies`, `business_users/users -> users`,
   pertenecer a mas de una empresa.
 - Exportacion CSV/XLSX usando `ExportService`.
 - Auditoria completa en acciones sensibles.
-

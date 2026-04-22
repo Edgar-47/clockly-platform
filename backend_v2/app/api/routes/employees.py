@@ -15,13 +15,17 @@ router = APIRouter(prefix="/employees", tags=["employees"])
 @router.get("", response_model=EmployeeListResponse)
 def list_employees(
     include_inactive: bool = Query(default=False),
+    limit: int | None = Query(default=None, ge=1, le=500, description="Max items to return. Omit for all."),
+    offset: int = Query(default=0, ge=0),
     ctx: TenantContext = Depends(require_permission("employees:read")),
     db: Session = Depends(get_db),
 ) -> EmployeeListResponse:
-    employees = EmployeeService(db, company_id=ctx.company_id).list_employees(
-        include_inactive=include_inactive
+    items, total = EmployeeService(db, company_id=ctx.company_id).list_employees(
+        include_inactive=include_inactive,
+        limit=limit,
+        offset=offset,
     )
-    return EmployeeListResponse(items=employees)
+    return EmployeeListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.post("", response_model=EmployeeRead, status_code=status.HTTP_201_CREATED)

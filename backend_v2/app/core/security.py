@@ -14,6 +14,7 @@ from app.core.config import get_settings
 
 PASSWORD_ALGORITHM = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 390_000
+PIN_ITERATIONS = 10_000
 SALT_BYTES = 16
 
 
@@ -30,6 +31,18 @@ def hash_password(password: str) -> str:
         PASSWORD_ITERATIONS,
     ).hex()
     return f"{PASSWORD_ALGORITHM}${PASSWORD_ITERATIONS}${salt}${digest}"
+
+
+def hash_pin(pin: str) -> str:
+    """Hash a numeric PIN using fewer iterations than passwords — PINs are short-lived kiosk credentials."""
+    salt = secrets.token_hex(SALT_BYTES)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        pin.encode("utf-8"),
+        salt.encode("utf-8"),
+        PIN_ITERATIONS,
+    ).hex()
+    return f"{PASSWORD_ALGORITHM}${PIN_ITERATIONS}${salt}${digest}"
 
 
 def verify_password(password: str, stored_hash: str | None) -> bool:

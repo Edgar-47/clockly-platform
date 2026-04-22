@@ -1,24 +1,35 @@
 "use client";
 
+import { BarChart3, Clock, TrendingUp, Users } from "lucide-react";
 import { Topbar } from "@/components/shared/topbar";
-import { BackendGap } from "@/components/shared/backend-gap";
 import { StatCard } from "@/components/shared/stat-card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { formatSeconds } from "@/lib/format";
-import { BarChart3, Clock, Users } from "lucide-react";
+import { formatDateTime, formatPercent, formatSeconds } from "@/lib/format";
 
 export default function AnalyticsPage() {
   const dashboard = useDashboard();
-  const kpis = dashboard.data?.kpis;
+  const data = dashboard.data;
+  const kpis = data?.kpis;
+  const employees = data?.metrics?.employees ?? [];
+  const maxWorked = Math.max(...employees.map((employee) => employee.worked_seconds), 1);
+  const recentSessions = data?.recent_sessions ?? [];
 
   return (
     <>
       <Topbar title="Analiticas" />
       <div className="space-y-6 p-8">
-        <div className="grid gap-4 md:grid-cols-3">
+        {dashboard.error && (
+          <div className="rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger">
+            No se pudieron cargar las analiticas.
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Horas periodo"
-            value={kpis ? formatSeconds(kpis.total_hours_month) : "—"}
+            value={kpis ? formatSeconds(kpis.total_hours_month) : "0m"}
             icon={<Clock className="h-5 w-5" />}
             iconColor="blue"
             loading={dashboard.isLoading}
@@ -32,17 +43,98 @@ export default function AnalyticsPage() {
           />
           <StatCard
             label="Sesiones abiertas"
-            value={dashboard.data?.total_clocked_in ?? 0}
+            value={data?.total_clocked_in ?? 0}
             icon={<BarChart3 className="h-5 w-5" />}
             iconColor="orange"
             loading={dashboard.isLoading}
           />
+          <StatCard
+            label="Asistencia"
+            value={kpis ? formatPercent(kpis.attendance_rate) : "0%"}
+            icon={<TrendingUp className="h-5 w-5" />}
+            iconColor="green"
+            loading={dashboard.isLoading}
+          />
         </div>
-        <BackendGap
-          title="Analiticas avanzadas preparadas"
-          description="El frontend viejo incluia ranking, filtros por periodo/empleado, tendencia de horas extra, heatmap y planificado vs real. FastAPI v2 solo expone /metrics/overview por ahora; la pantalla ya consume esos datos y marca los contratos pendientes."
-          endpoints={["GET /metrics/overview", "GET /metrics/ranking", "GET /metrics/heatmap", "GET /metrics/planned-vs-actual"]}
-        />
+
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>Ranking de horas</CardTitle>
+              <Badge variant="outline">{employees.length} empleados</Badge>
+            </CardHeader>
+            <CardContent>
+              {employees.length === 0 ? (
+                <p className="py-8 text-center text-sm text-ink-muted">
+                  Sin horas cerradas en el periodo.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {employees.map((employee, index) => (
+                    <div key={employee.employee_id} className="space-y-2">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                            {index + 1}
+                          </span>
+                          <span className="truncate font-semibold text-ink">
+                            {employee.employee_name}
+                          </span>
+                        </div>
+                        <span className="shrink-0 text-ink-muted">
+                          {formatSeconds(employee.worked_seconds)}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-surface-bg">
+                        <div
+                          className="h-2 rounded-full bg-primary"
+                          style={{
+                            width: `${Math.max(4, (employee.worked_seconds / maxWorked) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>Actividad reciente</CardTitle>
+              <Badge variant="outline">{recentSessions.length} fichajes</Badge>
+            </CardHeader>
+            <CardContent>
+              {recentSessions.length === 0 ? (
+                <p className="py-8 text-center text-sm text-ink-muted">
+                  Sin fichajes recientes.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {recentSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">
+                          {session.employee?.full_name ?? session.employee_name}
+                        </p>
+                        <p className="text-xs text-ink-muted">
+                          {formatDateTime(session.clock_in_time)}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-sm font-medium text-ink-muted">
+                        {session.total_seconds ? formatSeconds(session.total_seconds) : "0m"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </>
   );
