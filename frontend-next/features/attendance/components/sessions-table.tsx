@@ -14,6 +14,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime, formatSeconds } from "@/lib/format";
 import type { SessionReport, AttendanceHistoryFilters } from "@/types/attendance";
+import { attendanceService } from "@/services/attendance.service";
 
 interface SessionsTableProps {
   sessions?: SessionReport[];
@@ -58,7 +59,7 @@ export function SessionsTable({
         <Select
           onValueChange={(v) =>
             applyFilter({
-              is_active: v === "all" ? undefined : v === "1" ? 1 : 0,
+              status: v === "all" ? undefined : v === "open" ? "open" : "closed",
             })
           }
         >
@@ -67,8 +68,8 @@ export function SessionsTable({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="1">Activos</SelectItem>
-            <SelectItem value="0">Cerrados</SelectItem>
+            <SelectItem value="open">Activas</SelectItem>
+            <SelectItem value="closed">Cerradas</SelectItem>
           </SelectContent>
         </Select>
         <Select
@@ -86,10 +87,14 @@ export function SessionsTable({
             <SelectItem value="overtime">Horas extra</SelectItem>
           </SelectContent>
         </Select>
-        {/* TODO: connect to /exports endpoint when available */}
-        <Button variant="secondary" size="sm" className="ml-auto" disabled>
-          Exportar
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="secondary" size="sm" asChild>
+            <a href={attendanceService.exportUrl("excel", filters)}>Excel</a>
+          </Button>
+          <Button variant="secondary" size="sm" asChild>
+            <a href={attendanceService.exportUrl("pdf", filters)}>PDF</a>
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -139,7 +144,7 @@ export function SessionsTable({
                   className="hover:bg-surface-muted/50 transition-colors"
                 >
                   <td className="px-6 py-3 font-medium text-ink">
-                    {s.employee?.full_name ?? `#${s.user_id}`}
+                    {s.employee?.full_name ?? s.employee_name ?? `Empleado ${s.employee_id.slice(0, 8)}`}
                   </td>
                   <td className="px-6 py-3 text-ink-muted">
                     {formatDateTime(s.clock_in_time)}

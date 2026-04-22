@@ -6,7 +6,7 @@ import type { EmployeeCreateRequest, EmployeeUpdateRequest } from "@/types/emplo
 
 export const employeeKeys = {
   all: ["employees"] as const,
-  detail: (id: number) => ["employees", id] as const,
+  detail: (id: string) => ["employees", id] as const,
 };
 
 export function useEmployees() {
@@ -16,11 +16,11 @@ export function useEmployees() {
   });
 }
 
-export function useEmployee(id: number) {
+export function useEmployee(id: string) {
   return useQuery({
     queryKey: employeeKeys.detail(id),
     queryFn: () => employeesService.get(id),
-    enabled: id > 0,
+    enabled: Boolean(id),
   });
 }
 
@@ -33,7 +33,7 @@ export function useCreateEmployee() {
   });
 }
 
-export function useUpdateEmployee(id: number) {
+export function useUpdateEmployee(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: EmployeeUpdateRequest) =>
@@ -42,5 +42,14 @@ export function useUpdateEmployee(id: number) {
       qc.invalidateQueries({ queryKey: employeeKeys.all });
       qc.invalidateQueries({ queryKey: employeeKeys.detail(id) });
     },
+  });
+}
+
+export function useSetEmployeeActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      employeesService.setActive(id, isActive),
+    onSuccess: () => qc.invalidateQueries({ queryKey: employeeKeys.all }),
   });
 }

@@ -1,6 +1,11 @@
 export interface ApiError {
-  detail: string;
-  status: number;
+  detail?: string;
+  status?: number;
+  error?: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
 }
 
 export interface ApiList<T> {

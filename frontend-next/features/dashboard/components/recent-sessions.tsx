@@ -68,7 +68,7 @@ export function RecentSessions({ sessions, loading }: RecentSessionsProps) {
                   className="hover:bg-surface-muted/50 transition-colors"
                 >
                   <td className="px-6 py-3 font-medium text-ink">
-                    {s.employee?.full_name ?? `#${s.user_id}`}
+                    {s.employee?.full_name ?? s.employee_name ?? `Empleado ${s.employee_id.slice(0, 8)}`}
                   </td>
                   <td className="px-6 py-3 text-ink-muted">
                     {formatDateTime(s.clock_in_time)}

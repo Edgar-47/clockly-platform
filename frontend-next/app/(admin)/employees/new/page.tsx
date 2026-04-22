@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmployeeForm } from "@/features/employees/components/employee-form";
 import { useCreateEmployee } from "@/hooks/use-employees";
-import type { EmployeeCreateRequest } from "@/types/employee";
+import type { EmployeeCreateRequest, EmployeeUpdateRequest } from "@/types/employee";
 
 export default function NewEmployeePage() {
   const router = useRouter();
   const create = useCreateEmployee();
 
-  const handleSubmit = (values: EmployeeCreateRequest) => {
-    create.mutate(values, {
+  const handleSubmit = (values: EmployeeCreateRequest | EmployeeUpdateRequest) => {
+    create.mutate(values as EmployeeCreateRequest, {
       onSuccess: (employee) => {
         toast.success(`Empleado ${employee.full_name} creado correctamente.`);
         router.push("/employees");

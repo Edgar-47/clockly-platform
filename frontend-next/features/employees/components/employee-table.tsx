@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
+import { Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getInitials } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import type { Employee } from "@/types/employee";
+import { useSetEmployeeActive } from "@/hooks/use-employees";
 
 interface EmployeeTableProps {
   employees?: Employee[];
@@ -26,6 +28,7 @@ const ROLE_LABELS: Record<string, string> = {
 export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
   const [search, setSearch] = useState("");
   const router = useRouter();
+  const setActive = useSetEmployeeActive();
 
   const filtered = employees?.filter(
     (e) =>
@@ -144,12 +147,12 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
                     {employee.dni ?? "—"}
                   </td>
                   <td className="px-6 py-3">
-                    <Badge variant={employee.role === "employee" ? "muted" : "default"}>
-                      {ROLE_LABELS[employee.role] ?? employee.role}
+                    <Badge variant="muted">
+                      {employee.role_title ?? ROLE_LABELS.employee}
                     </Badge>
                   </td>
                   <td className="px-6 py-3">
-                    {employee.active ? (
+                    {employee.is_active ? (
                       <Badge variant="success">Activo</Badge>
                     ) : (
                       <Badge variant="danger">Inactivo</Badge>
@@ -162,10 +165,17 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setActive.mutate(
+                          { id: employee.id, isActive: !employee.is_active },
+                          {
+                            onSuccess: () => toast.success("Estado actualizado."),
+                            onError: () => toast.error("No se pudo actualizar el empleado."),
+                          },
+                        );
                       }}
-                      className="rounded p-1 text-ink-xmuted hover:bg-surface-bg hover:text-ink transition-colors"
+                      className="rounded px-2 py-1 text-xs font-medium text-ink-muted hover:bg-surface-bg hover:text-ink transition-colors"
                     >
-                      <MoreHorizontal className="h-4 w-4" />
+                      {employee.is_active ? "Desactivar" : "Activar"}
                     </button>
                   </td>
                 </tr>

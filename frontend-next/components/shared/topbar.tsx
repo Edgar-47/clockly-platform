@@ -11,6 +11,8 @@ interface TopbarProps {
 export function Topbar({ title, actions }: TopbarProps) {
   const { data: auth } = useMe();
   const user = auth?.user;
+  const [firstName = "", ...restName] = user?.full_name.split(" ") ?? [];
+  const lastName = restName.join(" ");
 
   return (
     <header className="sticky top-0 z-30 flex h-[70px] items-center border-b border-border bg-white/90 backdrop-blur px-8">
@@ -24,11 +26,11 @@ export function Topbar({ title, actions }: TopbarProps) {
         {user && (
           <div className="flex items-center gap-2.5 ml-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-              {getInitials(user.first_name, user.last_name)}
+              {getInitials(firstName, lastName)}
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-semibold text-ink leading-none">
-                {user.first_name} {user.last_name}
+                {user.full_name}
               </p>
               <p className="text-xs text-ink-muted mt-0.5">{user.role}</p>
             </div>

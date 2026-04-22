@@ -1,18 +1,34 @@
 export interface AuthUser {
-  id: number;
-  email: string | null;
-  first_name: string;
-  last_name: string;
-  role: "superadmin" | "admin" | "employee";
-  active: boolean;
+  id: string;
+  company_id: string;
+  email: string;
+  full_name: string;
+  role: "owner" | "admin" | "manager" | "employee";
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface CompanyContext {
+  id: string;
+  name: string;
+  slug: string;
+  timezone: string;
 }
 
 export interface AuthPayload {
   access_token: string;
+  refresh_token: string;
   token_type: "bearer";
+  expires_in: number;
   user: AuthUser;
-  active_business_id: string | null;
-  active_business_role: "owner" | "admin" | "employee" | null;
+  company: CompanyContext;
+  permissions: string[];
+}
+
+export interface MePayload {
+  user: AuthUser;
+  company: CompanyContext;
   permissions: string[];
 }
 
