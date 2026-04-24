@@ -73,6 +73,15 @@ class AuthService:
         self.db.commit()
         return tokens
 
+    def logout(self, *, refresh_token_value: str | None) -> None:
+        if not refresh_token_value:
+            self.db.commit()
+            return
+        refresh_token = self.users.get_refresh_token(hash_token(refresh_token_value))
+        if refresh_token is not None and refresh_token.is_active:
+            self.users.revoke_refresh_token(refresh_token)
+        self.db.commit()
+
     def _issue_tokens(
         self,
         user: User,

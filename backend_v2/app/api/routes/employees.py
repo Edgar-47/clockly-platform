@@ -3,8 +3,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
+from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.employee import EmployeeCreate, EmployeeListResponse, EmployeeRead, EmployeeUpdate
 from app.services.employee_service import EmployeeService
 
@@ -28,13 +30,25 @@ def list_employees(
     return EmployeeListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
+@router.get("/{employee_id}", response_model=EmployeeRead)
+def get_employee(
+    employee_id: UUID,
+    ctx: TenantContext = Depends(require_permission("employees:read")),
+    db: Session = Depends(get_db),
+) -> EmployeeRead:
+    employee = EmployeeRepository(db, company_id=ctx.company_id).get(employee_id)
+    if employee is None:
+        raise NotFoundError("Employee not found.")
+    return employee
+
+
 @router.post("", response_model=EmployeeRead, status_code=status.HTTP_201_CREATED)
 def create_employee(
     payload: EmployeeCreate,
     ctx: TenantContext = Depends(require_permission("employees:write")),
     db: Session = Depends(get_db),
 ) -> EmployeeRead:
-    return EmployeeService(db, company_id=ctx.company_id).create_employee(payload)
+    return EmployeeService(db, company_id=ctx.company_id).create_employee(payload, actor_user_id=ctx.user.id)
 
 
 @router.patch("/{employee_id}", response_model=EmployeeRead)
@@ -44,5 +58,4 @@ def update_employee(
     ctx: TenantContext = Depends(require_permission("employees:write")),
     db: Session = Depends(get_db),
 ) -> EmployeeRead:
-    return EmployeeService(db, company_id=ctx.company_id).update_employee(employee_id, payload)
-
+    return EmployeeService(db, company_id=ctx.company_id).update_employee(employee_id, payload, actor_user_id=ctx.user.id)

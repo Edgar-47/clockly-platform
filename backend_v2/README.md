@@ -1,94 +1,88 @@
 # ClockLy Backend v2
 
-Backend REST separado del frontend, preparado para SaaS multiempresa simple.
-Esta version convive con `backend/app` para no romper el backend web legacy.
+`backend_v2/` es el backend real de ClockLy. Sirve la API REST consumida por
+`frontend-next`, el portal de empleado y el kiosk.
 
-## Stack
+## Architecture Source of Truth
 
-- Python 3.12+
-- FastAPI + Uvicorn
-- PostgreSQL
-- SQLAlchemy 2.x
-- Alembic
-- Pydantic v2 + pydantic-settings
-- JWT access + refresh tokens
-- pytest
+- `app/` es la unica implementacion backend activa de este repo.
+- La API actual no usa prefijo `/api/v1`.
+- La sesion web se emite con cookies HttpOnly `clockly_access` y
+  `clockly_refresh`.
+- El backend acepta Bearer tokens o la cookie de acceso para endpoints
+  protegidos.
+- `alembic/` es la historia de migraciones vigente.
 
 ## Estructura
 
 ```text
 backend_v2/
   app/
-    api/            # routers REST
-    core/           # settings, seguridad, errores
-    db/             # engine, sesiones, bootstrap
-    dependencies/   # auth y tenant context
+    api/            # Routers REST
+    core/           # Config, seguridad, cookies, errores
+    db/             # Engine y sesiones
+    dependencies/   # Auth y tenant context
     models/         # SQLAlchemy ORM
-    repositories/   # acceso a datos
-    schemas/        # Pydantic v2
-    services/       # reglas de negocio
-    main.py
+    repositories/   # Acceso a datos
+    schemas/        # Pydantic
+    services/       # Reglas de negocio
   alembic/
-    versions/
-  alembic.ini
+  tests/
+  seed.py
 ```
+
+## Endpoints activos
+
+### Visibles en el frontend web actual
+
+- `/auth/*`
+- `/employees/*`
+- `/attendance/*`
+- `/exports/attendance`
+- `/metrics/overview`
+- `/tickets/*`
+- `/plans`
+- `/plans/current`
+
+### Internos o sin UI web publica hoy
+
+- `/locations/*`
+- `/schedules/*`
+- `/superadmin/status`
 
 ## Arranque local
 
-Desde `clockly-platform/backend_v2`:
-
 ```powershell
 copy .env.example .env
-docker compose -f ..\docker-compose.yml up -d postgres
 python -m pip install -r ..\requirements.txt
 alembic upgrade head
-python -m app.db.bootstrap --company-name "ClockLy Demo" --email admin@clockly.local --password "Admin12345"
+python seed.py
 python main.py --host 127.0.0.1 --port 8010 --reload
 ```
 
-API:
+## Seed local
 
-- `POST /auth/login`
-- `POST /auth/refresh`
-- `GET /auth/me`
-- `GET /employees`
-- `POST /employees`
-- `GET /attendance/sessions`
-- `POST /attendance/clock-in`
-- `POST /attendance/clock-out`
-- `GET /metrics/overview`
-- `GET /tickets`
-- `POST /tickets`
+`python seed.py` crea:
 
-## Modelo de datos
+- una empresa demo
+- un usuario owner
+- opcionalmente un superadmin solo si se pasan credenciales explicitas
 
-`attendance_sessions` es la tabla canonica para fichajes. La tabla tiene
-`company_id`, `employee_id`, `clock_in`, `clock_out`, `duration_seconds`,
-`status`, `method` y notas. Una restriccion parcial en PostgreSQL impide que
-un empleado tenga mas de una sesion abierta por empresa.
+No hay credenciales personales hardcodeadas para superadmin.
 
-El tenant se resuelve desde el JWT: cada usuario pertenece a una empresa y
-todas las consultas protegidas filtran por `company_id`.
+## Validacion
 
-## Legacy
+```powershell
+$env:PYTHONPYCACHEPREFIX=(Join-Path $env:LOCALAPPDATA "Temp\\clockly-compile-cache")
+New-Item -ItemType Directory -Force $env:PYTHONPYCACHEPREFIX | Out-Null
+python -m compileall app tests
+python -m pytest
+```
 
-El backend existente en `backend/app` queda intacto. Sus puntos legacy son:
+## Notas de contrato
 
-- migraciones manuales en `backend/app/database/schema.py`;
-- repositorios con SQL crudo;
-- mezcla de API REST, web Jinja y sesiones cookie;
-- nombres historicos `businesses`/`business_id`;
-- tablas de compatibilidad como `time_entries`.
-
-La migracion real de datos debe hacerse en una fase posterior mediante scripts
-controlados desde `businesses -> companies`, `business_users/users -> users`,
-`users/employees -> employees` y `attendance_sessions -> attendance_sessions`.
-
-## Siguiente fase
-
-- Script de migracion de datos legacy con dry-run y conteos por tenant.
-- Tests de integracion contra `TEST_DATABASE_URL`.
-- Endpoints de empresas, invitaciones y cambio de tenant si un usuario puede
-  pertenecer a mas de una empresa.
-- Exportacion CSV/XLSX usando `ExportService`.
-- Auditoria completa en acciones sensibles.
+- `GET /auth/me` es la fuente de verdad de la sesion.
+- El frontend hace refresh controlado con `POST /auth/refresh` tras `401`.
+- Las acciones de kiosk validan PIN en backend.
+- El API de horarios existe, pero su UI web esta retirada del flujo principal
+  hasta que el producto este completo end-to-end.

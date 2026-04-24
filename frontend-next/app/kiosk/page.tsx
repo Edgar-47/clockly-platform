@@ -9,14 +9,37 @@ import { PinPanel } from "@/features/kiosk/components/pin-panel";
 import { SuccessScreen } from "@/features/kiosk/components/success-screen";
 import { useKioskStore } from "@/features/kiosk/kiosk.store";
 import { useCurrentAttendance } from "@/hooks/use-attendance";
+import { useAdminSession } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function KioskPage() {
+  const session = useAdminSession();
   const { data: statuses, isLoading } = useCurrentAttendance();
   const step = useKioskStore((s) => s.step);
+  const kioskStatuses = statuses?.filter((status) => status.employee.has_pin) ?? [];
 
-  const clockedIn = statuses?.filter((s) => s.is_clocked_in).length ?? 0;
-  const total = statuses?.length ?? 0;
+  if (session.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-bg">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (session.error && session.error.status !== 401) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-bg p-6">
+        <div className="max-w-md rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-DEFAULT">
+          No se pudo abrir el kiosk. Revisa la sesion administrativa y la conexion con el backend.
+        </div>
+      </div>
+    );
+  }
+
+  if (!session.data) return null;
+
+  const clockedIn = kioskStatuses.filter((status) => status.is_clocked_in).length;
+  const total = kioskStatuses.length;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -37,9 +60,9 @@ export default function KioskPage() {
             )}
           </div>
           <Link
-            href="/login"
+            href="/dashboard"
             className="rounded-lg p-2 text-ink-xmuted hover:bg-surface-bg hover:text-ink transition-colors"
-            title="Acceso admin"
+            title="Volver al panel"
           >
             <Settings className="h-5 w-5" />
           </Link>
@@ -66,10 +89,10 @@ export default function KioskPage() {
               </div>
             )}
 
-            {!isLoading && (!statuses || statuses.length === 0) && (
+            {!isLoading && kioskStatuses.length === 0 && (
               <div className="rounded-xl border border-border bg-white p-12 text-center">
                 <p className="text-ink-muted">
-                  No hay empleados activos configurados.
+                  No hay empleados activos con PIN de kiosk configurado.
                 </p>
                 <Link
                   href="/employees/new"
@@ -80,8 +103,8 @@ export default function KioskPage() {
               </div>
             )}
 
-            {!isLoading && statuses && statuses.length > 0 && (
-              <EmployeeGrid statuses={statuses} />
+            {!isLoading && kioskStatuses.length > 0 && (
+              <EmployeeGrid statuses={kioskStatuses} />
             )}
           </div>
         )}

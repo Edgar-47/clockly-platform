@@ -10,6 +10,7 @@ from app.models.enums import UserRole
 from app.models.user import User
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.user_repository import UserRepository
+from app.services.plans import apply_plan_to_company
 
 
 def slugify(value: str) -> str:
@@ -43,11 +44,14 @@ def seed_owner(
         suffix += 1
 
     company = companies.add(
-        Company(
-            name=company_name,
-            slug=slug,
-            business_type=business_type,
-            timezone=timezone,
+        apply_plan_to_company(
+            Company(
+                name=company_name,
+                slug=slug,
+                business_type=business_type,
+                timezone=timezone,
+            ),
+            "free",
         )
     )
     user = users.add(
@@ -59,6 +63,8 @@ def seed_owner(
             role=UserRole.OWNER,
         )
     )
+    company.created_by = user.id
+    db.add(company)
     db.commit()
     return company, user
 
@@ -86,4 +92,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

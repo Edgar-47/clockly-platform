@@ -21,14 +21,14 @@ class ExportService:
         self,
         *,
         employee_id: UUID | None = None,
+        status: AttendanceStatus | None = AttendanceStatus.CLOSED,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
     ) -> list[AttendanceSession]:
         return self.attendance.list_sessions(
             employee_id=employee_id,
-            status=AttendanceStatus.CLOSED,
+            status=status,
             date_from=date_from,
             date_to=date_to,
             limit=10_000,
         )
-

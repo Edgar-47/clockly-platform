@@ -1,4 +1,33 @@
+"use client";
+
 import { Sidebar } from "@/components/shared/sidebar";
+import { useAdminSession } from "@/hooks/use-auth";
+
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const session = useAdminSession();
+
+  if (session.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-bg">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (session.error && session.error.status !== 401) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-bg p-6">
+        <div className="max-w-md rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-DEFAULT">
+          No se pudo validar la sesion administrativa. Revisa la conexion con el backend.
+        </div>
+      </div>
+    );
+  }
+
+  if (!session.data || session.data.user.role === "employee") return null;
+
+  return <>{children}</>;
+}
 
 export default function AdminLayout({
   children,
@@ -6,11 +35,13 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-surface-bg">
-      <Sidebar />
-      <div className="flex-1 pl-[252px]">
-        <main className="min-h-screen">{children}</main>
+    <AdminGuard>
+      <div className="flex min-h-screen bg-surface-bg">
+        <Sidebar />
+        <div className="flex-1 pl-[248px]">
+          <main className="min-h-screen">{children}</main>
+        </div>
       </div>
-    </div>
+    </AdminGuard>
   );
 }

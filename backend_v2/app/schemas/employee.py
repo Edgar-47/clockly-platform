@@ -11,7 +11,7 @@ class EmployeeCreate(BaseModel):
     phone: str | None = Field(default=None, max_length=40)
     dni: str | None = Field(default=None, max_length=40)
     role_title: str | None = Field(default=None, max_length=100)
-    pin: str | None = Field(default=None, min_length=4, max_length=12)
+    pin: str | None = Field(default=None, min_length=4, max_length=4)
     password: str | None = Field(default=None, min_length=8, max_length=256)
     hired_on: date | None = None
     is_active: bool = True
@@ -76,6 +76,7 @@ class EmployeeRead(BaseModel):
     role_title: str | None
     hired_on: date | None
     is_active: bool
+    has_pin: bool
     created_at: datetime
     updated_at: datetime
 
@@ -85,4 +86,3 @@ class EmployeeListResponse(BaseModel):
     total: int
     limit: int | None
     offset: int
-

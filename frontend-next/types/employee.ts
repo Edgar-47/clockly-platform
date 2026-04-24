@@ -14,6 +14,7 @@ export interface Employee {
   role_title: string | null;
   hired_on: string | null;
   is_active: boolean;
+  has_pin: boolean;
   created_at: string;
   updated_at: string;
 }

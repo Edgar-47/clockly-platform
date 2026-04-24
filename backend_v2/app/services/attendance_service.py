@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, PermissionDenied
+from app.core.security import verify_password
 from app.models.attendance_session import AttendanceSession
 from app.models.enums import AttendanceMethod, AttendanceStatus, UserRole
 from app.models.user import User
@@ -40,9 +41,11 @@ class AttendanceService:
         actor: User,
         employee_id: UUID | None,
         method: AttendanceMethod,
+        pin: str | None,
         notes: str | None,
     ) -> AttendanceSession:
         employee = self._resolve_employee(actor, employee_id)
+        self._assert_kiosk_pin(actor=actor, employee=employee, method=method, pin=pin)
         if self.attendance.get_open_for_employee(employee.id, lock=True):
             raise ConflictError("Employee already has an open attendance session.")
         session = AttendanceSession(
@@ -69,6 +72,8 @@ class AttendanceService:
         actor: User,
         employee_id: UUID | None,
         session_id: UUID | None,
+        method: AttendanceMethod,
+        pin: str | None,
         notes: str | None,
     ) -> AttendanceSession:
         if session_id:
@@ -84,6 +89,8 @@ class AttendanceService:
             session = self.attendance.get_open_for_employee(employee.id, lock=True)
             if session is None:
                 raise ConflictError("Employee has no open attendance session.")
+
+        self._assert_kiosk_pin(actor=actor, employee=employee, method=method, pin=pin)
 
         if session.status != AttendanceStatus.OPEN or session.clock_out is not None:
             raise ConflictError("Attendance session is already closed.")
@@ -120,3 +127,19 @@ class AttendanceService:
             return
         raise PermissionDenied("You cannot manage attendance for this employee.")
 
+    def _assert_kiosk_pin(
+        self,
+        *,
+        actor: User,
+        employee,
+        method: AttendanceMethod,
+        pin: str | None,
+    ) -> None:
+        if method not in {AttendanceMethod.KIOSK, AttendanceMethod.PIN} and not pin:
+            return
+        if actor.role == UserRole.EMPLOYEE and employee.user_id == actor.id:
+            return
+        if not pin:
+            raise PermissionDenied("A 4-digit kiosk PIN is required for this action.")
+        if not employee.pin_hash or not verify_password(pin, employee.pin_hash):
+            raise PermissionDenied("Invalid kiosk PIN.")

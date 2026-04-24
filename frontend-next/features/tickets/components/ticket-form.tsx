@@ -43,20 +43,20 @@ export function TicketForm({
       })}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="title">Titulo</Label>
+        <Label htmlFor="title" className="text-[13px]">Título</Label>
         <Input id="title" placeholder="Retraso, ausencia, solicitud..." {...register("title")} />
-        {errors.title && <p className="text-xs text-danger">{errors.title.message}</p>}
+        {errors.title && <p className="text-[12px] text-danger-DEFAULT">{errors.title.message}</p>}
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="occurred_on">Fecha</Label>
+        <Label htmlFor="occurred_on" className="text-[13px]">Fecha</Label>
         <Input id="occurred_on" type="date" {...register("occurred_on")} />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="description">Descripcion</Label>
+        <Label htmlFor="description" className="text-[13px]">Descripción</Label>
         <textarea
           id="description"
-          className="min-h-28 w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink shadow-xs outline-none transition-colors placeholder:text-ink-xmuted focus:border-primary focus:ring-2 focus:ring-primary/15"
-          placeholder="Detalle de la incidencia"
+          className="min-h-[96px] w-full rounded border border-border-strong bg-white px-3 py-2 text-sm text-ink shadow-inner-sm outline-none transition-all duration-150 placeholder:text-ink-xmuted focus:border-primary focus:ring-2 focus:ring-primary/15 focus:shadow-none resize-none"
+          placeholder="Detalle de la incidencia..."
           {...register("description")}
         />
       </div>

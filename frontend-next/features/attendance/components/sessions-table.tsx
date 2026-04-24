@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,8 @@ interface SessionsTableProps {
   sessions?: SessionReport[];
   loading?: boolean;
   onFilterChange: (filters: AttendanceHistoryFilters) => void;
+  canExport?: boolean;
+  canUseAdvancedFilters?: boolean;
 }
 
 const INCIDENT_LABELS: Record<string, string> = {
@@ -33,27 +36,60 @@ export function SessionsTable({
   sessions,
   loading,
   onFilterChange,
+  canExport = false,
+  canUseAdvancedFilters = false,
 }: SessionsTableProps) {
   const [filters, setFilters] = useState<AttendanceHistoryFilters>({});
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
   const applyFilter = (update: Partial<AttendanceHistoryFilters>) => {
+    if (!canUseAdvancedFilters && (update.date_from || update.date_to || update.employee_id)) {
+      return;
+    }
     const next = { ...filters, ...update };
     setFilters(next);
     onFilterChange(next);
   };
 
+  const handleExport = async (format: "excel" | "pdf") => {
+    if (!canExport) return;
+    try {
+      setExporting(format);
+      const { blob, filename } = await attendanceService.downloadExport(format, filters);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename ?? `clockly-attendance.${format === "pdf" ? "pdf" : "xlsx"}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error((error as { detail?: string })?.detail ?? "No se pudo generar la exportacion.");
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border bg-white shadow-xs">
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 border-b border-border px-6 py-4">
+      <div className="flex flex-wrap gap-2.5 border-b border-border px-5 py-3.5">
+        {(!canUseAdvancedFilters || !canExport) && (
+          <Badge variant="warning">Disponible en Pro</Badge>
+        )}
         <Input
           type="date"
           className="w-auto"
+          disabled={!canUseAdvancedFilters}
+          title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
           onChange={(e) => applyFilter({ date_from: e.target.value || undefined })}
         />
         <Input
           type="date"
           className="w-auto"
+          disabled={!canUseAdvancedFilters}
+          title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
           onChange={(e) => applyFilter({ date_to: e.target.value || undefined })}
         />
         <Select
@@ -72,27 +108,26 @@ export function SessionsTable({
             <SelectItem value="closed">Cerradas</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          onValueChange={(v) =>
-            applyFilter({ incident_filter: v === "all" ? undefined : v })
-          }
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Incidencia" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="late_arrival">Llegada tarde</SelectItem>
-            <SelectItem value="early_departure">Salida anticipada</SelectItem>
-            <SelectItem value="overtime">Horas extra</SelectItem>
-          </SelectContent>
-        </Select>
         <div className="ml-auto flex gap-2">
-          <Button variant="secondary" size="sm" asChild>
-            <a href={attendanceService.exportUrl("excel", filters)}>Excel</a>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!canExport}
+            loading={exporting === "excel"}
+            title={!canExport ? "Disponible en Pro" : undefined}
+            onClick={() => handleExport("excel")}
+          >
+            Excel
           </Button>
-          <Button variant="secondary" size="sm" asChild>
-            <a href={attendanceService.exportUrl("pdf", filters)}>PDF</a>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!canExport}
+            loading={exporting === "pdf"}
+            title={!canExport ? "Disponible en Pro" : undefined}
+            onClick={() => handleExport("pdf")}
+          >
+            PDF
           </Button>
         </div>
       </div>
@@ -106,7 +141,7 @@ export function SessionsTable({
                 (h) => (
                   <th
                     key={h}
-                    className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted"
+                    className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
                   >
                     {h}
                   </th>
@@ -119,8 +154,8 @@ export function SessionsTable({
               Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i}>
                   {Array.from({ length: 6 }).map((_, j) => (
-                    <td key={j} className="px-6 py-3">
-                      <Skeleton className="h-4 w-24" />
+                    <td key={j} className="px-5 py-3">
+                      <Skeleton className="h-3.5 w-20" />
                     </td>
                   ))}
                 </tr>
@@ -143,19 +178,19 @@ export function SessionsTable({
                   key={s.id}
                   className="hover:bg-surface-muted/50 transition-colors"
                 >
-                  <td className="px-6 py-3 font-medium text-ink">
+                  <td className="px-5 py-3 text-[13px] font-medium text-ink">
                     {s.employee?.full_name ?? s.employee_name ?? `Empleado ${s.employee_id.slice(0, 8)}`}
                   </td>
-                  <td className="px-6 py-3 text-ink-muted">
+                  <td className="px-5 py-3 text-[13px] text-ink-muted tabular-nums">
                     {formatDateTime(s.clock_in_time)}
                   </td>
-                  <td className="px-6 py-3 text-ink-muted">
+                  <td className="px-5 py-3 text-[13px] text-ink-muted tabular-nums">
                     {s.clock_out_time ? formatDateTime(s.clock_out_time) : "—"}
                   </td>
-                  <td className="px-6 py-3 text-ink-muted">
+                  <td className="px-5 py-3 text-[13px] text-ink-muted tabular-nums">
                     {s.total_seconds ? formatSeconds(s.total_seconds) : "—"}
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-5 py-3">
                     {s.incident_type ? (
                       <Badge variant="warning">
                         {INCIDENT_LABELS[s.incident_type] ?? s.incident_type}
@@ -164,7 +199,7 @@ export function SessionsTable({
                       <span className="text-ink-xmuted">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-5 py-3">
                     {s.is_active ? (
                       <Badge variant="success">Activo</Badge>
                     ) : (
@@ -178,7 +213,7 @@ export function SessionsTable({
       </div>
 
       {!loading && sessions && (
-        <div className="border-t border-border px-6 py-3 text-xs text-ink-muted">
+        <div className="border-t border-border px-5 py-3 text-[12px] text-ink-muted">
           {sessions.length} registro{sessions.length !== 1 ? "s" : ""}
         </div>
       )}

@@ -1,54 +1,36 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { LoginForm } from "@/features/auth/components/login-form";
 
 export const metadata: Metadata = {
-  title: "Iniciar sesión",
+  title: "Iniciar sesiÃ³n",
 };
 
 export default function LoginPage() {
   return (
-    <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
+    <div className="w-full rounded-xl border border-border bg-white p-7 shadow-md">
       <div className="mb-6 text-center">
-        <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary">
-          Administrador
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">
-          Acceso al Panel
+        <h1 className="text-[22px] font-bold tracking-tight text-ink">
+          Acceder al panel
         </h1>
-        <p className="mt-1.5 text-sm text-ink-muted">
-          Entra con tus credenciales para gestionar tu negocio.
+        <p className="mt-1.5 text-[13px] text-ink-muted">
+          Inicia sesiÃ³n con el email real de acceso del negocio.
         </p>
       </div>
 
-      <LoginForm />
-
-      <div className="mt-6 text-center">
-        <Link
-          href="/forgot-password"
-          className="text-sm text-ink-muted hover:text-primary transition-colors"
-        >
-          ¿Olvidaste tu contraseña?
-        </Link>
-      </div>
-
-      <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-3 text-ink-xmuted tracking-wider">
-            Acceso kiosk
-          </span>
-        </div>
-      </div>
-
-      <Link
-        href="/kiosk"
-        className="flex items-center justify-center gap-2 rounded-lg border border-border-strong px-4 py-2.5 text-sm font-medium text-ink-muted hover:border-primary hover:text-primary transition-colors"
+      <Suspense
+        fallback={
+          <div className="rounded-lg border border-border bg-surface-bg px-4 py-6 text-center text-[13px] text-ink-muted">
+            Cargando acceso...
+          </div>
+        }
       >
-        Abrir kiosk de fichaje
-      </Link>
+        <LoginForm />
+      </Suspense>
+
+      <div className="mt-5 rounded-lg border border-border bg-surface-bg px-4 py-3 text-[12px] text-ink-muted">
+        El kiosk se abre desde una sesiÃ³n admin activa y valida el PIN de 4 dÃ­gitos de cada empleado.
+      </div>
     </div>
   );
 }

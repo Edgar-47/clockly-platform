@@ -29,6 +29,8 @@ export function useAttendanceHistory(filters: AttendanceHistoryFilters = {}) {
   return useQuery({
     queryKey: attendanceKeys.history(filters),
     queryFn: () => attendanceService.history(filters),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -36,8 +38,9 @@ export function useClockIn() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload?: ClockRequest) => attendanceService.clockIn(payload),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: attendanceKeys.current }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+    },
   });
 }
 
@@ -45,7 +48,8 @@ export function useClockOut() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload?: ClockRequest) => attendanceService.clockOut(payload),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: attendanceKeys.current }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+    },
   });
 }

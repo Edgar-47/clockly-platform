@@ -16,7 +16,17 @@ class MetricsService:
         *,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
+        include_admin_reports: bool = True,
     ) -> MetricsOverview:
+        if not include_admin_reports:
+            counts = self.attendance.get_overview_counts()
+            return MetricsOverview(
+                worked_seconds=0,
+                open_sessions=counts.open_sessions,
+                active_employees=counts.active_employees,
+                employees=[],
+            )
+
         # Two queries instead of four:
         # 1. worked_seconds_by_employee — JOIN + GROUP BY (provides per-employee data)
         # 2. get_overview_counts       — UNION ALL of two COUNTs (open sessions + active employees)
@@ -40,4 +50,3 @@ class MetricsService:
                 for employee_id, employee_name, worked_seconds, closed_sessions in employee_rows
             ],
         )
-

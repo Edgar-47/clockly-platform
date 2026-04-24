@@ -12,9 +12,9 @@ interface StatCardProps {
 
 const iconColorMap = {
   blue: "bg-primary/10 text-primary",
-  green: "bg-success-bg text-success",
-  orange: "bg-warning-bg text-warning",
-  red: "bg-danger-bg text-danger",
+  green: "bg-success-bg text-success-DEFAULT",
+  orange: "bg-warning-bg text-warning-DEFAULT",
+  red: "bg-danger-bg text-danger-DEFAULT",
   gray: "bg-surface-bg text-ink-muted",
 };
 
@@ -29,33 +29,29 @@ export function StatCard({
   if (loading) {
     return (
       <div className="rounded-lg bg-white border border-border shadow-xs p-5">
-        <div className="flex items-start justify-between">
-          <Skeleton className="h-10 w-10 rounded-lg" />
-        </div>
-        <Skeleton className="h-4 w-24 mt-4" />
+        <Skeleton className="h-9 w-9 rounded-lg" />
+        <Skeleton className="h-3.5 w-28 mt-4" />
         <Skeleton className="h-7 w-16 mt-2" />
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg bg-white border border-border shadow-xs p-5 transition-shadow hover:shadow-sm">
-      <div className="flex items-start justify-between">
-        <div
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-lg",
-            iconColorMap[iconColor],
-          )}
-        >
-          {icon}
-        </div>
+    <div className="rounded-lg bg-white border border-border shadow-xs p-5 transition-shadow duration-200 hover:shadow-sm">
+      <div
+        className={cn(
+          "flex h-9 w-9 items-center justify-center rounded-lg",
+          iconColorMap[iconColor],
+        )}
+      >
+        {icon}
       </div>
-      <p className="mt-4 text-sm font-medium text-ink-muted">{label}</p>
-      <p className="mt-1 text-2xl font-bold tracking-tight text-ink">
+      <p className="mt-4 text-[13px] font-medium text-ink-muted">{label}</p>
+      <p className="mt-1 text-[26px] font-bold tracking-tight text-ink tabular-nums leading-none">
         {value}
       </p>
       {trend && (
-        <p className="mt-1 text-xs text-ink-xmuted">{trend}</p>
+        <p className="mt-1.5 text-[11px] text-ink-xmuted">{trend}</p>
       )}
     </div>
   );

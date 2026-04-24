@@ -13,8 +13,8 @@ export interface AttendanceSession {
   clock_in: string;
   clock_out: string | null;
   duration_seconds: number | null;
-  status: "open" | "closed" | "voided";
-  method: "web" | "kiosk" | "mobile" | "admin";
+  status: "open" | "closed" | "void";
+  method: "web" | "kiosk" | "mobile" | "pin" | "admin";
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -26,7 +26,7 @@ export interface AttendanceSession {
   severity?: "ok" | "warning" | "critical";
   exit_note?: string | null;
   incident_type?: IncidentType;
-  /** UI aliases kept for migrated legacy components. */
+  /** UI aliases — set by normalizeSession in attendance.service.ts */
   clock_in_time: string;
   clock_out_time: string | null;
   is_active: boolean;
@@ -40,6 +40,7 @@ export interface SessionReport extends AttendanceSession {
     last_name?: string;
     full_name: string;
     initials?: string;
+    has_pin?: boolean;
     role_title?: string | null;
   };
   total_hours?: number;
@@ -54,6 +55,7 @@ export interface AttendanceStatus {
     initials: string;
     role: string;
     role_title: string | null;
+    has_pin: boolean;
   };
   is_clocked_in: boolean;
   active_session: AttendanceSession | null;
@@ -63,7 +65,8 @@ export interface AttendanceStatus {
 export interface ClockRequest {
   employee_id?: string;
   session_id?: string;
-  method?: "web" | "kiosk" | "mobile" | "admin";
+  method?: "web" | "kiosk" | "mobile" | "pin" | "admin";
+  pin?: string;
   notes?: string;
 }
 
@@ -71,6 +74,5 @@ export interface AttendanceHistoryFilters {
   date_from?: string;
   date_to?: string;
   employee_id?: string;
-  status?: "open" | "closed" | "voided";
-  incident_filter?: string;
+  status?: "open" | "closed" | "void";
 }

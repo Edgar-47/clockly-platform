@@ -22,7 +22,7 @@ export default function TicketsPage() {
   return (
     <>
       <Topbar title="Incidencias" />
-      <div className="grid gap-6 p-8 xl:grid-cols-[380px_1fr]">
+      <div className="grid gap-5 p-6 xl:grid-cols-[360px_1fr]">
         <Card>
           <CardHeader>
             <CardTitle>Nueva incidencia</CardTitle>

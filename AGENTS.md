@@ -2,24 +2,69 @@
 
 Guidelines for automated changes in `clockly-platform`.
 
-- Keep the backend and web frontend in this repo. Do not create a separate DB
-  repo or split into microservices during MVP work.
-- Treat `backend/app` as the canonical backend package.
-- Keep root `app/__init__.py` as a temporary compatibility shim for imports
-  such as `app.main`; do not add business logic there.
-- Serve web templates and static files from `frontend/`.
-- Put database changes under backend ownership. Today that means
-  `backend/app/database/schema.py` plus notes in `backend/migrations`.
-- Do not commit `.env`, local databases, uploads, exports, caches or build
-  output.
-- Update `docs/contracts/api_v1.md` when changing `/api/v1`.
-- Prefer small, reversible changes. Avoid broad rewrites unless a test or bug
-  requires them.
-- Before finishing backend changes, run at least:
+## Architecture Source of Truth
+
+- Treat `backend_v2/app` as the canonical backend package.
+- Treat `frontend-next` as the canonical web frontend.
+- Treat `backend_v2/alembic` as the canonical database migration history.
+- Treat backend-issued HttpOnly cookies plus `GET /auth/me` as the canonical
+  session model.
+- The current repo does not use `backend/`, `frontend/`, root `app/`, or
+  `/api/v1` in the active product flow. Do not reintroduce those as if they
+  were current architecture.
+
+## Product boundaries
+
+- Keep backend and web frontend in this repo. Do not split services during MVP
+  work.
+- Do not expose incomplete product surfaces as if they were production-ready.
+- Hidden or retired web surfaces should stay redirected or removed until the
+  backend flow is complete end-to-end.
+- The kiosk is a real flow, but it must stay protected behind an authenticated
+  admin session and backend PIN validation.
+
+## Ownership rules
+
+- Backend changes belong under `backend_v2/app` and related Alembic files.
+- Frontend route, UI, and client-session changes belong under `frontend-next`.
+- Database shape changes must update SQLAlchemy models, Alembic migrations when
+  needed, and any affected backend schemas/services.
+- Update `docs/contracts/api_v1.md` whenever backend contracts or auth/session
+  behavior change.
+- Update `README.md` when the real repo architecture or visible product surface
+  changes.
+
+## Safety rules
+
+- Prefer small, reversible changes.
+- Do not duplicate auth/session logic across proxy, hooks, and API client.
+- Do not keep fake flows such as mock persistence or placeholder recovery
+  screens visible to users.
+- Do not commit `.env`, local databases, uploads, exports, caches, `.next`, or
+  build output.
+- Remove or isolate dead code when it is clearly disconnected from the active
+  architecture.
+
+## Validation
+
+Before finishing backend-affecting work, run at least:
 
 ```powershell
-python -m compileall backend app tests
+cd backend_v2
+$env:PYTHONPYCACHEPREFIX=(Join-Path $env:LOCALAPPDATA "Temp\\clockly-compile-cache")
+New-Item -ItemType Directory -Force $env:PYTHONPYCACHEPREFIX | Out-Null
+python -m compileall app tests
 python -m pytest
 ```
 
-If PostgreSQL is unavailable, report which tests were skipped or not run.
+Before finishing frontend-affecting work, run at least:
+
+```powershell
+cd frontend-next
+npm run type-check
+```
+
+If PostgreSQL is unavailable, report which backend checks or tests were not run.
+If Windows/OneDrive blocks writes to `__pycache__`, keep using
+`PYTHONPYCACHEPREFIX` pointed at `%LOCALAPPDATA%\\Temp` instead of changing the
+validation target.

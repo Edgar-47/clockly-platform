@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, CheckCircle, XCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock, Users, XCircle } from "lucide-react";
 import { StatCard } from "@/components/shared/stat-card";
 import { formatPercent, formatSeconds } from "@/lib/format";
 import type { DashboardSummary } from "@/types/dashboard";
@@ -35,10 +35,8 @@ export function MetricsGrid({ data, loading }: MetricsGridProps) {
         loading={loading}
       />
       <StatCard
-        label="Horas hoy"
-        value={
-          data?.kpis ? formatSeconds(data.kpis.total_hours_today) : "—"
-        }
+        label="Horas registradas"
+        value={data?.kpis ? formatSeconds(data.kpis.total_hours_today) : "â€”"}
         icon={<Clock className="h-5 w-5" />}
         iconColor="orange"
         trend={

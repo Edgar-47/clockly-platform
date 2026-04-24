@@ -36,7 +36,7 @@ export function PinPanel() {
     if (!selectedEmployee) return;
     const action = isClockedIn ? clockOut : clockIn;
     action.mutate(
-      { employee_id: selectedEmployee.employee.id },
+      { employee_id: selectedEmployee.employee.id, method: "kiosk", pin },
       {
         onSuccess: () => {
           setSuccess(isClockedIn ? "out" : "in");

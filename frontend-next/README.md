@@ -1,51 +1,67 @@
 # ClockLy Frontend Next
 
-Frontend operativo de ClockLy migrado a Next.js App Router, TypeScript, Tailwind CSS, componentes shadcn/ui, React Hook Form, Zod y TanStack Query.
+`frontend-next/` es el frontend web real de ClockLy. No convive con un
+frontend Jinja ni con otra SPA activa dentro de este repo.
+
+## Architecture Source of Truth
+
+- Next.js App Router es la unica capa web visible al usuario.
+- La sesion vive en cookies HttpOnly emitidas por `backend_v2`.
+- El frontend usa `GET /auth/me` como fuente de verdad del usuario actual.
+- No se guardan tokens en `localStorage`.
+- El proxy de Next solo hace el gate inicial por presencia de cookie; la
+  autorizacion real se resuelve con la sesion del backend.
+
+## Rutas activas
+
+### Publicas
+
+- `/`
+- `/login`
+
+### Admin
+
+- `/dashboard`
+- `/employees`
+- `/sessions`
+- `/analytics`
+- `/tickets`
+- `/settings`
+- `/kiosk`
+
+### Employee
+
+- `/employee`
+
+## Rutas retiradas del flujo principal
+
+Estas rutas existen solo para redirigir fuera de superficies no listas:
+
+- `/forgot-password`
+- `/expenses`
+- `/businesses`
+- `/schedules`
+- `/superadmin`
 
 ## Arranque
 
-```bash
+```powershell
 npm install
+$env:NEXT_PUBLIC_API_URL="http://127.0.0.1:8010"
 npm run dev
 ```
 
-Por defecto espera el backend v2 en:
+## Validacion
 
-```bash
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8010
-```
-
-El backend v2 se puede arrancar desde `../backend_v2`:
-
-```bash
-python main.py --host 127.0.0.1 --port 8010
-```
-
-## Verificacion
-
-```bash
+```powershell
 npm run type-check
-npx next build --webpack
 ```
 
-En este workspace dentro de OneDrive, `next build` con Turbopack puede fallar con `EPERM` al renombrar archivos generados. El build con webpack fue validado correctamente.
+## Notas operativas
 
-## Migrado
-
-- Login, logout, estado de sesion y rutas protegidas.
-- Dashboard conectado a empleados, fichajes y metricas v2.
-- Gestion de empleados: listado, busqueda, alta, edicion y activar/desactivar.
-- Sesiones/fichajes: filtros por fecha/estado, tabla, estados vacios y links de export adapter.
-- Kiosk tactil: grid de empleados, PIN, entrada/salida y feedback de exito.
-- Tickets/incidencias: listado y creacion conectados a `/tickets`.
-- Analiticas basicas conectadas a `/metrics/overview`.
-- Pantallas preparadas para horarios, gastos, negocios y superadmin con adapters documentados.
-
-## Pendiente de backend v2
-
-- `/exports/*` para Excel/PDF de asistencia.
-- `/schedules/*` para horarios y planificado vs real.
-- `/expenses/*` para gastos de empleados y aprobacion admin.
-- `/businesses/*` para selector y administracion multi-negocio.
-- `/superadmin/*`, planes, billing, auditoria e impersonacion.
-- Metricas avanzadas: ranking, heatmap, overtime trend y planificado vs real.
+- El kiosk ya no es una demo publica: requiere sesion admin activa.
+- Solo aparecen en el kiosk empleados activos con PIN configurado.
+- Las exportaciones, metricas, tickets y fichajes dependen de endpoints reales
+  del backend.
+- Si una superficie no tiene backend y flujo completo, debe permanecer fuera de
+  la navegacion principal.

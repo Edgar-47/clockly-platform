@@ -17,6 +17,8 @@ import { useSetEmployeeActive } from "@/hooks/use-employees";
 interface EmployeeTableProps {
   employees?: Employee[];
   loading?: boolean;
+  canCreateEmployee?: boolean;
+  createDisabledReason?: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -25,7 +27,12 @@ const ROLE_LABELS: Record<string, string> = {
   employee: "Empleado",
 };
 
-export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
+export function EmployeeTable({
+  employees,
+  loading,
+  canCreateEmployee = true,
+  createDisabledReason,
+}: EmployeeTableProps) {
   const [search, setSearch] = useState("");
   // Defer search filtering so typing stays responsive even with large lists.
   const deferredSearch = useDeferredValue(search);
@@ -47,7 +54,7 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
   return (
     <div className="rounded-lg border border-border bg-white shadow-xs">
       {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 border-b border-border px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-xmuted" />
           <Input
@@ -59,6 +66,8 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
         </div>
         <Button
           size="sm"
+          disabled={!canCreateEmployee}
+          title={!canCreateEmployee ? createDisabledReason : undefined}
           onClick={() => router.push("/employees/new")}
         >
           <Plus className="h-4 w-4" />
@@ -71,29 +80,29 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-muted text-left">
-              <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                 Empleado
               </th>
-              <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                 DNI
               </th>
-              <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                 Rol
               </th>
-              <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                 Estado
               </th>
-              <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                 Alta
               </th>
-              <th className="px-6 py-3" />
+              <th className="px-5 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {loading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  <td className="px-6 py-3">
+                  <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
                       <Skeleton className="h-8 w-8 rounded-full" />
                       <div className="space-y-1.5">
@@ -103,11 +112,11 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
                     </div>
                   </td>
                   {Array.from({ length: 4 }).map((_, j) => (
-                    <td key={j} className="px-6 py-3">
+                    <td key={j} className="px-5 py-3">
                       <Skeleton className="h-4 w-20" />
                     </td>
                   ))}
-                  <td className="px-6 py-3" />
+                  <td className="px-5 py-3" />
                 </tr>
               ))}
 
@@ -117,10 +126,14 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
                   <EmptyState
                     title="Sin empleados"
                     description="Crea el primer empleado para empezar."
-                    action={{
-                      label: "Nuevo empleado",
-                      onClick: () => router.push("/employees/new"),
-                    }}
+                    action={
+                      canCreateEmployee
+                        ? {
+                            label: "Nuevo empleado",
+                            onClick: () => router.push("/employees/new"),
+                          }
+                        : undefined
+                    }
                   />
                 </td>
               </tr>
@@ -130,45 +143,45 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
               filtered?.map((employee) => (
                 <tr
                   key={employee.id}
-                  className="hover:bg-surface-muted/50 cursor-pointer transition-colors"
+                  className="hover:bg-surface-muted/60 cursor-pointer transition-colors duration-100"
                   onClick={() => router.push(`/employees/${employee.id}`)}
                 >
-                  <td className="px-6 py-3">
+                  <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
                         {getInitials(employee.first_name, employee.last_name)}
                       </div>
                       <div>
-                        <p className="font-semibold text-ink">
+                        <p className="text-[13px] font-semibold text-ink">
                           {employee.full_name}
                         </p>
                         {employee.email && (
-                          <p className="text-xs text-ink-muted">
+                          <p className="text-[11px] text-ink-muted">
                             {employee.email}
                           </p>
                         )}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-3 text-ink-muted">
+                  <td className="px-5 py-3 text-[13px] text-ink-muted">
                     {employee.dni ?? "—"}
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-5 py-3">
                     <Badge variant="muted">
                       {employee.role_title ?? ROLE_LABELS.employee}
                     </Badge>
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-5 py-3">
                     {employee.is_active ? (
                       <Badge variant="success">Activo</Badge>
                     ) : (
                       <Badge variant="danger">Inactivo</Badge>
                     )}
                   </td>
-                  <td className="px-6 py-3 text-ink-muted">
+                  <td className="px-5 py-3 text-[13px] text-ink-muted">
                     {formatDate(employee.created_at)}
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="px-5 py-3">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -180,7 +193,7 @@ export function EmployeeTable({ employees, loading }: EmployeeTableProps) {
                           },
                         );
                       }}
-                      className="rounded px-2 py-1 text-xs font-medium text-ink-muted hover:bg-surface-bg hover:text-ink transition-colors"
+                      className="rounded px-2 py-1 text-[12px] font-medium text-ink-muted hover:bg-surface-bg hover:text-ink transition-colors duration-100"
                     >
                       {employee.is_active ? "Desactivar" : "Activar"}
                     </button>

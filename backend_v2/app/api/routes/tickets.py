@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
+from app.models.enums import UserRole
 from app.models.ticket import Ticket
+from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.ticket_repository import TicketRepository
 from app.schemas.ticket import TicketCreate, TicketRead
+from app.services.plans import check_plan_feature
 
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
@@ -24,6 +27,16 @@ def list_tickets(
     ctx: TenantContext = Depends(require_permission("tickets:read")),
     db: Session = Depends(get_db),
 ) -> list[TicketRead]:
+    if employee_id is not None or date_from is not None or date_to is not None:
+        check_plan_feature(db, ctx.company_id, "has_advanced_filters", actor_user_id=ctx.user.id)
+
+    # Employees can only read their own tickets — force filter to their employee profile.
+    if ctx.user.role == UserRole.EMPLOYEE:
+        own = EmployeeRepository(db, company_id=ctx.company_id).get_by_user_id(ctx.user.id)
+        employee_id = own.id if own else None
+        if own is None:
+            return []
+
     return TicketRepository(db, company_id=ctx.company_id).list(
         employee_id=employee_id,
         date_from=date_from,
@@ -39,9 +52,16 @@ def create_ticket(
     ctx: TenantContext = Depends(require_permission("tickets:write")),
     db: Session = Depends(get_db),
 ) -> TicketRead:
+    employee_id = payload.employee_id
+
+    # Employees must create tickets against their own employee profile.
+    if ctx.user.role == UserRole.EMPLOYEE:
+        own = EmployeeRepository(db, company_id=ctx.company_id).get_by_user_id(ctx.user.id)
+        employee_id = own.id if own else None
+
     ticket = Ticket(
         company_id=ctx.company_id,
-        employee_id=payload.employee_id,
+        employee_id=employee_id,
         user_id=ctx.user.id,
         title=payload.title,
         description=payload.description,
@@ -51,4 +71,3 @@ def create_ticket(
     TicketRepository(db, company_id=ctx.company_id).add(ticket)
     db.commit()
     return ticket
-

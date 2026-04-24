@@ -22,18 +22,18 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-16 px-6 text-center",
+        "flex flex-col items-center justify-center py-14 px-6 text-center",
         className,
       )}
     >
       {icon && (
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-surface-bg text-ink-xmuted">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surface-bg text-ink-xmuted border border-border">
           {icon}
         </div>
       )}
-      <p className="text-base font-semibold text-ink">{title}</p>
+      <p className="text-[15px] font-semibold text-ink">{title}</p>
       {description && (
-        <p className="mt-1 text-sm text-ink-muted max-w-xs">{description}</p>
+        <p className="mt-1.5 text-sm text-ink-muted max-w-xs leading-relaxed">{description}</p>
       )}
       {action && (
         <Button className="mt-5" onClick={action.onClick} size="sm">

@@ -42,7 +42,6 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    company: Mapped[Company] = relationship(back_populates="users")
+    company: Mapped[Company] = relationship(back_populates="users", foreign_keys=[company_id])
     employee: Mapped[Employee | None] = relationship(back_populates="user", uselist=False)
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user", cascade="all, delete-orphan")
-

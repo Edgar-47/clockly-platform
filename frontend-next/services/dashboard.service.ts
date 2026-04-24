@@ -6,7 +6,7 @@ import { employeesService } from "./employees.service";
 
 export const dashboardService = {
   summary: async (): Promise<DashboardSummary> => {
-    // Fetch metrics, employees and session history in parallel (3 requests).
+    // Fetch session, metrics, employees and session history in parallel (4 requests).
     // Then derive attendance statuses from the already-fetched employee list
     // to avoid a redundant GET /employees inside attendanceService.current().
     const [me, metrics, employees, sessions] = await Promise.all([
@@ -30,13 +30,16 @@ export const dashboardService = {
       },
       usage: {
         plan: {
-          code: "mvp",
-          name: "MVP",
-          max_employees: 50,
-          max_admins: 5,
+          code: me.company.plan_type,
+          name: me.company.plan_name,
+          max_employees: me.company.max_employees,
+          has_exports: me.company.has_exports,
+          has_advanced_filters: me.company.has_advanced_filters,
+          has_multi_location: me.company.has_multi_location,
+          has_admin_reports: me.company.has_admin_reports,
+          has_support: me.company.has_support,
         },
         employee_count: employees.filter((employee) => employee.is_active).length,
-        admin_count: ["owner", "admin", "manager"].includes(me.user.role) ? 1 : 0,
       },
       total_employees: employees.filter((employee) => employee.is_active).length,
       total_clocked_in: clockedIn.length,

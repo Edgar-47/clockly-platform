@@ -1,15 +1,17 @@
 "use client";
 
 import { BarChart3, Clock, TrendingUp, Users } from "lucide-react";
+import { useDashboard } from "@/hooks/use-dashboard";
+import { useMe } from "@/hooks/use-auth";
+import { formatDateTime, formatPercent, formatSeconds } from "@/lib/format";
 import { Topbar } from "@/components/shared/topbar";
 import { StatCard } from "@/components/shared/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDashboard } from "@/hooks/use-dashboard";
-import { formatDateTime, formatPercent, formatSeconds } from "@/lib/format";
 
 export default function AnalyticsPage() {
   const dashboard = useDashboard();
+  const me = useMe();
   const data = dashboard.data;
   const kpis = data?.kpis;
   const employees = data?.metrics?.employees ?? [];
@@ -18,17 +20,25 @@ export default function AnalyticsPage() {
 
   return (
     <>
-      <Topbar title="Analiticas" />
-      <div className="space-y-6 p-8">
+      <Topbar title="AnalÃ­ticas" />
+      <div className="space-y-5 p-6">
         {dashboard.error && (
-          <div className="rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger">
+          <div className="rounded-md border border-danger-border bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-DEFAULT">
             No se pudieron cargar las analiticas.
+          </div>
+        )}
+        {me.data && !me.data.company.has_admin_reports && (
+          <div
+            className="rounded-md border border-warning-border bg-warning-bg px-3.5 py-2.5 text-[13px] text-warning-DEFAULT"
+            title="Disponible en Pro"
+          >
+            Informes avanzados disponibles en Pro.
           </div>
         )}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
-            label="Horas periodo"
+            label="Horas registradas"
             value={kpis ? formatSeconds(kpis.total_hours_month) : "0m"}
             icon={<Clock className="h-5 w-5" />}
             iconColor="blue"
@@ -60,13 +70,13 @@ export default function AnalyticsPage() {
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <Card>
             <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>Ranking de horas</CardTitle>
+              <CardTitle>Ranking de horas registradas</CardTitle>
               <Badge variant="outline">{employees.length} empleados</Badge>
             </CardHeader>
             <CardContent>
               {employees.length === 0 ? (
                 <p className="py-8 text-center text-sm text-ink-muted">
-                  Sin horas cerradas en el periodo.
+                  Sin horas registradas en el periodo.
                 </p>
               ) : (
                 <div className="space-y-4">

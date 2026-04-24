@@ -18,8 +18,7 @@ const schema = z.object({
   role_title: z.string().optional(),
   pin: z
     .string()
-    .min(4, "El PIN debe tener al menos 4 digitos")
-    .max(12, "Maximo 12 digitos")
+    .length(4, "El PIN debe tener 4 digitos")
     .regex(/^\d*$/, "Solo digitos")
     .optional()
     .or(z.literal("")),
@@ -127,8 +126,9 @@ export function EmployeeForm({ employee, onSubmit, loading, error }: EmployeeFor
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="pin">PIN kiosk</Label>
-          <Input id="pin" placeholder="1234" maxLength={12} {...register("pin")} />
+          <Label htmlFor="pin">PIN kiosk (4 digitos)</Label>
+          <Input id="pin" placeholder="1234" maxLength={4} {...register("pin")} />
+          <p className="text-[11px] text-ink-xmuted">Solo empleados con PIN aparecen en el kiosk.</p>
           {errors.pin && <p className="text-xs text-danger">{errors.pin.message}</p>}
         </div>
 

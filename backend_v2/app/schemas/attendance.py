@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import AttendanceMethod, AttendanceStatus
 
@@ -41,13 +41,46 @@ class AttendanceSessionListResponse(BaseModel):
 class ClockInRequest(BaseModel):
     employee_id: UUID | None = None
     method: AttendanceMethod = AttendanceMethod.WEB
+    pin: str | None = Field(default=None, min_length=4, max_length=4)
     notes: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("pin", mode="before")
+    @classmethod
+    def normalize_pin(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
+    @field_validator("pin")
+    @classmethod
+    def validate_pin(cls, value: str | None) -> str | None:
+        if value and not value.isdigit():
+            raise ValueError("PIN must contain digits only.")
+        return value
 
 
 class ClockOutRequest(BaseModel):
     employee_id: UUID | None = None
     session_id: UUID | None = None
+    method: AttendanceMethod = AttendanceMethod.WEB
+    pin: str | None = Field(default=None, min_length=4, max_length=4)
     notes: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("pin", mode="before")
+    @classmethod
+    def normalize_pin(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
+    @field_validator("pin")
+    @classmethod
+    def validate_pin(cls, value: str | None) -> str | None:
+        if value and not value.isdigit():
+            raise ValueError("PIN must contain digits only.")
+        return value
 
 
 class AttendanceQuery(BaseModel):

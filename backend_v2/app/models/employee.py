@@ -65,3 +65,6 @@ class Employee(TimestampMixin, Base):
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
 
+    @property
+    def has_pin(self) -> bool:
+        return bool(self.pin_hash)

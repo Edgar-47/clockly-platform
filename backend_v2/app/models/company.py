@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
+from app.models.enums import PlanType
+from app.models.types import enum_column
 
 if TYPE_CHECKING:
     from app.models.attendance_session import AttendanceSession
     from app.models.employee import Employee
+    from app.models.company_location import CompanyLocation
     from app.models.schedule import Schedule
     from app.models.ticket import Ticket
     from app.models.user import User
@@ -27,10 +31,33 @@ class Company(TimestampMixin, Base):
     timezone: Mapped[str] = mapped_column(String(80), default="Europe/Madrid", nullable=False)
     country: Mapped[str | None] = mapped_column(String(80))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    plan_type: Mapped[PlanType] = mapped_column(
+        enum_column(PlanType, name="plan_type"),
+        default=PlanType.FREE,
+        nullable=False,
+    )
+    max_employees: Mapped[int | None] = mapped_column(Integer, default=5)
+    has_exports: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_advanced_filters: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_multi_location: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_admin_reports: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_support: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_active_subscription: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
-    users: Mapped[list[User]] = relationship(back_populates="company", cascade="all, delete-orphan")
+    users: Mapped[list[User]] = relationship(
+        back_populates="company",
+        cascade="all, delete-orphan",
+        foreign_keys="User.company_id",
+    )
     employees: Mapped[list[Employee]] = relationship(back_populates="company", cascade="all, delete-orphan")
+    locations: Mapped[list[CompanyLocation]] = relationship(back_populates="company", cascade="all, delete-orphan")
     schedules: Mapped[list[Schedule]] = relationship(back_populates="company", cascade="all, delete-orphan")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="company")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="company")
-

@@ -26,9 +26,10 @@ if settings.cors_allowed_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
-        allow_credentials=False,
+        allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Accept"],
+        expose_headers=["Content-Disposition"],
     )
 
 
@@ -76,4 +77,3 @@ def health() -> dict[str, str]:
 
 
 app.include_router(api_router)
-

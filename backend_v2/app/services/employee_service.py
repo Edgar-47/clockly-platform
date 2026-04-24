@@ -12,6 +12,7 @@ from app.models.user import User
 from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
+from app.services.plans import check_employee_limit
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,11 @@ class EmployeeService:
         total = self.employees.count(include_inactive=include_inactive)
         return items, total
 
-    def create_employee(self, payload: EmployeeCreate) -> Employee:
+    def create_employee(self, payload: EmployeeCreate, *, actor_user_id: UUID | None = None) -> Employee:
         logger.info("[EmployeeService] Creating employee '%s %s' (company=%s)", payload.first_name, payload.last_name, self.company_id)
+
+        if payload.is_active:
+            check_employee_limit(self.db, self.company_id, actor_user_id=actor_user_id)
 
         # Pre-flight: DNI uniqueness within the company — gives a specific error before hitting the DB constraint.
         if payload.dni:
@@ -84,7 +88,7 @@ class EmployeeService:
         logger.info("[EmployeeService] Employee created: id=%s user_id=%s", employee.id, employee.user_id)
         return employee
 
-    def update_employee(self, employee_id: UUID, payload: EmployeeUpdate) -> Employee:
+    def update_employee(self, employee_id: UUID, payload: EmployeeUpdate, *, actor_user_id: UUID | None = None) -> Employee:
         logger.info("[EmployeeService] Updating employee id=%s", employee_id)
 
         employee = self.employees.get(employee_id)
@@ -92,6 +96,8 @@ class EmployeeService:
             raise NotFoundError("Employee not found.")
 
         updates = payload.model_dump(exclude_unset=True)
+        if updates.get("is_active") is True and not employee.is_active:
+            check_employee_limit(self.db, self.company_id, actor_user_id=actor_user_id)
 
         # Pre-flight: DNI uniqueness if it's actually changing.
         new_dni = updates.get("dni")

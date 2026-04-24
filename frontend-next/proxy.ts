@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/login", "/forgot-password", "/kiosk"];
+const PUBLIC_PATHS = ["/", "/login"];
+const SESSION_COOKIES = ["clockly_access", "clockly_refresh"];
 
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+  return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-export function middleware(request: NextRequest) {
+function hasSessionCookie(request: NextRequest): boolean {
+  return SESSION_COOKIES.some((cookie) => Boolean(request.cookies.get(cookie)?.value));
+}
+
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip Next.js internals and static files
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
@@ -21,15 +23,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("clockly_access")?.value;
+  const hasSession = hasSessionCookie(request);
 
-  if (!token && !isPublic(pathname)) {
+  if (!hasSession && !isPublic(pathname)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (token && (pathname === "/login" || pathname === "/")) {
+  if (hasSession && (pathname === "/" || pathname === "/login")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

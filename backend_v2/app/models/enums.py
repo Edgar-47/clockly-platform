@@ -2,10 +2,17 @@ from enum import StrEnum
 
 
 class UserRole(StrEnum):
+    SUPERADMIN = "superadmin"
     OWNER = "owner"
     ADMIN = "admin"
     MANAGER = "manager"
     EMPLOYEE = "employee"
+
+
+class PlanType(StrEnum):
+    FREE = "free"
+    PRO = "pro"
+    BUSINESS = "business"
 
 
 class AttendanceStatus(StrEnum):
@@ -26,4 +33,3 @@ class TicketStatus(StrEnum):
     IN_REVIEW = "in_review"
     RESOLVED = "resolved"
     REJECTED = "rejected"
-

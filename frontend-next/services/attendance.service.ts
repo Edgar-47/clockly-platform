@@ -32,6 +32,7 @@ function sessionEmployee(session: SessionReport) {
     last_name: lastName,
     full_name: fullName,
     initials: session.employee?.initials ?? initials(firstName, lastName),
+    has_pin: session.employee?.has_pin ?? false,
     role: "employee",
     role_title: session.employee?.role_title ?? null,
   };
@@ -54,6 +55,7 @@ function normalizeSession(session: SessionReport): SessionReport {
           last_name: employee.last_name,
           full_name: employee.full_name,
           initials: employee.initials,
+          has_pin: employee.has_pin,
           role_title: employee.role_title,
         }
       : session.employee,
@@ -86,6 +88,7 @@ export const attendanceService = {
             initials: employee.initials,
             role: "employee",
             role_title: employee.role_title,
+            has_pin: employee.has_pin,
           },
           is_clocked_in: Boolean(active),
           active_session: active,
@@ -127,12 +130,12 @@ export const attendanceService = {
       .then((r) => r.items.map(normalizeSession));
   },
 
-  exportUrl: (format: "excel" | "pdf", filters: AttendanceHistoryFilters = {}) => {
+  downloadExport: (format: "excel" | "pdf", filters: AttendanceHistoryFilters = {}) => {
     const params = new URLSearchParams({ format });
     if (filters.date_from) params.set("date_from", filters.date_from);
     if (filters.date_to) params.set("date_to", filters.date_to);
     if (filters.employee_id) params.set("employee_id", filters.employee_id);
     if (filters.status) params.set("status", filters.status);
-    return `${process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8010"}/exports/attendance?${params}`;
+    return api.download(`/exports/attendance?${params}`);
   },
 };

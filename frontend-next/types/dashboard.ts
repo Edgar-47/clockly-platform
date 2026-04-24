@@ -17,11 +17,14 @@ export interface PlanUsage {
   plan: {
     code: string;
     name: string;
-    max_employees: number;
-    max_admins: number;
+    max_employees: number | null;
+    has_exports: boolean;
+    has_advanced_filters: boolean;
+    has_multi_location: boolean;
+    has_admin_reports: boolean;
+    has_support: boolean;
   };
   employee_count: number;
-  admin_count: number;
 }
 
 export interface DashboardSummary {
