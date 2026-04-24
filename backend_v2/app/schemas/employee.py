@@ -51,6 +51,16 @@ class EmployeeUpdate(BaseModel):
     dni: str | None = Field(default=None, max_length=40)
     role_title: str | None = Field(default=None, max_length=100)
     is_active: bool | None = None
+    schedule_id: UUID | None = Field(
+        default=None,
+        description="Assign or clear (null) the work schedule for this employee.",
+    )
+    # PIN management: omit → no change; null → clear PIN; '1234' → new PIN.
+    pin: str | None = Field(default=None, min_length=4, max_length=4)
+    # Password management: omit → no change; provide → update linked User password.
+    password: str | None = Field(default=None, min_length=8, max_length=256)
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @field_validator("first_name", "last_name", "email", "phone", "dni", "role_title", mode="before")
     @classmethod
@@ -58,6 +68,21 @@ class EmployeeUpdate(BaseModel):
         if isinstance(value, str):
             stripped = value.strip()
             return stripped or None
+        return value
+
+    @field_validator("pin", mode="before")
+    @classmethod
+    def strip_pin(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
+    @field_validator("pin")
+    @classmethod
+    def validate_pin(cls, value: str | None) -> str | None:
+        if value and not value.isdigit():
+            raise ValueError("PIN must contain digits only.")
         return value
 
 

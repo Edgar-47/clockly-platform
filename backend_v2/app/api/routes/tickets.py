@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.models.enums import UserRole
@@ -52,12 +53,17 @@ def create_ticket(
     ctx: TenantContext = Depends(require_permission("tickets:write")),
     db: Session = Depends(get_db),
 ) -> TicketRead:
+    employee_repo = EmployeeRepository(db, company_id=ctx.company_id)
     employee_id = payload.employee_id
 
-    # Employees must create tickets against their own employee profile.
     if ctx.user.role == UserRole.EMPLOYEE:
-        own = EmployeeRepository(db, company_id=ctx.company_id).get_by_user_id(ctx.user.id)
+        # Employees must create tickets against their own employee profile.
+        own = employee_repo.get_by_user_id(ctx.user.id)
         employee_id = own.id if own else None
+    elif employee_id is not None:
+        # Admins/managers providing employee_id must own that employee (same company).
+        if employee_repo.get(employee_id) is None:
+            raise NotFoundError("Employee not found.")
 
     ticket = Ticket(
         company_id=ctx.company_id,

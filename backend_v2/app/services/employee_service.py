@@ -4,12 +4,13 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, PermissionDenied
 from app.core.security import hash_password, hash_pin
 from app.models.employee import Employee
 from app.models.enums import UserRole
 from app.models.user import User
 from app.repositories.employee_repository import EmployeeRepository
+from app.repositories.schedule_repository import ScheduleRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
 from app.services.plans import check_employee_limit
@@ -107,9 +108,51 @@ class EmployeeService:
                 logger.warning("[EmployeeService] Duplicate DNI '%s' on update (employee=%s)", new_dni, employee_id)
                 raise ConflictError("An employee with this DNI already exists in this company.")
 
+        # Validate schedule_id belongs to the same company before assigning.
+        if "schedule_id" in updates and updates["schedule_id"] is not None:
+            schedule = ScheduleRepository(self.db, company_id=self.company_id).get(updates["schedule_id"])
+            if schedule is None:
+                raise NotFoundError("Schedule not found.")
+
+        # PIN update: treated separately because the model stores pin_hash, not pin.
+        # Sending pin=null clears the PIN; sending pin='1234' sets a new one.
+        new_pin = updates.pop("pin", _UNSET)
+        if new_pin is not _UNSET:
+            employee.pin_hash = hash_pin(new_pin) if new_pin else None
+
+        # Password update: updates the linked User's password_hash.
+        new_password = updates.pop("password", _UNSET)
+        if new_password is not _UNSET:
+            if new_password is None:
+                raise PermissionDenied("Password cannot be cleared; it can only be changed.")
+            if employee.user_id is None:
+                raise ConflictError("This employee has no linked user account and cannot have a password.")
+            linked_user = self.users.get_by_id_in_company(employee.user_id, self.company_id)
+            if linked_user is None:
+                raise NotFoundError("Linked user account not found.")
+            linked_user.password_hash = hash_password(new_password)
+            self.db.add(linked_user)
+            logger.info("[EmployeeService] Password updated for user_id=%s (employee=%s)", employee.user_id, employee_id)
+
+        # Apply remaining scalar fields.
+        new_is_active = updates.get("is_active")
         for key, value in updates.items():
             setattr(employee, key, value)
         self.db.add(employee)
+
+        # Sync User.is_active when Employee.is_active changes to prevent impossible states:
+        # deactivated employee with active login, or reactivated employee unable to log in.
+        if new_is_active is not None and employee.user_id is not None:
+            linked_user = self.users.get_by_id_in_company(employee.user_id, self.company_id)
+            if linked_user is not None and linked_user.is_active != new_is_active:
+                linked_user.is_active = new_is_active
+                self.db.add(linked_user)
+                logger.info(
+                    "[EmployeeService] Synced User.is_active=%s for user_id=%s (employee=%s)",
+                    new_is_active,
+                    employee.user_id,
+                    employee_id,
+                )
 
         try:
             self.db.commit()

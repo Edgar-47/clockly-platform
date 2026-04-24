@@ -15,6 +15,15 @@ class UserRepository:
     def get(self, user_id: UUID) -> User | None:
         return self.db.get(User, user_id)
 
+    def get_by_id_in_company(self, user_id: UUID, company_id: UUID) -> User | None:
+        """Return user regardless of is_active, scoped to company. Used for admin sync operations."""
+        return self.db.scalar(
+            select(User).where(
+                User.id == user_id,
+                User.company_id == company_id,
+            )
+        )
+
     def get_active(self, user_id: UUID, company_id: UUID) -> User | None:
         return self.db.scalar(
             select(User).where(
