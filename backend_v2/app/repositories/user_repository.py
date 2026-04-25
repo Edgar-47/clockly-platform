@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.refresh_token import RefreshToken
@@ -35,6 +35,27 @@ class UserRepository:
 
     def get_by_email(self, email: str) -> User | None:
         return self.db.scalar(select(User).where(User.email == email.lower()))
+
+    def list_by_company(
+        self,
+        company_id: UUID,
+        *,
+        include_inactive: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[User]:
+        stmt = select(User).where(User.company_id == company_id)
+        if not include_inactive:
+            stmt = stmt.where(User.is_active.is_(True))
+        return list(self.db.scalars(
+            stmt.order_by(User.created_at.desc()).offset(offset).limit(limit)
+        ))
+
+    def count_by_company(self, company_id: UUID, *, include_inactive: bool = False) -> int:
+        stmt = select(func.count(User.id)).where(User.company_id == company_id)
+        if not include_inactive:
+            stmt = stmt.where(User.is_active.is_(True))
+        return int(self.db.scalar(stmt) or 0)
 
     def add(self, user: User) -> User:
         self.db.add(user)

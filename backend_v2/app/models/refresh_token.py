@@ -34,5 +34,9 @@ class RefreshToken(TimestampMixin, Base):
 
     @property
     def is_active(self) -> bool:
-        return self.revoked_at is None and self.expires_at > datetime.now(UTC)
+        expires = self.expires_at
+        # SQLite returns naive datetimes; treat them as UTC for comparison.
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=UTC)
+        return self.revoked_at is None and expires > datetime.now(UTC)
 

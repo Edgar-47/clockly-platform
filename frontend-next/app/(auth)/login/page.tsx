@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LoginForm } from "@/features/auth/components/login-form";
 
 export const metadata: Metadata = {
-  title: "Iniciar sesiÃ³n",
+  title: "Iniciar sesión",
 };
 
 export default function LoginPage() {
@@ -14,7 +14,7 @@ export default function LoginPage() {
           Acceder al panel
         </h1>
         <p className="mt-1.5 text-[13px] text-ink-muted">
-          Inicia sesiÃ³n con el email real de acceso del negocio.
+          Inicia sesión con el email de acceso del negocio.
         </p>
       </div>
 
@@ -29,7 +29,7 @@ export default function LoginPage() {
       </Suspense>
 
       <div className="mt-5 rounded-lg border border-border bg-surface-bg px-4 py-3 text-[12px] text-ink-muted">
-        El kiosk se abre desde una sesiÃ³n admin activa y valida el PIN de 4 dÃ­gitos de cada empleado.
+        El kiosk se abre desde una sesión admin activa y valida el PIN de 4 dígitos de cada empleado.
       </div>
     </div>
   );

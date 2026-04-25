@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.api.routes import attendance, auth, employees, exports, locations, metrics, plans, schedules, superadmin, tickets
+from app.api.routes import attendance, auth, employees, exports, locations, metrics, plans, schedules, superadmin, tickets, users
 
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
+api_router.include_router(users.router)
 api_router.include_router(employees.router)
 api_router.include_router(schedules.router)
 api_router.include_router(attendance.router)

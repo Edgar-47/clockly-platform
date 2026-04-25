@@ -36,6 +36,9 @@ class AttendanceSessionRead(BaseModel):
 
 class AttendanceSessionListResponse(BaseModel):
     items: list[AttendanceSessionRead]
+    total: int = 0
+    limit: int = 100
+    offset: int = 0
 
 
 class ClockInRequest(BaseModel):

@@ -27,7 +27,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timezone", default="Europe/Madrid")
     parser.add_argument("--plan", choices=[plan.value for plan in PlanType], default=PlanType.PRO.value)
     parser.add_argument("--owner-email", default="owner@clockly.local")
-    parser.add_argument("--owner-password", default="Admin12345")
+    parser.add_argument("--owner-password", default=None,
+                        help="REQUIRED: password for the owner account (min 12 chars recommended)")
     parser.add_argument("--owner-name", default="ClockLy Owner")
     parser.add_argument("--superadmin-email", default=os.getenv("CLOCKLY_SUPERADMIN_EMAIL"))
     parser.add_argument("--superadmin-password", default=os.getenv("CLOCKLY_SUPERADMIN_PASSWORD"))
@@ -36,6 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def seed(args: argparse.Namespace) -> None:
+    if not args.owner_password:
+        raise SystemExit(
+            "Error: --owner-password is required. "
+            "Choose a strong password (min 12 chars) for the owner account."
+        )
     db = SessionLocal()
     try:
         company = db.query(Company).filter_by(slug=args.company_slug).first()

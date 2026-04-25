@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth_cookies import REFRESH_COOKIE_NAME, clear_auth_cookies, set_auth_cookies
 from app.core.errors import AuthenticationError
+from app.core.rate_limit import client_ip, login_limiter, refresh_limiter
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, get_current_context
 from app.schemas.auth import CompanyContext, LoginRequest, LogoutResponse, MeResponse, RefreshRequest, TokenResponse
@@ -21,6 +22,7 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
+    login_limiter.check(client_ip(request))
     tokens = AuthService(db).login(
         identifier=payload.login_identifier,
         password=payload.password,
@@ -38,6 +40,7 @@ def refresh(
     payload: RefreshRequest | None = None,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
+    refresh_limiter.check(client_ip(request))
     refresh_token_value = (
         payload.refresh_token
         if payload and payload.refresh_token

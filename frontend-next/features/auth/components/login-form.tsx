@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 
 const schema = z.object({
   identifier: z.string().email("Introduce el email de acceso"),
-  password: z.string().min(1, "Introduce tu contraseÃ±a"),
+  password: z.string().min(1, "Introduce tu contraseña"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -33,7 +33,7 @@ export function LoginForm() {
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <span className="text-[13px]">
             {(login.error as { detail?: string })?.detail ??
-              "Credenciales incorrectas. IntÃ©ntalo de nuevo."}
+              "Credenciales incorrectas. Inténtalo de nuevo."}
           </span>
         </div>
       )}
@@ -55,11 +55,11 @@ export function LoginForm() {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-[13px]">ContraseÃ±a</Label>
+        <Label htmlFor="password" className="text-[13px]">Contraseña</Label>
         <Input
           id="password"
           type="password"
-          placeholder="Tu contraseÃ±a"
+          placeholder="Tu contraseña"
           autoComplete="current-password"
           {...register("password")}
           aria-invalid={!!errors.password}

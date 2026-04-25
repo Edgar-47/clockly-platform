@@ -37,3 +37,8 @@ class ConflictError(AppError):
     status_code = 409
     code = "conflict"
 
+
+class RateLimitError(AppError):
+    status_code = 429
+    code = "rate_limit_exceeded"
+

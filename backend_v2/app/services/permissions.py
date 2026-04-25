@@ -17,6 +17,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "exports:read",
         "locations:read",
         "locations:write",
+        "users:manage",
     },
     UserRole.OWNER: {
         "employees:read",
@@ -32,6 +33,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "exports:read",
         "locations:read",
         "locations:write",
+        "users:manage",
     },
     UserRole.ADMIN: {
         "employees:read",
@@ -47,6 +49,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "exports:read",
         "locations:read",
         "locations:write",
+        "users:manage",
     },
     UserRole.MANAGER: {
         "employees:read",

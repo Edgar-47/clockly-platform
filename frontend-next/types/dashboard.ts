@@ -1,16 +1,14 @@
 import type { AttendanceStatus, SessionReport } from "./attendance";
 
 export interface DashboardKPIs {
-  total_hours_today: number;
-  total_hours_week: number;
-  total_hours_month: number;
-  month_overtime_seconds: number;
-  avg_hours_per_day: number;
-  attendance_rate: number;
-  total_incidents: number;
-  top_worker_this_week?: string | null;
-  busiest_hour_today?: number | null;
-  busiest_concurrent_today?: number;
+  /** Total seconds worked in the period returned by /metrics/overview (no date filter = all time). */
+  total_worked_seconds: number;
+  /** Fraction of active employees currently clocked in (open sessions / active employees). */
+  active_ratio: number;
+  /** Employee with the highest worked_seconds in the metrics period. */
+  top_worker?: string | null;
+  /** Number of currently open attendance sessions. */
+  open_sessions: number;
 }
 
 export interface PlanUsage {

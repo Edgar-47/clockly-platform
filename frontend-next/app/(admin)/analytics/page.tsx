@@ -38,29 +38,29 @@ export default function AnalyticsPage() {
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
-            label="Horas registradas"
-            value={kpis ? formatSeconds(kpis.total_hours_month) : "0m"}
+            label="Total horas registradas"
+            value={kpis ? formatSeconds(kpis.total_worked_seconds) : "0m"}
             icon={<Clock className="h-5 w-5" />}
             iconColor="blue"
             loading={dashboard.isLoading}
           />
           <StatCard
-            label="Top trabajador"
-            value={kpis?.top_worker_this_week ?? "Sin datos"}
+            label="Top empleado"
+            value={kpis?.top_worker ?? "Sin datos"}
             icon={<Users className="h-5 w-5" />}
             iconColor="green"
             loading={dashboard.isLoading}
           />
           <StatCard
             label="Sesiones abiertas"
-            value={data?.total_clocked_in ?? 0}
+            value={kpis?.open_sessions ?? data?.total_clocked_in ?? 0}
             icon={<BarChart3 className="h-5 w-5" />}
             iconColor="orange"
             loading={dashboard.isLoading}
           />
           <StatCard
-            label="Asistencia"
-            value={kpis ? formatPercent(kpis.attendance_rate) : "0%"}
+            label="Presentes ahora"
+            value={kpis ? formatPercent(kpis.active_ratio) : "0%"}
             icon={<TrendingUp className="h-5 w-5" />}
             iconColor="green"
             loading={dashboard.isLoading}

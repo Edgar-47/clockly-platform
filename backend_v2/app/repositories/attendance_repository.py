@@ -28,6 +28,7 @@ class AttendanceRepository:
         date_from: datetime | None = None,
         date_to: datetime | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[AttendanceSession]:
         statement: Select[tuple[AttendanceSession]] = (
             select(AttendanceSession)
@@ -42,8 +43,31 @@ class AttendanceRepository:
             statement = statement.where(AttendanceSession.clock_in >= date_from)
         if date_to:
             statement = statement.where(AttendanceSession.clock_in <= date_to)
-        statement = statement.order_by(AttendanceSession.clock_in.desc()).limit(limit)
+        statement = (
+            statement.order_by(AttendanceSession.clock_in.desc()).offset(offset).limit(limit)
+        )
         return list(self.db.scalars(statement))
+
+    def count_sessions(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        status: AttendanceStatus | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> int:
+        statement = select(func.count(AttendanceSession.id)).where(
+            AttendanceSession.company_id == self.company_id
+        )
+        if employee_id:
+            statement = statement.where(AttendanceSession.employee_id == employee_id)
+        if status:
+            statement = statement.where(AttendanceSession.status == status)
+        if date_from:
+            statement = statement.where(AttendanceSession.clock_in >= date_from)
+        if date_to:
+            statement = statement.where(AttendanceSession.clock_in <= date_to)
+        return int(self.db.scalar(statement) or 0)
 
     def get(self, session_id: UUID) -> AttendanceSession | None:
         return self.db.scalar(

@@ -35,13 +35,13 @@ export function MetricsGrid({ data, loading }: MetricsGridProps) {
         loading={loading}
       />
       <StatCard
-        label="Horas registradas"
-        value={data?.kpis ? formatSeconds(data.kpis.total_hours_today) : "â€”"}
-        icon={<Clock className="h-5 w-5" />}
-        iconColor="orange"
+        label=”Total horas registradas”
+        value={data?.kpis ? formatSeconds(data.kpis.total_worked_seconds) : “—“}
+        icon={<Clock className=”h-5 w-5” />}
+        iconColor=”orange”
         trend={
           data?.kpis
-            ? `Asistencia ${formatPercent(data.kpis.attendance_rate)}`
+            ? `${formatPercent(data.kpis.active_ratio)} presentes ahora`
             : undefined
         }
         loading={loading}

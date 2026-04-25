@@ -27,13 +27,24 @@ class AttendanceService:
         status: AttendanceStatus | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
-    ) -> list[AttendanceSession]:
-        return self.attendance.list_sessions(
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[AttendanceSession], int]:
+        items = self.attendance.list_sessions(
+            employee_id=employee_id,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+        )
+        total = self.attendance.count_sessions(
             employee_id=employee_id,
             status=status,
             date_from=date_from,
             date_to=date_to,
         )
+        return items, total
 
     def clock_in(
         self,

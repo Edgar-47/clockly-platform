@@ -17,6 +17,7 @@ export const dashboardService = {
     ]);
     const statuses = await attendanceService.current(employees);
 
+    const activeEmployees = employees.filter((e) => e.is_active);
     const clockedIn = statuses.filter((s) => s.is_clocked_in);
     const recentSessions = sessions
       .filter((session) => !session.is_active)
@@ -39,24 +40,18 @@ export const dashboardService = {
           has_admin_reports: me.company.has_admin_reports,
           has_support: me.company.has_support,
         },
-        employee_count: employees.filter((employee) => employee.is_active).length,
+        employee_count: activeEmployees.length,
       },
-      total_employees: employees.filter((employee) => employee.is_active).length,
+      total_employees: activeEmployees.length,
       total_clocked_in: clockedIn.length,
-      total_clocked_out: Math.max(0, employees.filter((employee) => employee.is_active).length - clockedIn.length),
+      total_clocked_out: Math.max(0, activeEmployees.length - clockedIn.length),
       clocked_in_statuses: clockedIn,
       recent_sessions: recentSessions,
       kpis: {
-        total_hours_today: metrics.worked_seconds,
-        total_hours_week: metrics.worked_seconds,
-        total_hours_month: metrics.worked_seconds,
-        month_overtime_seconds: 0,
-        avg_hours_per_day: metrics.worked_seconds,
-        attendance_rate: employees.length ? clockedIn.length / employees.length : 0,
-        total_incidents: 0,
-        top_worker_this_week: metrics.employees[0]?.employee_name ?? null,
-        busiest_hour_today: null,
-        busiest_concurrent_today: metrics.open_sessions,
+        total_worked_seconds: metrics.worked_seconds,
+        active_ratio: activeEmployees > 0 ? clockedIn.length / activeEmployees : 0,
+        top_worker: metrics.employees[0]?.employee_name ?? null,
+        open_sessions: metrics.open_sessions,
       },
       metrics,
     };

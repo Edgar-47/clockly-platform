@@ -53,19 +53,35 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     }
     if exc.detail.details:
         payload["error"]["details"] = exc.detail.details
-    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+    if exc.status_code == 401:
+        headers = {"WWW-Authenticate": "Bearer"}
+    elif exc.status_code == 429:
+        headers = {"Retry-After": "60"}
+    else:
+        headers = None
     return JSONResponse(status_code=exc.status_code, content=payload, headers=headers)
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    safe_errors = []
+    for e in exc.errors():
+        err: dict = {}
+        for k, v in e.items():
+            if k == "url":
+                continue  # strip Pydantic docs URL from responses
+            if k == "ctx":
+                err[k] = {ck: str(cv) for ck, cv in v.items()}
+            else:
+                err[k] = v
+        safe_errors.append(err)
     return JSONResponse(
         status_code=422,
         content={
             "error": {
                 "code": "validation_error",
                 "message": "Request validation failed.",
-                "details": {"errors": exc.errors()},
+                "details": {"errors": safe_errors},
             }
         },
     )

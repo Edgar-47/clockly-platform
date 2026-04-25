@@ -17,6 +17,8 @@ from app.services.plans import check_employee_limit
 
 logger = logging.getLogger(__name__)
 
+_UNSET = object()  # sentinel for "field not provided in PATCH payload"
+
 
 class EmployeeService:
     def __init__(self, db: Session, *, company_id: UUID) -> None:
