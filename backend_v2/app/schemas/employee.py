@@ -50,6 +50,7 @@ class EmployeeUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=40)
     dni: str | None = Field(default=None, max_length=40)
     role_title: str | None = Field(default=None, max_length=100)
+    hired_on: date | None = None
     is_active: bool | None = None
     schedule_id: UUID | None = Field(
         default=None,

@@ -10,13 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, PermissionDenied
 from app.core.security import hash_password, hash_token
+from app.models.employee import Employee
 from app.models.enums import InvitationStatus, UserRole
 from app.models.user import User
 from app.models.user_invitation import UserInvitation
+from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.invitation_repository import InvitationRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.invitation import InvitationAccept, InvitationCreate
 from app.services.audit_log import AuditLogService
+from app.services.plans import check_employee_limit
 
 INVITATION_EXPIRES_DAYS = 7
 
@@ -129,6 +132,19 @@ class InvitationService:
         if existing_user is not None:
             raise ConflictError("A user with this email already exists.")
 
+        employee_repo = EmployeeRepository(self.db, company_id=invitation.company_id)
+        employee_profile = None
+        if invitation.role == UserRole.EMPLOYEE:
+            employee_profile = employee_repo.get_by_email(invitation.email, include_inactive=True)
+            if employee_profile is not None and employee_profile.user_id is not None:
+                raise ConflictError("An employee with this email is already linked to another user.")
+            if employee_profile is None or not employee_profile.is_active:
+                check_employee_limit(
+                    self.db,
+                    invitation.company_id,
+                    actor_user_id=invitation.invited_by_user_id,
+                )
+
         user = User(
             company_id=invitation.company_id,
             email=invitation.email,
@@ -139,6 +155,14 @@ class InvitationService:
         )
         try:
             self.users.add(user)
+            if invitation.role == UserRole.EMPLOYEE:
+                self._create_or_link_employee_profile(
+                    employee_repo,
+                    invitation=invitation,
+                    user=user,
+                    full_name=payload.full_name,
+                    existing_employee=employee_profile,
+                )
             invitation.status = InvitationStatus.ACCEPTED
             invitation.accepted_at = now
             self.db.add(invitation)
@@ -156,6 +180,33 @@ class InvitationService:
             raise ConflictError("A user with this email already exists.") from exc
         return invitation
 
+    def _create_or_link_employee_profile(
+        self,
+        employee_repo: EmployeeRepository,
+        *,
+        invitation: UserInvitation,
+        user: User,
+        full_name: str,
+        existing_employee: Employee | None,
+    ) -> Employee:
+        if existing_employee is not None:
+            existing_employee.user_id = user.id
+            existing_employee.email = invitation.email
+            existing_employee.is_active = True
+            self.db.add(existing_employee)
+            return existing_employee
+
+        first_name, last_name = _split_employee_name(full_name)
+        employee = Employee(
+            company_id=invitation.company_id,
+            user_id=user.id,
+            first_name=first_name,
+            last_name=last_name,
+            email=invitation.email,
+            is_active=True,
+        )
+        return employee_repo.add(employee)
+
     def _expire_pending_invitations(self) -> None:
         self.invitations.mark_expired_before(datetime.now(UTC))
 
@@ -172,6 +223,13 @@ class InvitationService:
             raise PermissionDenied("Superadmin users cannot use tenant member management.")
         if actor.role not in {UserRole.OWNER, UserRole.ADMIN}:
             raise PermissionDenied("Only owner and admin users can manage invitations.")
+
+
+def _split_employee_name(full_name: str) -> tuple[str, str]:
+    parts = full_name.strip().split()
+    if len(parts) <= 1:
+        return full_name.strip()[:80], "Empleado"
+    return parts[0][:80], " ".join(parts[1:])[:120]
 
 
 class MemberService:

@@ -39,5 +39,8 @@ export interface EmployeeUpdateRequest {
   email?: string;
   phone?: string;
   role_title?: string;
+  hired_on?: string;
+  password?: string;
+  pin?: string | null;
   is_active?: boolean;
 }

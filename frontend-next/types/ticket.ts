@@ -1,4 +1,4 @@
-export type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
+export type TicketStatus = "open" | "in_review" | "resolved" | "rejected";
 
 export interface Ticket {
   id: string;
@@ -22,8 +22,13 @@ export interface TicketCreateRequest {
   attachment_key?: string;
 }
 
+export interface TicketUpdateRequest {
+  status: TicketStatus;
+}
+
 export interface TicketFilters {
   employee_id?: string;
+  status?: TicketStatus;
   date_from?: string;
   date_to?: string;
 }

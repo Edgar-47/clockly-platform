@@ -60,6 +60,15 @@ class EmployeeRepository:
             )
         )
 
+    def get_by_email(self, email: str, *, include_inactive: bool = False) -> Employee | None:
+        statement = select(Employee).where(
+            Employee.company_id == self.company_id,
+            func.lower(Employee.email) == email.lower(),
+        )
+        if not include_inactive:
+            statement = statement.where(Employee.is_active.is_(True))
+        return self.db.scalar(statement)
+
     def get_by_dni(self, dni: str) -> Employee | None:
         return self.db.scalar(
             select(Employee).where(
@@ -72,4 +81,3 @@ class EmployeeRepository:
         self.db.add(employee)
         self.db.flush()
         return employee
-

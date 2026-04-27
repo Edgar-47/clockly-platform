@@ -7,6 +7,22 @@
 - CI sets `E2E_AUTH_REQUIRED=true`; when `E2E_ENABLED=true`, the workflow fails
   with an explicit error if the GitHub secret is missing.
 - No real password is stored in the repository.
+- Recommended suites before staging promotion: accepted invitation, employee
+  portal, kiosk with PIN, geolocation granted, geolocation denied, and
+  plan-gating.
+
+## Publication Scope
+
+- This repo ships web SaaS + API only. It does not ship a native mobile app.
+- Recommended order is to publish web SaaS + API first, then plan native mobile
+  after MVP web flows are stable.
+
+## Onboarding Gap
+
+- Initial company/owner creation currently depends on `backend_v2/seed.py` or
+  manual provisioning.
+- Self-service company signup, owner creation, and first setup remain a product
+  blocker for open public acquisition.
 
 ## Redis Rate Limiting
 

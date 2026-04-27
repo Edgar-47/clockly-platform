@@ -175,6 +175,20 @@ Successful acceptance creates the user, marks the invitation `accepted`, and
 returns the invitation. The endpoint does not create a login session; the web
 flow sends the user to `/login`.
 
+For invitations with role `employee`, acceptance also creates or links an
+`Employee` profile in the invited company:
+
+- If an active or inactive employee already exists in the same company with the
+  same email and no linked user, the backend links it to the new user and
+  ensures it is active.
+- If no employee exists, the backend creates one from the accepted full name
+  and invitation email.
+- If the email is already registered as a `User`, acceptance returns `409`.
+- If the matching employee email is already linked to another user, acceptance
+  returns `409` to avoid duplicate or ambiguous employee profiles.
+- Expired invitations become `expired` and return `409`; invalid tokens return
+  `404`.
+
 ## Plans
 
 Visible in the current web UI (`/settings`):
@@ -205,6 +219,8 @@ Contract notes:
 - `EmployeeRead` includes `has_pin` so the frontend can decide kiosk
   availability without exposing PIN material.
 - Employee creation can include login credentials and a 4-digit kiosk PIN.
+- Employee updates accept `hired_on`, so the web field "Fecha de alta"
+  persists through `PATCH /employees/{employee_id}`.
 
 ## Attendance
 
@@ -298,22 +314,61 @@ Visible in the current web UI (`/tickets`, `/employee`):
 
 - `GET /tickets`
 - `POST /tickets`
+- `PATCH /tickets/{ticket_id}`
 
 Contract notes:
 
 - Employees can only read and create tickets for themselves.
 - Admin users may filter by `employee_id`, `date_from`, `date_to`, `limit`,
   and `offset`.
+- All users may filter by `status`.
 - Advanced filters require `has_advanced_filters`.
+- Ticket status values are backend-owned: `open`, `in_review`, `resolved`,
+  `rejected`. Frontend-only states such as `in_progress` and `closed` are not
+  valid ticket statuses.
+- Minimal resolution flow:
+  - `POST /tickets` creates `open`.
+  - Tenant admins/managers may move `open` to `in_review`, `resolved`, or
+    `rejected`.
+  - Tenant admins/managers may move `in_review` to `resolved` or `rejected`.
+  - `resolved` and `rejected` are terminal in the current MVP.
+  - Employee users cannot resolve or reject tickets.
+
+### PATCH `/tickets/{ticket_id}`
+
+Request:
+
+```json
+{
+  "status": "in_review"
+}
+```
+
+Invalid status values return `422`. Invalid transitions return `409`.
 
 ## Locations
 
-API exists, but there is no current web UI for it:
+Visible in the current web UI:
+
+- `/work-locations` manages work centers with `GET /locations`,
+  `POST /locations`, `PATCH /locations/{location_id}`, and
+  `DELETE /locations/{location_id}`.
+- `/locations` shows attendance location events and map data from
+  `GET /attendance-locations`, `GET /attendance-locations/latest`, and
+  `GET /attendance-locations/summary`.
+
+Work-location endpoints:
 
 - `GET /locations`
 - `POST /locations`
+- `PATCH /locations/{location_id}`
+- `DELETE /locations/{location_id}`
 
 Creating locations requires `has_multi_location`.
+
+Known MVP limitation: `work_location_id` filtering is present in the
+attendance-location query contract but is not linked to sessions yet; geofence
+status is computed from stored clock-in/out coordinates and configured centers.
 
 ## Schedules
 
@@ -354,6 +409,33 @@ no tenant permissions.
   names for future provider modules.
 - Audit logs are written for failed login, invitation lifecycle events, member
   role/access changes, and permission denials.
+
+## MVP publication and staging checklist
+
+- This repo contains the web SaaS frontend and API. It does not contain a
+  native Flutter or React Native mobile app.
+- Recommended publication order: ship web SaaS + API first, then a native
+  mobile app after the core attendance, employee, invitation, ticket, and
+  location flows are stable.
+- Required staging baseline:
+  - managed PostgreSQL
+  - `alembic upgrade head`
+  - real SMTP provider for invitations
+  - Redis-backed rate limiting for multi-worker deployment
+  - `CLOCKLY_ENV=production`
+  - explicit CORS origins and trusted hosts
+  - backups with restore test
+  - application logs and audit-log monitoring
+- E2E CI is gated by `E2E_ENABLED=true` and `E2E_OWNER_PASSWORD`. Recommended
+  scenarios: invitation accepted, employee portal, kiosk with PIN,
+  geolocation granted, geolocation denied, and plan gating.
+- Current onboarding remains seed/manual provisioning through
+  `backend_v2/seed.py`; self-service company/owner signup is a product
+  blocker for public acquisition.
+- Legal/operational checklist before real customers: privacy policy,
+  punctual-geolocation notice, attendance retention policy, data export
+  process, terms of service, and documented consent or legal basis for
+  geolocation per use case.
 
 ## Hidden or retired web surfaces
 

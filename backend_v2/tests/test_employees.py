@@ -4,6 +4,8 @@ Covers: create, update, deactivate, reactivate, PIN reset,
 password reset, User/Employee consistency, plan limits.
 """
 
+from datetime import date
+
 from tests.conftest import auth_headers, make_company, make_employee, make_user
 from app.models.enums import UserRole
 
@@ -128,6 +130,23 @@ class TestUpdateEmployee:
         )
         assert resp.status_code == 200
         assert resp.json()["first_name"] == "New"
+
+    def test_update_employee_hired_on(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        db.commit()
+
+        resp = client.patch(
+            f"/employees/{emp.id}",
+            headers=auth_headers(admin),
+            json={"hired_on": "2026-04-15"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["hired_on"] == "2026-04-15"
+        db.refresh(emp)
+        assert emp.hired_on == date(2026, 4, 15)
 
     def test_deactivate_employee(self, client, db):
         company = make_company(db)

@@ -6,18 +6,19 @@ paginated response shape, and creation validation.
 import uuid
 
 
-from app.models.enums import UserRole
+from app.models.enums import TicketStatus, UserRole
 from app.models.ticket import Ticket
 from tests.conftest import auth_headers, make_company, make_employee, make_user
 
 
-def _create_ticket(db, *, company, employee, user, title="Test ticket"):
+def _create_ticket(db, *, company, employee, user, title="Test ticket", status=TicketStatus.OPEN):
     ticket = Ticket(
         id=uuid.uuid4(),
         company_id=company.id,
         employee_id=employee.id,
         user_id=user.id,
         title=title,
+        status=status,
     )
     db.add(ticket)
     db.flush()
@@ -68,6 +69,28 @@ class TestTicketListShape:
         assert len(data["items"]) == 2
         assert data["limit"] == 2
         assert data["offset"] == 3
+
+    def test_status_filter_uses_backend_ticket_contract(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        _create_ticket(db, company=company, employee=emp, user=admin, title="Open")
+        _create_ticket(
+            db,
+            company=company,
+            employee=emp,
+            user=admin,
+            title="Review",
+            status=TicketStatus.IN_REVIEW,
+        )
+        db.commit()
+
+        resp = client.get("/tickets?status=in_review", headers=auth_headers(admin))
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["status"] == "in_review"
 
 
 class TestEmployeeTicketScoping:
@@ -171,6 +194,96 @@ class TestAdminTicketAccess:
             json={"title": "Bad", "employee_id": str(uuid.uuid4())},
         )
         assert resp.status_code == 404
+
+    def test_admin_can_review_and_resolve_ticket(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _create_ticket(db, company=company, employee=emp, user=admin)
+        db.commit()
+
+        review = client.patch(
+            f"/tickets/{ticket.id}",
+            headers=auth_headers(admin),
+            json={"status": "in_review"},
+        )
+        resolved = client.patch(
+            f"/tickets/{ticket.id}",
+            headers=auth_headers(admin),
+            json={"status": "resolved"},
+        )
+
+        assert review.status_code == 200
+        assert review.json()["status"] == "in_review"
+        assert resolved.status_code == 200
+        assert resolved.json()["status"] == "resolved"
+
+    def test_admin_can_reject_ticket_from_review(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _create_ticket(db, company=company, employee=emp, user=admin, status=TicketStatus.IN_REVIEW)
+        db.commit()
+
+        resp = client.patch(
+            f"/tickets/{ticket.id}",
+            headers=auth_headers(admin),
+            json={"status": "rejected"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "rejected"
+
+    def test_closed_and_in_progress_are_not_valid_ticket_states(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _create_ticket(db, company=company, employee=emp, user=admin)
+        db.commit()
+
+        closed = client.patch(
+            f"/tickets/{ticket.id}",
+            headers=auth_headers(admin),
+            json={"status": "closed"},
+        )
+        in_progress = client.patch(
+            f"/tickets/{ticket.id}",
+            headers=auth_headers(admin),
+            json={"status": "in_progress"},
+        )
+
+        assert closed.status_code == 422
+        assert in_progress.status_code == 422
+
+    def test_terminal_ticket_status_cannot_be_reopened(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _create_ticket(db, company=company, employee=emp, user=admin, status=TicketStatus.RESOLVED)
+        db.commit()
+
+        resp = client.patch(
+            f"/tickets/{ticket.id}",
+            headers=auth_headers(admin),
+            json={"status": "open"},
+        )
+
+        assert resp.status_code == 409
+
+    def test_employee_cannot_resolve_ticket(self, client, db):
+        company = make_company(db)
+        user = make_user(db, company=company, email="emp@test.com", role=UserRole.EMPLOYEE)
+        emp = make_employee(db, company=company, user=user)
+        ticket = _create_ticket(db, company=company, employee=emp, user=user)
+        db.commit()
+
+        resp = client.patch(
+            f"/tickets/{ticket.id}",
+            headers=auth_headers(user),
+            json={"status": "in_review"},
+        )
+
+        assert resp.status_code == 403
 
 
 class TestTicketCrossTenant:

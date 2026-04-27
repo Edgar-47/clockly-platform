@@ -1,25 +1,39 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/format";
-import type { Ticket } from "@/types/ticket";
+import type { Ticket, TicketStatus } from "@/types/ticket";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<TicketStatus, string> = {
   open: "Abierta",
-  in_progress: "En curso",
+  in_review: "En revision",
   resolved: "Resuelta",
-  closed: "Cerrada",
+  rejected: "Rechazada",
 };
 
-const STATUS_VARIANT: Record<string, "warning" | "success" | "muted" | "default"> = {
+const STATUS_VARIANT: Record<TicketStatus, "warning" | "success" | "danger" | "default"> = {
   open: "warning",
-  in_progress: "default",
+  in_review: "default",
   resolved: "success",
-  closed: "muted",
+  rejected: "danger",
 };
 
-export function TicketsTable({ tickets, loading }: { tickets?: Ticket[]; loading?: boolean }) {
+export function TicketsTable({
+  tickets,
+  loading,
+  updatingId,
+  onStatusChange,
+}: {
+  tickets?: Ticket[];
+  loading?: boolean;
+  updatingId?: string | null;
+  onStatusChange?: (ticket: Ticket, status: TicketStatus) => void;
+}) {
+  const showActions = Boolean(onStatusChange);
+  const columnCount = showActions ? 5 : 4;
+
   return (
     <div className="rounded-lg border border-border bg-white shadow-xs">
       <div className="border-b border-border px-5 py-4">
@@ -32,7 +46,7 @@ export function TicketsTable({ tickets, loading }: { tickets?: Ticket[]; loading
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-muted text-left">
-              {["Título", "Fecha", "Estado", "Descripción"].map((header) => (
+              {["Titulo", "Fecha", "Estado", "Descripcion", ...(showActions ? ["Acciones"] : [])].map((header) => (
                 <th key={header} className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                   {header}
                 </th>
@@ -43,7 +57,7 @@ export function TicketsTable({ tickets, loading }: { tickets?: Ticket[]; loading
             {loading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  {Array.from({ length: 4 }).map((__, j) => (
+                  {Array.from({ length: columnCount }).map((__, j) => (
                     <td key={j} className="px-5 py-3">
                       <Skeleton className="h-3.5 w-24" />
                     </td>
@@ -52,7 +66,7 @@ export function TicketsTable({ tickets, loading }: { tickets?: Ticket[]; loading
               ))}
             {!loading && (!tickets || tickets.length === 0) && (
               <tr>
-                <td colSpan={4} className="px-5 py-10 text-center text-[13px] text-ink-muted">
+                <td colSpan={columnCount} className="px-5 py-10 text-center text-[13px] text-ink-muted">
                   No hay incidencias registradas.
                 </td>
               </tr>
@@ -65,13 +79,49 @@ export function TicketsTable({ tickets, loading }: { tickets?: Ticket[]; loading
                     {ticket.occurred_on ? formatDate(ticket.occurred_on) : formatDate(ticket.created_at)}
                   </td>
                   <td className="px-5 py-3">
-                    <Badge variant={STATUS_VARIANT[ticket.status] ?? "muted"}>
+                    <Badge variant={STATUS_VARIANT[ticket.status] ?? "default"}>
                       {STATUS_LABELS[ticket.status] ?? ticket.status}
                     </Badge>
                   </td>
                   <td className="max-w-sm px-5 py-3 text-[13px] text-ink-muted truncate">
-                    {ticket.description ?? "—"}
+                    {ticket.description ?? "-"}
                   </td>
+                  {showActions && (
+                    <td className="px-5 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {ticket.status === "open" && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            loading={updatingId === ticket.id}
+                            onClick={() => onStatusChange?.(ticket, "in_review")}
+                          >
+                            Revisar
+                          </Button>
+                        )}
+                        {ticket.status === "in_review" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              loading={updatingId === ticket.id}
+                              onClick={() => onStatusChange?.(ticket, "resolved")}
+                            >
+                              Resolver
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              loading={updatingId === ticket.id}
+                              onClick={() => onStatusChange?.(ticket, "rejected")}
+                            >
+                              Rechazar
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
           </tbody>

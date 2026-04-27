@@ -14,6 +14,10 @@ class TicketCreate(BaseModel):
     attachment_key: str | None = Field(default=None, max_length=500)
 
 
+class TicketUpdate(BaseModel):
+    status: TicketStatus
+
+
 class TicketRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -35,4 +39,3 @@ class TicketListResponse(BaseModel):
     total: int
     limit: int
     offset: int
-

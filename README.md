@@ -9,6 +9,8 @@ arquitectura activa de este repositorio es `frontend-next/` + `backend_v2/`.
 - `frontend-next/` es el frontend web real y unico. Usa Next.js App Router.
 - `backend_v2/app/` es el backend real y unico. Usa FastAPI + SQLAlchemy.
 - `backend_v2/alembic/` contiene las migraciones de base de datos.
+- Este repositorio contiene plataforma web SaaS + API. No contiene app nativa
+  Flutter ni React Native.
 - La sesion la emite el backend mediante cookies HttpOnly
   `clockly_access` y `clockly_refresh`.
 - El frontend no guarda tokens en `localStorage`. La verdad de la sesion vive
@@ -68,6 +70,8 @@ Rutas web activas y defendibles:
 - `/sessions` historial de fichajes y exportaciones
 - `/analytics` metricas conectadas al backend
 - `/tickets` incidencias conectadas al backend
+- `/locations` mapa/listado de eventos de geolocalizacion de fichajes
+- `/work-locations` gestion de centros de trabajo
 - `/settings` contexto de empresa y plan actual
 - `/settings` miembros e invitaciones para owner/admin
 - `/employee` autoservicio del empleado autenticado
@@ -85,7 +89,6 @@ Superficies retiradas del flujo principal:
 APIs existentes pero no expuestas en la navegacion web actual:
 
 - `/schedules/*`
-- `/locations/*`
 - `/superadmin/status` (uso interno)
 
 ## Estructura del repo
@@ -166,6 +169,50 @@ URLs locales:
 - Si `CLOCKLY_EMAIL_PROVIDER` esta configurado, el backend intenta enviar email
   transaccional al crear la invitacion. Si el envio falla, la invitacion sigue
   creada y la UI mantiene `acceptance_url` como fallback operativo.
+- Al aceptar una invitacion con rol `employee`, el backend crea o enlaza el
+  perfil `Employee` de esa empresa para que `/employee` tenga ficha real.
+
+## Publicacion recomendada
+
+Objetivo recomendado: publicar primero web SaaS + API antes de app movil
+nativa. El producto publicable de este repo es la plataforma web con portal de
+empleado, kiosk protegido y API; una app nativa debe planificarse despues de
+estabilizar invitaciones, fichajes, geolocalizacion puntual, empleados y
+resolucion de incidencias.
+
+## Bloqueadores MVP y staging
+
+Estado de bloqueadores de publicacion:
+
+- [x] Geolocalizacion permitida en produccion con
+  `Permissions-Policy: geolocation=(self)`.
+- [x] Invitaciones `employee` enlazan o crean `Employee`.
+- [x] Edicion de empleado persiste `hired_on`.
+- [x] Tickets usan estados backend: `open`, `in_review`, `resolved`,
+  `rejected`.
+- [x] Contrato API actualizado para Locations y tickets.
+- [ ] Onboarding self-service de empresa/owner. Hoy depende de
+  `backend_v2/seed.py` o provisioning manual.
+- [ ] Checklist legal listo antes de clientes reales.
+
+Staging real debe usar PostgreSQL gestionado, `alembic upgrade head`, SMTP real
+para invitaciones, Redis para rate limit multi-worker, `CLOCKLY_ENV=production`,
+CORS y trusted hosts explicitos, backups con prueba de restore, logs de
+aplicacion y revision de `audit_logs`.
+
+E2E en CI: activar con `E2E_ENABLED=true` y configurar el secret
+`E2E_OWNER_PASSWORD`. Suites recomendadas para el siguiente cierre: invitacion
+aceptada, portal empleado, kiosk con PIN, geolocalizacion permitida,
+geolocalizacion denegada y plan-gating.
+
+Checklist legal/operativo antes de clientes reales:
+
+- [ ] Politica de privacidad.
+- [ ] Aviso de uso de geolocalizacion puntual en fichajes.
+- [ ] Politica de retencion de fichajes.
+- [ ] Proceso de exportacion de datos.
+- [ ] Condiciones del servicio.
+- [ ] Consentimiento o base legal para geolocalizacion segun el caso de uso.
 
 ## Legacy y limites actuales
 

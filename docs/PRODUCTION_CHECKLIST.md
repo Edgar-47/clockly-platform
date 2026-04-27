@@ -27,7 +27,7 @@ Complete before serving real traffic.
 ## Database
 
 - [ ] Run `cd backend_v2 && alembic upgrade head`.
-- [ ] Use PostgreSQL, not SQLite.
+- [ ] Use managed PostgreSQL, not SQLite.
 - [ ] Configure backups and test restore.
 - [ ] Use a dedicated database user with least privilege.
 
@@ -47,6 +47,8 @@ Complete before serving real traffic.
 - [ ] Set transactional email provider or accept `noop` with the operational
   fallback that invitations return an `acceptance_url`.
 - [ ] Monitor `audit_logs` for failed login, permission denial, invitation, and member-management events.
+- [ ] Confirm application logs are shipped to the staging/production log backend.
+- [ ] Confirm `CLOCKLY_ENV=production` is set in staging-like validation.
 
 ## Frontend
 
@@ -87,3 +89,28 @@ npm run test:e2e
 For GitHub E2E, set `E2E_ENABLED=true`, optional `E2E_OWNER_EMAIL`, and the
 repository secret `E2E_OWNER_PASSWORD`. When authenticated E2E is enabled, CI
 fails before seeding data if the secret is missing.
+
+Recommended E2E coverage before public staging:
+
+- [ ] Invitation accepted creates a login and employee profile when role is `employee`.
+- [ ] Employee portal can clock in/out with the linked profile.
+- [ ] Kiosk requires admin session and validates PIN.
+- [ ] Geolocation granted sends coordinates with clock-in/out.
+- [ ] Geolocation denied still records attendance with denied status.
+- [ ] Plan-gating blocks Business/Pro-only features on lower plans.
+
+## Onboarding
+
+- [ ] Current owner/company creation path is `backend_v2/seed.py` or manual
+  provisioning.
+- [ ] Treat self-service company signup, owner creation, and first setup as a
+  product blocker before open public acquisition.
+
+## Legal and Operations
+
+- [ ] Privacy policy published.
+- [ ] Punctual geolocation notice shown or included in customer onboarding.
+- [ ] Attendance and geolocation retention policy defined.
+- [ ] Data export process documented.
+- [ ] Terms of service published.
+- [ ] Consent or legal basis for geolocation documented per customer use case.

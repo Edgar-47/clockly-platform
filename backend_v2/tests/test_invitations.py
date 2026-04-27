@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from app.dependencies.email import get_email_service
 from app.core.security import hash_token
 from app.main import app
+from app.models.employee import Employee
 from app.models.enums import InvitationStatus, UserRole
 from app.models.user_invitation import UserInvitation
 from app.services.email_service import EmailSendError
@@ -202,6 +203,71 @@ class TestInvitations:
         )
         assert login.status_code == 200
         assert login.json()["user"]["role"] == "employee"
+
+        employee = db.query(Employee).filter_by(company_id=company.id, email="employee@test.com").one()
+        assert str(employee.user_id) == login.json()["user"]["id"]
+        assert employee.is_active is True
+
+    def test_accept_employee_invitation_links_existing_employee_profile(self, client, db):
+        company = make_company(db)
+        owner = make_user(db, company=company, email="owner@test.com", role=UserRole.OWNER)
+        employee = Employee(
+            company_id=company.id,
+            first_name="Existing",
+            last_name="Employee",
+            email="existing@test.com",
+            is_active=True,
+        )
+        db.add(employee)
+        db.commit()
+
+        created = client.post(
+            f"/businesses/{company.id}/invitations",
+            headers=auth_headers(owner),
+            json={"email": "existing@test.com", "role": "employee"},
+        )
+        token = _token_from_acceptance_url(created.json()["acceptance_url"])
+
+        accepted = client.post(
+            f"/invitations/{token}/accept",
+            json={"full_name": "Existing Employee", "password": "accepted-pass-123"},
+        )
+
+        assert accepted.status_code == 200
+        db.refresh(employee)
+        assert employee.user_id is not None
+        assert db.query(Employee).filter_by(company_id=company.id, email="existing@test.com").count() == 1
+
+    def test_accept_invitation_rejects_email_registered_after_invite(self, client, db):
+        company = make_company(db)
+        owner = make_user(db, company=company, email="owner@test.com", role=UserRole.OWNER)
+        db.commit()
+
+        created = client.post(
+            f"/businesses/{company.id}/invitations",
+            headers=auth_headers(owner),
+            json={"email": "race@test.com", "role": "employee"},
+        )
+        token = _token_from_acceptance_url(created.json()["acceptance_url"])
+        make_user(db, company=company, email="race@test.com", role=UserRole.EMPLOYEE)
+        db.commit()
+
+        resp = client.post(
+            f"/invitations/{token}/accept",
+            json={"full_name": "Race User", "password": "accepted-pass-123"},
+        )
+
+        assert resp.status_code == 409
+
+    def test_invalid_invitation_token_returns_404(self, client, db):
+        db.commit()
+
+        resp = client.post(
+            "/invitations/not-a-real-token/accept",
+            json={"full_name": "Missing User", "password": "accepted-pass-123"},
+        )
+
+        assert resp.status_code == 404
 
     def test_expired_invitation_fails(self, client, db):
         company = make_company(db)

@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/shared/logo";
 import { formatDateTime, formatSeconds } from "@/lib/format";
-import type { TicketCreateRequest } from "@/types/ticket";
+import type { TicketCreateRequest, TicketStatus } from "@/types/ticket";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<TicketStatus, string> = {
   open: "Abierta",
-  in_progress: "En curso",
+  in_review: "En revision",
   resolved: "Resuelta",
-  closed: "Cerrada",
+  rejected: "Rechazada",
 };
 
 export default function EmployeePage() {
@@ -225,7 +225,9 @@ export default function EmployeePage() {
                           ? "warning"
                           : ticket.status === "resolved"
                             ? "success"
-                            : "muted"
+                            : ticket.status === "rejected"
+                              ? "danger"
+                              : "default"
                       }
                       className="shrink-0 mt-0.5"
                     >
