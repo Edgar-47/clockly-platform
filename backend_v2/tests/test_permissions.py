@@ -3,9 +3,8 @@
 Verifies that each role can only access what the permission matrix allows,
 and that privilege escalation attempts are blocked.
 """
-import pytest
 
-from tests.conftest import auth_headers, make_company, make_employee, make_user
+from tests.conftest import auth_headers, make_company, make_user
 from app.models.enums import UserRole
 
 

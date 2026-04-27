@@ -29,3 +29,10 @@ class TicketRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
+class TicketListResponse(BaseModel):
+    items: list[TicketRead]
+    total: int
+    limit: int
+    offset: int
+

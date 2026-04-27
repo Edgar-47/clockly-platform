@@ -1,13 +1,16 @@
 /**
- * E2E: Auth flows — login, logout, error states.
+ * E2E: Auth flows, login, logout and informational recovery state.
  *
- * Prerequisites: a running backend + frontend with a seeded owner account.
- * Set E2E_OWNER_EMAIL / E2E_OWNER_PASSWORD env vars (or defaults below).
+ * Authenticated cases require a running backend + frontend with a seeded owner.
  */
 import { expect, test } from "@playwright/test";
-
-const OWNER_EMAIL = process.env.E2E_OWNER_EMAIL ?? "owner@clockly.local";
-const OWNER_PASSWORD = process.env.E2E_OWNER_PASSWORD ?? "";
+import {
+  MISSING_OWNER_PASSWORD_MESSAGE,
+  OWNER_EMAIL,
+  SKIP_AUTHENTICATED_E2E,
+  loginAsOwner,
+  requireOwnerPassword,
+} from "./helpers/auth";
 
 test.describe("Login", () => {
   test.beforeEach(async ({ page }) => {
@@ -15,14 +18,14 @@ test.describe("Login", () => {
   });
 
   test("shows login form", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /iniciar sesión/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /acceder al panel/i })).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/contraseña/i)).toBeVisible();
+    await expect(page.getByLabel(/contrase.a/i)).toBeVisible();
   });
 
   test("shows error on wrong credentials", async ({ page }) => {
     await page.getByLabel(/email/i).fill("nobody@test.com");
-    await page.getByLabel(/contraseña/i).fill("wrongpassword");
+    await page.getByLabel(/contrase.a/i).fill("wrongpassword");
     await page.getByRole("button", { name: /entrar/i }).click();
 
     await expect(page.getByRole("alert")).toBeVisible({ timeout: 5000 });
@@ -30,14 +33,16 @@ test.describe("Login", () => {
 
   test("shows validation error on empty submit", async ({ page }) => {
     await page.getByRole("button", { name: /entrar/i }).click();
-    // HTML5 or Zod validation should prevent submission
     const emailInput = page.getByLabel(/email/i);
     await expect(emailInput).toBeFocused();
   });
 
-  test.skip(!OWNER_PASSWORD, "E2E_OWNER_PASSWORD not set")("valid login redirects to dashboard", async ({ page }) => {
+  test("valid login redirects to dashboard", async ({ page }) => {
+    test.skip(SKIP_AUTHENTICATED_E2E, MISSING_OWNER_PASSWORD_MESSAGE);
+    const ownerPassword = requireOwnerPassword();
+
     await page.getByLabel(/email/i).fill(OWNER_EMAIL);
-    await page.getByLabel(/contraseña/i).fill(OWNER_PASSWORD);
+    await page.getByLabel(/contrase.a/i).fill(ownerPassword);
     await page.getByRole("button", { name: /entrar/i }).click();
 
     await expect(page).toHaveURL(/\/(dashboard|admin)/, { timeout: 8000 });
@@ -45,16 +50,11 @@ test.describe("Login", () => {
 });
 
 test.describe("Logout", () => {
-  test.skip(!OWNER_PASSWORD, "E2E_OWNER_PASSWORD not set")("logout redirects to login", async ({ page }) => {
-    // Login first
-    await page.goto("/login");
-    await page.getByLabel(/email/i).fill(OWNER_EMAIL);
-    await page.getByLabel(/contraseña/i).fill(OWNER_PASSWORD);
-    await page.getByRole("button", { name: /entrar/i }).click();
-    await page.waitForURL(/\/(dashboard|admin)/);
+  test("logout redirects to login", async ({ page }) => {
+    test.skip(SKIP_AUTHENTICATED_E2E, MISSING_OWNER_PASSWORD_MESSAGE);
 
-    // Logout via sidebar or user menu
-    await page.getByRole("button", { name: /cerrar sesión|logout|salir/i }).click();
+    await loginAsOwner(page);
+    await page.getByRole("button", { name: /cerrar sesi.n|logout|salir/i }).click();
     await expect(page).toHaveURL(/login/, { timeout: 5000 });
   });
 });
@@ -62,9 +62,8 @@ test.describe("Logout", () => {
 test.describe("Forgot password", () => {
   test("forgot-password page shows informational message", async ({ page }) => {
     await page.goto("/forgot-password");
-    // Should not redirect silently — must show a message
-    await expect(page.getByRole("heading")).toBeVisible();
-    await expect(page.getByText(/admin|contacta|acceso/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /recuperar acceso/i })).toBeVisible();
+    await expect(page.getByText(/Contacta con el administrador/i)).toBeVisible();
   });
 
   test("forgot-password page has link back to login", async ({ page }) => {

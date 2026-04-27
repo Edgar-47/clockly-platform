@@ -20,11 +20,11 @@ export default function AnalyticsPage() {
 
   return (
     <>
-      <Topbar title="AnalÃ­ticas" />
+      <Topbar title="Analíticas" />
       <div className="space-y-5 p-6">
         {dashboard.error && (
           <div className="rounded-md border border-danger-border bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-DEFAULT">
-            No se pudieron cargar las analiticas.
+            No se pudieron cargar las analíticas.
           </div>
         )}
         {me.data && !me.data.company.has_admin_reports && (

@@ -1,14 +1,30 @@
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
+from app.dependencies.email import get_email_service
 from app.core.security import hash_token
+from app.main import app
 from app.models.enums import InvitationStatus, UserRole
 from app.models.user_invitation import UserInvitation
+from app.services.email_service import EmailSendError
 from tests.conftest import auth_headers, make_company, make_user
 
 
 def _token_from_acceptance_url(url: str) -> str:
     return urlparse(url).path.rsplit("/", 1)[-1]
+
+
+class RecordingEmailService:
+    def __init__(self) -> None:
+        self.sent = []
+
+    def send_invitation_email(self, invitation) -> None:
+        self.sent.append(invitation)
+
+
+class FailingEmailService:
+    def send_invitation_email(self, invitation) -> None:
+        raise EmailSendError("provider failure containing internal details")
 
 
 class TestInvitations:
@@ -30,6 +46,46 @@ class TestInvitations:
         assert data["status"] == "pending"
         assert "/accept-invitation/" in data["acceptance_url"]
         assert "token_hash" not in data
+
+    def test_invitation_email_sent_when_configured(self, client, db):
+        email_service = RecordingEmailService()
+        app.dependency_overrides[get_email_service] = lambda: email_service
+        company = make_company(db)
+        owner = make_user(db, company=company, email="owner@test.com", role=UserRole.OWNER)
+        db.commit()
+
+        resp = client.post(
+            f"/businesses/{company.id}/invitations",
+            headers=auth_headers(owner),
+            json={"email": "new-manager@test.com", "role": "manager"},
+        )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert len(email_service.sent) == 1
+        assert email_service.sent[0].to_email == "new-manager@test.com"
+        assert email_service.sent[0].acceptance_url == data["acceptance_url"]
+        assert "token_hash" not in data
+
+    def test_invitation_creation_survives_email_failure(self, client, db, caplog):
+        email_service = FailingEmailService()
+        app.dependency_overrides[get_email_service] = lambda: email_service
+        company = make_company(db)
+        owner = make_user(db, company=company, email="owner@test.com", role=UserRole.OWNER)
+        db.commit()
+
+        resp = client.post(
+            f"/businesses/{company.id}/invitations",
+            headers=auth_headers(owner),
+            json={"email": "fallback@test.com", "role": "employee"},
+        )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["email"] == "fallback@test.com"
+        assert "/accept-invitation/" in data["acceptance_url"]
+        assert "provider failure" not in str(data)
+        assert any(record.message == "Invitation email delivery failed." for record in caplog.records)
 
     def test_admin_invites_manager(self, client, db):
         company = make_company(db)

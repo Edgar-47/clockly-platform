@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.ticket import Ticket
@@ -32,6 +32,22 @@ class TicketRepository:
             statement.order_by(Ticket.created_at.desc()).offset(offset).limit(limit)
         )
         return list(self.db.scalars(statement))
+
+    def count(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> int:
+        statement = select(func.count(Ticket.id)).where(Ticket.company_id == self.company_id)
+        if employee_id:
+            statement = statement.where(Ticket.employee_id == employee_id)
+        if date_from:
+            statement = statement.where(Ticket.occurred_on >= date_from)
+        if date_to:
+            statement = statement.where(Ticket.occurred_on <= date_to)
+        return int(self.db.scalar(statement) or 0)
 
     def add(self, ticket: Ticket) -> Ticket:
         self.db.add(ticket)

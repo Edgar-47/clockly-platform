@@ -26,6 +26,16 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 
   if (!session.data || session.data.user.role === "employee") return null;
 
+  if (session.data.user.role === "superadmin") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-bg p-6">
+        <div className="max-w-md rounded-lg border border-warning-border bg-warning-bg px-4 py-3 text-sm text-warning-DEFAULT">
+          Superadmin queda reservado para una consola interna futura y no puede entrar al dashboard tenant.
+        </div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 }
 

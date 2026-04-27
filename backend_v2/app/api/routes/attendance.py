@@ -66,13 +66,22 @@ def clock_in(
         kiosk_limiter.check(client_ip(request))
     # Employees can only clock in themselves.
     if ctx.user.role == UserRole.EMPLOYEE:
-        payload = ClockInRequest(method=payload.method, notes=payload.notes)
+        payload = ClockInRequest(
+            method=payload.method,
+            notes=payload.notes,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            accuracy_meters=payload.accuracy_meters,
+            location_source=payload.location_source,
+            location_permission_status=payload.location_permission_status,
+        )
     return AttendanceService(db, company_id=ctx.company_id).clock_in(
         actor=ctx.user,
         employee_id=payload.employee_id,
         method=payload.method,
         pin=payload.pin,
         notes=payload.notes,
+        geo=payload.geo(),
     )
 
 
@@ -88,7 +97,15 @@ def clock_out(
         kiosk_limiter.check(client_ip(request))
     # Employees can only clock out themselves.
     if ctx.user.role == UserRole.EMPLOYEE:
-        payload = ClockOutRequest(method=payload.method, notes=payload.notes)
+        payload = ClockOutRequest(
+            method=payload.method,
+            notes=payload.notes,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            accuracy_meters=payload.accuracy_meters,
+            location_source=payload.location_source,
+            location_permission_status=payload.location_permission_status,
+        )
     return AttendanceService(db, company_id=ctx.company_id).clock_out(
         actor=ctx.user,
         employee_id=payload.employee_id,
@@ -96,4 +113,5 @@ def clock_out(
         method=payload.method,
         pin=payload.pin,
         notes=payload.notes,
+        geo=payload.geo(),
     )

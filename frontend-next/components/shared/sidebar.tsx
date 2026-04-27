@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Building2,
   Clock,
   LayoutDashboard,
   LogOut,
+  MapPin,
   MonitorSmartphone,
   Settings,
   TicketCheck,
@@ -31,13 +33,16 @@ const NAV_MAIN: NavItem[] = [
 ];
 
 const NAV_OPERATIONS: NavItem[] = [
-  { label: "AnalÃ­ticas", href: "/analytics", icon: BarChart3 },
+  { label: "Analíticas", href: "/analytics", icon: BarChart3 },
   { label: "Incidencias", href: "/tickets", icon: TicketCheck },
+  { label: "Localizaciones", href: "/locations", icon: MapPin },
 ];
 
-const NAV_SYSTEM: NavItem[] = [
-  { label: "ConfiguraciÃ³n", href: "/settings", icon: Settings },
+const NAV_CONFIG: NavItem[] = [
+  { label: "Centros de trabajo", href: "/work-locations", icon: Building2 },
+  { label: "Configuración", href: "/settings", icon: Settings },
 ];
+
 
 function NavGroup({
   label,
@@ -115,7 +120,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
         <NavGroup label="Principal" items={NAV_MAIN} pathname={pathname} />
         <NavGroup label="Operativa" items={NAV_OPERATIONS} pathname={pathname} />
-        <NavGroup label="Sistema" items={NAV_SYSTEM} pathname={pathname} />
+        <NavGroup label="Sistema" items={NAV_CONFIG} pathname={pathname} />
       </nav>
 
       <div className="space-y-0.5 border-t border-border p-3">
@@ -151,7 +156,7 @@ export function Sidebar() {
           className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-ink-muted transition-all duration-150 hover:bg-danger-bg hover:text-danger-DEFAULT"
         >
           <LogOut className="h-[15px] w-[15px]" />
-          Cerrar sesiÃ³n
+          Cerrar sesión
         </button>
       </div>
     </aside>

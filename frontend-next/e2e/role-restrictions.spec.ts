@@ -1,8 +1,7 @@
 /**
  * E2E: Role-based access restrictions.
  *
- * Verifies that the frontend route guards work correctly per role.
- * These tests rely on the middleware/layout redirect logic.
+ * Verifies that protected frontend routes redirect unauthenticated users.
  */
 import { expect, test } from "@playwright/test";
 
@@ -26,12 +25,9 @@ test.describe("Unauthenticated access", () => {
     await page.goto("/settings");
     await expect(page).toHaveURL(/login/, { timeout: 5000 });
   });
-});
 
-test.describe("Public kiosk access", () => {
-  test("kiosk page is accessible without login", async ({ page }) => {
+  test("accessing /kiosk redirects to /login", async ({ page }) => {
     await page.goto("/kiosk");
-    // Should not redirect to login — kiosk is public
-    await expect(page).not.toHaveURL(/login/);
+    await expect(page).toHaveURL(/login/, { timeout: 5000 });
   });
 });

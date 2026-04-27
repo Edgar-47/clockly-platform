@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { attendanceService } from "@/services/attendance.service";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import type {
   AttendanceHistoryFilters,
   AttendanceStatus,
@@ -18,8 +19,6 @@ export function useCurrentAttendance() {
   return useQuery<AttendanceStatus[]>({
     queryKey: attendanceKeys.current,
     queryFn: () => attendanceService.current(),
-    // Data is considered fresh for the same window as the poll interval,
-    // preventing a redundant fetch on component mount when data was just loaded.
     staleTime: 30_000,
     refetchInterval: 30_000,
   });
@@ -36,8 +35,12 @@ export function useAttendanceHistory(filters: AttendanceHistoryFilters = {}) {
 
 export function useClockIn() {
   const qc = useQueryClient();
+  const { capture } = useGeolocation();
   return useMutation({
-    mutationFn: (payload?: ClockRequest) => attendanceService.clockIn(payload),
+    mutationFn: async (payload?: ClockRequest) => {
+      const geo = await capture();
+      return attendanceService.clockIn({ ...payload, ...geo });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance"] });
     },
@@ -46,8 +49,12 @@ export function useClockIn() {
 
 export function useClockOut() {
   const qc = useQueryClient();
+  const { capture } = useGeolocation();
   return useMutation({
-    mutationFn: (payload?: ClockRequest) => attendanceService.clockOut(payload),
+    mutationFn: async (payload?: ClockRequest) => {
+      const geo = await capture();
+      return attendanceService.clockOut({ ...payload, ...geo });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance"] });
     },

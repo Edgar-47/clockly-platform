@@ -15,6 +15,7 @@ from app.models.user import User
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.user_repository import UserRepository
 from app.services.permissions import is_admin_role, permissions_for_role, role_has_permission
+from app.services.audit_log import AuditLogService
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -65,8 +66,20 @@ def get_current_context(
 
 
 def require_permission(permission: str):
-    def dependency(ctx: TenantContext = Depends(get_current_context)) -> TenantContext:
+    def dependency(
+        ctx: TenantContext = Depends(get_current_context),
+        db: Session = Depends(get_db),
+    ) -> TenantContext:
         if not role_has_permission(ctx.user.role, permission):
+            AuditLogService(db).safe_record(
+                "permissions.denied",
+                company_id=ctx.company_id,
+                actor_user_id=ctx.user.id,
+                resource_type="permission",
+                resource_id=permission,
+                metadata={"role": ctx.user.role.value},
+                commit=True,
+            )
             raise PermissionDenied("Insufficient permissions.")
         return ctx
 
@@ -84,7 +97,7 @@ def require_superadmin():
 
 
 def require_admin():
-    """Restrict endpoint to admin roles (superadmin, owner, admin, manager)."""
+    """Restrict endpoint to tenant admin roles. Superadmin is reserved for internal console access."""
     def dependency(ctx: TenantContext = Depends(get_current_context)) -> TenantContext:
         if not is_admin_role(ctx.user.role):
             raise PermissionDenied("Admin access required.")

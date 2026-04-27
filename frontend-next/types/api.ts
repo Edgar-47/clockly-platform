@@ -12,6 +12,6 @@ export interface ApiList<T> {
   items: T[];
 }
 
-export interface ApiItem<K extends string, T> {
-  [key: string]: T;
-}
+export type ApiItem<K extends string, T> = {
+  [P in K]: T;
+};

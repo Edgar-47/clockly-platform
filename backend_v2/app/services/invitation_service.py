@@ -16,6 +16,7 @@ from app.models.user_invitation import UserInvitation
 from app.repositories.invitation_repository import InvitationRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.invitation import InvitationAccept, InvitationCreate
+from app.services.audit_log import AuditLogService
 
 INVITATION_EXPIRES_DAYS = 7
 
@@ -73,6 +74,14 @@ class InvitationService:
         )
         try:
             self.invitations.add(invitation)
+            AuditLogService(self.db).record(
+                "invitation.created",
+                company_id=actor.company_id,
+                actor_user_id=actor.id,
+                resource_type="user_invitation",
+                resource_id=str(invitation.id),
+                metadata={"email": invitation.email, "role": invitation.role.value},
+            )
             self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
@@ -88,6 +97,14 @@ class InvitationService:
             raise ConflictError("Only pending invitations can be revoked.")
         invitation.status = InvitationStatus.REVOKED
         self.db.add(invitation)
+        AuditLogService(self.db).record(
+            "invitation.revoked",
+            company_id=actor.company_id,
+            actor_user_id=actor.id,
+            resource_type="user_invitation",
+            resource_id=str(invitation.id),
+            metadata={"email": invitation.email, "role": invitation.role.value},
+        )
         self.db.commit()
         return invitation
 
@@ -125,6 +142,14 @@ class InvitationService:
             invitation.status = InvitationStatus.ACCEPTED
             invitation.accepted_at = now
             self.db.add(invitation)
+            AuditLogService(self.db).record(
+                "invitation.accepted",
+                company_id=invitation.company_id,
+                actor_user_id=user.id,
+                resource_type="user_invitation",
+                resource_id=str(invitation.id),
+                metadata={"email": invitation.email, "role": invitation.role.value},
+            )
             self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
@@ -178,8 +203,17 @@ class MemberService:
         self._assert_can_assign_role(actor, target_role)
         self._assert_not_last_owner(target, changing_to=target_role)
 
+        previous_role = target.role
         target.role = target_role
         self.db.add(target)
+        AuditLogService(self.db).record(
+            "member.role_changed",
+            company_id=actor.company_id,
+            actor_user_id=actor.id,
+            resource_type="user",
+            resource_id=str(target.id),
+            metadata={"from_role": previous_role.value, "to_role": target_role.value},
+        )
         self.db.commit()
         return target
 
@@ -190,6 +224,14 @@ class MemberService:
 
         target.is_active = False
         self.db.add(target)
+        AuditLogService(self.db).record(
+            "member.access_revoked",
+            company_id=actor.company_id,
+            actor_user_id=actor.id,
+            resource_type="user",
+            resource_id=str(target.id),
+            metadata={"target_role": target.role.value, "target_email": target.email},
+        )
         self.db.commit()
         return target
 

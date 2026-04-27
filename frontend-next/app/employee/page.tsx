@@ -64,14 +64,26 @@ export default function EmployeePage() {
 
   const handleClockIn = () => {
     clockIn.mutate(undefined, {
-      onSuccess: () => toast.success("Entrada registrada."),
+      onSuccess: (session) => {
+        if (session.location_permission_status === "denied" || session.location_permission_status === "unavailable") {
+          toast.warning("Entrada registrada. Ubicación no disponible — el fichaje se guardó sin localización.");
+        } else {
+          toast.success("Entrada registrada.");
+        }
+      },
       onError: (err) => toast.error((err as Error).message ?? "No se pudo registrar la entrada."),
     });
   };
 
   const handleClockOut = () => {
     clockOut.mutate(undefined, {
-      onSuccess: () => toast.success("Salida registrada."),
+      onSuccess: (session) => {
+        if (session.location_permission_status === "denied" || session.location_permission_status === "unavailable") {
+          toast.warning("Salida registrada. Ubicación no disponible — el fichaje se guardó sin localización.");
+        } else {
+          toast.success("Salida registrada.");
+        }
+      },
       onError: (err) => toast.error((err as Error).message ?? "No se pudo registrar la salida."),
     });
   };

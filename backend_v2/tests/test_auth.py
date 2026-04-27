@@ -1,5 +1,4 @@
 """Auth endpoint tests: login, refresh, logout, token security."""
-import pytest
 
 from tests.conftest import auth_headers, make_company, make_user
 from app.models.enums import UserRole
@@ -78,7 +77,7 @@ class TestMe:
 class TestLogout:
     def test_logout_clears_session(self, client, db):
         company = make_company(db)
-        user = make_user(db, company=company, email="user@test.com", password="pass-test-123")
+        make_user(db, company=company, email="user@test.com", password="pass-test-123")
         db.commit()
 
         login = client.post("/auth/login", json={"email": "user@test.com", "password": "pass-test-123"})

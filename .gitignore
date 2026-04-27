@@ -34,6 +34,8 @@ uploads/
 *.log
 .next/
 node_modules/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 # OS

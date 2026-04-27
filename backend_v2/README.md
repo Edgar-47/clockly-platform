@@ -21,7 +21,7 @@ backend_v2/
     api/            # Routers REST
     core/           # Config, seguridad, cookies, errores
     db/             # Engine y sesiones
-    dependencies/   # Auth y tenant context
+    dependencies/   # Auth, tenant context y servicios transversales
     models/         # SQLAlchemy ORM
     repositories/   # Acceso a datos
     schemas/        # Pydantic
@@ -69,6 +69,9 @@ python main.py --host 127.0.0.1 --port 8010 --reload
 - opcionalmente un superadmin solo si se pasan credenciales explicitas
 
 No hay credenciales personales hardcodeadas para superadmin.
+El superadmin actual conserva `company_id` por compatibilidad de esquema, pero
+no debe operar dentro del dashboard tenant. La consola interna futura debe
+separar esa identidad del tenancy normal.
 
 ## Validacion
 
@@ -84,5 +87,8 @@ python -m pytest
 - `GET /auth/me` es la fuente de verdad de la sesion.
 - El frontend hace refresh controlado con `POST /auth/refresh` tras `401`.
 - Las acciones de kiosk validan PIN en backend.
+- Las invitaciones intentan email transaccional si `CLOCKLY_EMAIL_PROVIDER` no
+  es `noop`; ante fallo de envio se registra el error y se conserva el
+  `acceptance_url` de fallback.
 - El API de horarios existe, pero su UI web esta retirada del flujo principal
   hasta que el producto este completo end-to-end.

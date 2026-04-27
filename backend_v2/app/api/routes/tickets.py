@@ -11,14 +11,14 @@ from app.models.enums import UserRole
 from app.models.ticket import Ticket
 from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.ticket_repository import TicketRepository
-from app.schemas.ticket import TicketCreate, TicketRead
+from app.schemas.ticket import TicketCreate, TicketListResponse, TicketRead
 from app.services.plans import check_plan_feature
 
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
 
-@router.get("", response_model=list[TicketRead])
+@router.get("", response_model=TicketListResponse)
 def list_tickets(
     employee_id: UUID | None = Query(default=None),
     date_from: date | None = Query(default=None),
@@ -27,7 +27,7 @@ def list_tickets(
     offset: int = Query(default=0, ge=0),
     ctx: TenantContext = Depends(require_permission("tickets:read")),
     db: Session = Depends(get_db),
-) -> list[TicketRead]:
+) -> TicketListResponse:
     if employee_id is not None or date_from is not None or date_to is not None:
         check_plan_feature(db, ctx.company_id, "has_advanced_filters", actor_user_id=ctx.user.id)
 
@@ -36,15 +36,13 @@ def list_tickets(
         own = EmployeeRepository(db, company_id=ctx.company_id).get_by_user_id(ctx.user.id)
         employee_id = own.id if own else None
         if own is None:
-            return []
+            return TicketListResponse(items=[], total=0, limit=limit, offset=offset)
 
-    return TicketRepository(db, company_id=ctx.company_id).list(
-        employee_id=employee_id,
-        date_from=date_from,
-        date_to=date_to,
-        limit=limit,
-        offset=offset,
-    )
+    repo = TicketRepository(db, company_id=ctx.company_id)
+    filter_kwargs = dict(employee_id=employee_id, date_from=date_from, date_to=date_to)
+    items = repo.list(**filter_kwargs, limit=limit, offset=offset)
+    total = repo.count(**filter_kwargs)
+    return TicketListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.post("", response_model=TicketRead, status_code=status.HTTP_201_CREATED)

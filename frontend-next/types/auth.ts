@@ -47,8 +47,8 @@ export interface LoginRequest {
   password: string;
 }
 
-/** Roles that have full business administration access. */
-export const ADMIN_ROLES: UserRole[] = ["superadmin", "owner", "admin", "manager"];
+// Superadmin is reserved for a future internal console and must not enter tenant dashboards.
+export const ADMIN_ROLES: UserRole[] = ["owner", "admin", "manager"];
 
 export function isAdminRole(role: UserRole): boolean {
   return ADMIN_ROLES.includes(role);

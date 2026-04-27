@@ -49,7 +49,7 @@ export const dashboardService = {
       recent_sessions: recentSessions,
       kpis: {
         total_worked_seconds: metrics.worked_seconds,
-        active_ratio: activeEmployees > 0 ? clockedIn.length / activeEmployees : 0,
+        active_ratio: activeEmployees.length > 0 ? clockedIn.length / activeEmployees.length : 0,
         top_worker: metrics.employees[0]?.employee_name ?? null,
         open_sessions: metrics.open_sessions,
       },

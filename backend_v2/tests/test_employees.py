@@ -3,7 +3,6 @@
 Covers: create, update, deactivate, reactivate, PIN reset,
 password reset, User/Employee consistency, plan limits.
 """
-import pytest
 
 from tests.conftest import auth_headers, make_company, make_employee, make_user
 from app.models.enums import UserRole

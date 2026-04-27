@@ -18,6 +18,8 @@ frontend Jinja ni con otra SPA activa dentro de este repo.
 
 - `/`
 - `/login`
+- `/accept-invitation/{token}`
+- `/access-unavailable`
 
 ### Admin
 
@@ -55,12 +57,15 @@ npm run dev
 
 ```powershell
 npm run type-check
+npm run lint
 ```
 
 ## Notas operativas
 
 - El kiosk ya no es una demo publica: requiere sesion admin activa.
 - Solo aparecen en el kiosk empleados activos con PIN configurado.
+- Los E2E autenticados saltan localmente si no hay `E2E_OWNER_PASSWORD`, pero
+  fallan explicitamente en CI cuando `E2E_AUTH_REQUIRED=true`.
 - Las exportaciones, metricas, tickets y fichajes dependen de endpoints reales
   del backend.
 - Si una superficie no tiene backend y flujo completo, debe permanecer fuera de

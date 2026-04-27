@@ -14,15 +14,15 @@ import { PlanCards } from "@/components/shared/plan-cards";
 const BENEFITS = [
   {
     icon: Clock,
-    title: "Fichaje sin fricciÃ³n",
+    title: "Fichaje sin fricción",
     description:
       "Kiosk con PIN y panel web para registrar jornadas sin depender de procesos manuales.",
   },
   {
     icon: Users,
-    title: "GestiÃ³n de equipos",
+    title: "Gestión de equipos",
     description:
-      "Alta, ediciÃ³n y seguimiento de empleados desde un panel centralizado.",
+      "Alta, edición y seguimiento de empleados desde un panel centralizado.",
   },
   {
     icon: BarChart3,
@@ -34,20 +34,20 @@ const BENEFITS = [
     icon: Shield,
     title: "Acceso controlado",
     description:
-      "Roles diferenciados y sesiÃ³n centralizada para que cada usuario vea solo lo que le corresponde.",
+      "Roles diferenciados y sesión centralizada para que cada usuario vea solo lo que le corresponde.",
   },
   {
     icon: Smartphone,
     title: "Preparado para tablet",
     description:
-      "El kiosk estÃ¡ pensado para un dispositivo compartido abierto desde el panel de administraciÃ³n.",
+      "El kiosk está pensado para un dispositivo compartido abierto desde el panel de administración.",
   },
 ];
 
 const USE_CASES = [
-  "Restaurantes y hostelerÃ­a",
-  "Centros de estÃ©tica",
-  "PeluquerÃ­as",
+  "Restaurantes y hostelería",
+  "Centros de estética",
+  "Peluquerías",
   "Gimnasios y fitness",
   "Fisioterapia y salud",
   "Comercio y retail",
@@ -91,7 +91,7 @@ export default function LandingPage() {
             <span className="text-primary">sin complicaciones</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-white/60">
-            ClockLy unifica administraciÃ³n, fichaje, kiosk e incidencias en una
+            ClockLy unifica administración, fichaje, kiosk e incidencias en una
             sola base operativa para negocios locales.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -148,7 +148,7 @@ export default function LandingPage() {
               Planes para cada etapa
             </h2>
             <p className="mt-3 text-lg text-ink-muted">
-              Entitlements y lÃ­mites reales expuestos por backend, sin CTAs ficticias en la interfaz.
+              Entitlements y límites reales expuestos por backend, sin CTAs ficticias en la interfaz.
             </p>
           </div>
           <PlanCards />
@@ -179,7 +179,7 @@ export default function LandingPage() {
                 Vista previa
               </div>
               <div className="space-y-3">
-                {["RecepciÃ³n", "Caja", "Equipo A", "Equipo B"].map((name, index) => (
+                {["Recepción", "Caja", "Equipo A", "Equipo B"].map((name, index) => (
                   <div
                     key={name}
                     className="flex items-center gap-3 rounded-lg bg-white/5 px-4 py-3"
@@ -229,7 +229,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Logo size="sm" />
           <p className="text-sm text-ink-xmuted">
-            Â© {new Date().getFullYear()} ClockLy
+            © {new Date().getFullYear()} ClockLy
           </p>
         </div>
       </footer>

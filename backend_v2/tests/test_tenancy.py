@@ -5,7 +5,6 @@ from Company B, regardless of role or token.
 """
 import uuid
 
-import pytest
 
 from tests.conftest import auth_headers, make_company, make_employee, make_user
 from app.models.enums import UserRole

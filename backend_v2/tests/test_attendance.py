@@ -3,7 +3,6 @@
 Covers: normal flow, double clock-in, inactive employee,
 kiosk PIN validation, employee self-scope enforcement.
 """
-import pytest
 
 from tests.conftest import auth_headers, make_company, make_employee, make_open_session, make_user
 from app.models.enums import UserRole
@@ -128,7 +127,7 @@ class TestClockOut:
         company = make_company(db)
         admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
         emp = make_employee(db, company=company)
-        session = make_open_session(db, company=company, employee=emp, user=admin)
+        make_open_session(db, company=company, employee=emp, user=admin)
         db.commit()
 
         resp = client.post(

@@ -72,7 +72,13 @@ export function useLogin() {
       queryClient.setQueryData(authKeys.me, session);
       const next = searchParams.get("next");
       const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
-      router.push(safeNext ?? (session.user.role === "employee" ? "/employee" : "/dashboard"));
+      const defaultRoute =
+        session.user.role === "superadmin"
+          ? "/access-unavailable"
+          : session.user.role === "employee"
+            ? "/employee"
+            : "/dashboard";
+      router.push(safeNext ?? defaultRoute);
     },
   });
 }
@@ -122,7 +128,8 @@ function useRoleGuard({
     }
     const role = session.data?.user.role;
     if (role && !allow.includes(role)) {
-      router.replace(unauthorizedRedirect);
+      // Superadmin is reserved for a future internal console, not tenant admin UI.
+      router.replace(role === "superadmin" ? "/access-unavailable" : unauthorizedRedirect);
     }
   }, [
     allow,

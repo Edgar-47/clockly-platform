@@ -31,6 +31,19 @@ export interface AttendanceSession {
   clock_out_time: string | null;
   is_active: boolean;
   total_seconds: number | null;
+  // Geolocation fields
+  clock_in_latitude?: number | null;
+  clock_in_longitude?: number | null;
+  clock_in_accuracy_meters?: number | null;
+  clock_in_location_status?: "in_range" | "out_of_range" | "unknown" | null;
+  clock_in_distance_meters?: number | null;
+  clock_out_latitude?: number | null;
+  clock_out_longitude?: number | null;
+  clock_out_accuracy_meters?: number | null;
+  clock_out_location_status?: "in_range" | "out_of_range" | "unknown" | null;
+  clock_out_distance_meters?: number | null;
+  location_source?: string;
+  location_permission_status?: string;
 }
 
 export interface SessionReport extends AttendanceSession {
@@ -68,6 +81,12 @@ export interface ClockRequest {
   method?: "web" | "kiosk" | "mobile" | "pin" | "admin";
   pin?: string;
   notes?: string;
+  // Geolocation
+  latitude?: number;
+  longitude?: number;
+  accuracy_meters?: number;
+  location_source?: string;
+  location_permission_status?: string;
 }
 
 export interface AttendanceHistoryFilters {

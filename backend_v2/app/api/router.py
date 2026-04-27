@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     attendance,
+    attendance_locations,
     auth,
     businesses,
     employees,
@@ -29,5 +30,6 @@ api_router.include_router(metrics.router)
 api_router.include_router(tickets.router)
 api_router.include_router(exports.router)
 api_router.include_router(locations.router)
+api_router.include_router(attendance_locations.router)
 api_router.include_router(plans.router)
 api_router.include_router(superadmin.router)

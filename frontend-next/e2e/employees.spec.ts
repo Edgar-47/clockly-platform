@@ -1,24 +1,17 @@
 /**
- * E2E: Employee management — create, edit, deactivate.
+ * E2E: Employee management, create and edit entry points.
  * Requires a logged-in admin/owner session.
  * Set E2E_OWNER_EMAIL / E2E_OWNER_PASSWORD to run authenticated tests.
  */
 import { expect, test } from "@playwright/test";
-
-const OWNER_EMAIL = process.env.E2E_OWNER_EMAIL ?? "owner@clockly.local";
-const OWNER_PASSWORD = process.env.E2E_OWNER_PASSWORD ?? "";
-const SKIP = !OWNER_PASSWORD;
-
-async function loginAsOwner(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByLabel(/email/i).fill(OWNER_EMAIL);
-  await page.getByLabel(/contraseña/i).fill(OWNER_PASSWORD);
-  await page.getByRole("button", { name: /entrar/i }).click();
-  await page.waitForURL(/\/(dashboard|admin)/);
-}
+import {
+  MISSING_OWNER_PASSWORD_MESSAGE,
+  SKIP_AUTHENTICATED_E2E,
+  loginAsOwner,
+} from "./helpers/auth";
 
 test.describe("Employee list", () => {
-  test.skip(SKIP, "E2E_OWNER_PASSWORD not set");
+  test.skip(SKIP_AUTHENTICATED_E2E, MISSING_OWNER_PASSWORD_MESSAGE);
 
   test.beforeEach(async ({ page }) => {
     await loginAsOwner(page);
@@ -36,7 +29,7 @@ test.describe("Employee list", () => {
 });
 
 test.describe("Employee creation form", () => {
-  test.skip(SKIP, "E2E_OWNER_PASSWORD not set");
+  test.skip(SKIP_AUTHENTICATED_E2E, MISSING_OWNER_PASSWORD_MESSAGE);
 
   test.beforeEach(async ({ page }) => {
     await loginAsOwner(page);
@@ -53,7 +46,7 @@ test.describe("Employee creation form", () => {
     if (await pinField.isVisible()) {
       await pinField.fill("ABCD");
       await page.getByRole("button", { name: /guardar|crear/i }).click();
-      await expect(page.getByText(/dígitos|números|pin/i)).toBeVisible({ timeout: 3000 });
+      await expect(page.getByText(/d.gitos|n.meros|pin/i)).toBeVisible({ timeout: 3000 });
     }
   });
 });

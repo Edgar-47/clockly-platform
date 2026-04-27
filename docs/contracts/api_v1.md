@@ -114,6 +114,67 @@ Response:
 }
 ```
 
+## Members and invitations
+
+Visible in the current web UI under `/settings`:
+
+- `GET /businesses/{business_id}/members`
+- `POST /businesses/{business_id}/invitations`
+- `GET /businesses/{business_id}/invitations`
+- `DELETE /businesses/{business_id}/invitations/{invitation_id}`
+- `POST /businesses/{business_id}/members/{user_id}/role`
+- `DELETE /businesses/{business_id}/members/{user_id}`
+- `POST /invitations/{token}/accept`
+
+Tenant member management requires `users:manage`, currently granted to `owner`
+and `admin`. `superadmin` is not a tenant admin role.
+
+### POST `/businesses/{business_id}/invitations`
+
+Request:
+
+```json
+{
+  "email": "new-user@example.com",
+  "role": "manager"
+}
+```
+
+Rules:
+
+- `owner` may invite `admin`, `manager`, and `employee`.
+- `admin` may invite `manager` and `employee`.
+- `owner` and `superadmin` cannot be invited through tenant member management.
+- Duplicate pending invitations for the same company/email return `409`.
+
+Response includes the invitation fields plus a one-time `acceptance_url`. The
+raw token is not stored server-side; only `token_hash` is persisted.
+
+When transactional email is configured, the backend attempts to send the same
+acceptance URL by email after creating the invitation. Email delivery failures
+are logged and do not roll back invitation creation; the response still returns
+`acceptance_url` for manual fallback. Provider errors and token hashes are not
+included in the API response.
+
+Invitation states: `pending`, `accepted`, `expired`, `revoked`.
+
+### POST `/invitations/{token}/accept`
+
+Public endpoint used by `/accept-invitation/{token}`.
+
+Request:
+
+```json
+{
+  "full_name": "New User",
+  "password": "strong-password"
+}
+```
+
+Successful acceptance creates the user, marks the invitation `accepted`, and
+returns the invitation. The endpoint does not create a login session; the web
+flow sends the user to `/login`.
+
 ## Plans
 
 Visible in the current web UI (`/settings`):
@@ -196,6 +257,8 @@ Request:
 
 Kiosk/PIN rules:
 
+- The web route `/kiosk` is protected. It requires an authenticated tenant
+  admin/manager session before employees are displayed.
 - `pin` must be exactly 4 digits when the action is performed as `kiosk` or
   `pin`.
 - Admin-managed kiosk actions are validated in the backend against the
@@ -273,11 +336,30 @@ Internal-only route. There is no web superadmin console:
 The web route `/superadmin` is intentionally redirected out of the main product
 flow.
 
+Authenticated superadmin users are sent to `/access-unavailable` instead of
+tenant dashboards. Superadmin is reserved for a future internal console and has
+no tenant permissions.
+
+## Production hardening
+
+- Backend and frontend add production security headers: HSTS, CSP,
+  `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and
+  `Permissions-Policy`.
+- Rate limiting defaults to in-process memory for local/dev. Multi-worker
+  production can switch strategy with `CLOCKLY_RATE_LIMIT_BACKEND=redis` and
+  `CLOCKLY_REDIS_URL`. `CLOCKLY_RATE_LIMIT_ENABLED=false` is rejected in
+  production.
+- Transactional email defaults to `CLOCKLY_EMAIL_PROVIDER=noop`. SMTP is the
+  first concrete provider; Resend, SendGrid, and Mailgun are reserved adapter
+  names for future provider modules.
+- Audit logs are written for failed login, invitation lifecycle events, member
+  role/access changes, and permission denials.
+
 ## Hidden or retired web surfaces
 
 These are not current product features and must not be described as active:
 
-- forgot password flow
+- forgot password reset flow
 - expenses UI
 - businesses UI / multi-business switcher
 - schedules UI

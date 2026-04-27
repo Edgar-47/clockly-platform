@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Delete, ArrowLeft } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,14 +25,7 @@ export function PinPanel() {
   const isClockedIn = selectedEmployee?.is_clocked_in ?? false;
   const employee = selectedEmployee?.employee;
 
-  useEffect(() => {
-    if (pin.length === 4) {
-      handleClock();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin]);
-
-  const handleClock = () => {
+  const handleClock = useCallback(() => {
     if (!selectedEmployee) return;
     const action = isClockedIn ? clockOut : clockIn;
     action.mutate(
@@ -50,7 +43,13 @@ export function PinPanel() {
         },
       },
     );
-  };
+  }, [clearPin, clockIn, clockOut, isClockedIn, pin, reset, selectedEmployee, setSuccess]);
+
+  useEffect(() => {
+    if (pin.length === 4) {
+      handleClock();
+    }
+  }, [handleClock, pin]);
 
   if (!employee) return null;
 

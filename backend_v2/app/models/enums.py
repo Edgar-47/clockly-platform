@@ -40,3 +40,24 @@ class TicketStatus(StrEnum):
     IN_REVIEW = "in_review"
     RESOLVED = "resolved"
     REJECTED = "rejected"
+
+
+class LocationStatus(StrEnum):
+    IN_RANGE = "in_range"
+    OUT_OF_RANGE = "out_of_range"
+    UNKNOWN = "unknown"
+
+
+class LocationSource(StrEnum):
+    BROWSER = "browser"
+    MOBILE = "mobile"
+    KIOSK = "kiosk"
+    MANUAL = "manual"
+    UNKNOWN = "unknown"
+
+
+class LocationPermissionStatus(StrEnum):
+    GRANTED = "granted"
+    DENIED = "denied"
+    UNAVAILABLE = "unavailable"
+    UNKNOWN = "unknown"

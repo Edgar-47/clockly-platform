@@ -26,7 +26,7 @@ Landing (/)
   -> proxy de Next permite acceso a rutas privadas
   -> React Query hidrata la sesion con GET /auth/me
 
-Admin / owner / manager / superadmin
+Owner / admin / manager
   -> /dashboard
   -> /employees
   -> /sessions
@@ -34,6 +34,14 @@ Admin / owner / manager / superadmin
   -> /tickets
   -> /settings
   -> /kiosk (abierto desde sesion admin)
+
+Owner / admin
+  -> /settings
+  -> gestion de miembros e invitaciones
+
+Invited user
+  -> /accept-invitation/{token}
+  -> /login
 
 Employee
   -> /employee
@@ -44,6 +52,9 @@ Kiosk
   -> requiere sesion admin activa
   -> solo muestra empleados activos con PIN configurado
   -> valida PIN en backend al fichar entrada o salida
+
+Superadmin
+  -> /access-unavailable hasta que exista consola interna real
 ```
 
 ## Superficies visibles hoy
@@ -58,16 +69,18 @@ Rutas web activas y defendibles:
 - `/analytics` metricas conectadas al backend
 - `/tickets` incidencias conectadas al backend
 - `/settings` contexto de empresa y plan actual
+- `/settings` miembros e invitaciones para owner/admin
 - `/employee` autoservicio del empleado autenticado
 - `/kiosk` kiosk real, protegido y con PIN validado en backend
+- `/accept-invitation/{token}` aceptacion publica de invitacion
 
 Superficies retiradas del flujo principal:
 
-- `/forgot-password` redirige a `/login`
+- `/forgot-password` muestra un mensaje informativo; no hay reset por email
 - `/expenses` redirige a `/dashboard`
 - `/businesses` redirige a `/settings`
 - `/schedules` redirige a `/dashboard`
-- `/superadmin` redirige a `/dashboard`
+- `/superadmin` queda fuera del flujo principal; superadmin ve `/access-unavailable`
 
 APIs existentes pero no expuestas en la navegacion web actual:
 
@@ -139,6 +152,20 @@ URLs locales:
   vuelve a `/login`.
 - El backend acepta `Authorization: Bearer <token>` o la cookie
   `clockly_access`.
+- `superadmin` no se considera rol admin tenant; queda reservado para consola
+  interna futura.
+
+## Miembros e invitaciones
+
+- Owner/admin gestionan miembros desde `/settings`.
+- `POST /businesses/{id}/invitations` devuelve un `acceptance_url`.
+- `/accept-invitation/{token}` permite crear cuenta con nombre y contraseña.
+- Estados soportados: `pending`, `accepted`, `expired`, `revoked`.
+- Roles invitables: owner -> admin/manager/employee; admin -> manager/employee.
+- La invitacion no crea sesion automaticamente; el usuario entra por `/login`.
+- Si `CLOCKLY_EMAIL_PROVIDER` esta configurado, el backend intenta enviar email
+  transaccional al crear la invitacion. Si el envio falla, la invitacion sigue
+  creada y la UI mantiene `acceptance_url` como fallback operativo.
 
 ## Legacy y limites actuales
 
@@ -147,8 +174,17 @@ URLs locales:
 - Hay endpoints backend para horarios y sedes, pero no UI web publica para
   administrarlos.
 - Existe un endpoint interno de superadmin, pero no panel web de superadmin.
+- La identidad `superadmin` es de plataforma: no debe entrar en dashboards
+  tenant. Mientras no exista consola interna, el frontend la envia a
+  `/access-unavailable` y el backend no le concede permisos tenant.
 - No hay flujo real de recuperacion de password en esta version. Por eso no se
-  expone al usuario.
+  expone como reset funcional al usuario.
+- Rate limiting usa memoria por defecto; se puede desactivar solo fuera de
+  produccion con `CLOCKLY_RATE_LIMIT_ENABLED=false`. En produccion multi-worker
+  se debe configurar Redis con `CLOCKLY_RATE_LIMIT_BACKEND=redis` y
+  `CLOCKLY_REDIS_URL`.
+- `AuditLog` registra login fallido, permisos denegados, invitaciones y cambios
+  sensibles de miembros.
 
 ## Validacion minima antes de cerrar cambios
 
@@ -161,7 +197,13 @@ python -m pytest
 
 cd ..\frontend-next
 npm run type-check
+npm run lint
+npm audit --audit-level=moderate
 ```
+
+Los E2E autenticados requieren `E2E_OWNER_PASSWORD`. En CI, si
+`E2E_ENABLED=true` y falta el secret, el job falla antes de ejecutar tests con
+un mensaje explicito.
 
 Nota de Windows/OneDrive: si `compileall` falla al escribir en `__pycache__`
 existentes, usa `PYTHONPYCACHEPREFIX` apuntando a `%LOCALAPPDATA%\\Temp` como

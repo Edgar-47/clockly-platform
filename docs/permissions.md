@@ -1,149 +1,98 @@
-# ClockLy — Matriz de roles y permisos
+# ClockLy - Matriz de roles y permisos
 
-> Versión: 2026-04-26. Esta es la fuente de verdad del modelo de permisos.
-> Backend: `app/services/permissions.py`. Frontend: middleware + guards de layout.
-
----
+Versión: 2026-04-27. Fuente de verdad técnica: `backend_v2/app/services/permissions.py`.
 
 ## Roles
 
-| Rol | Descripción | Ámbito |
-|-----|-------------|--------|
-| `superadmin` | Administrador interno del producto | Sistema completo (todas las empresas) |
-| `owner` | Propietario de la empresa | Su empresa |
-| `admin` | Administrador delegado | Su empresa |
-| `manager` | Responsable de equipo | Su empresa (lectura extendida, sin escritura de configuración) |
-| `employee` | Empleado estándar | Solo sus propios datos |
+| Rol | Ámbito | Notas |
+| --- | --- | --- |
+| `superadmin` | Interno de plataforma | Reservado para una consola interna futura. No entra al dashboard tenant. |
+| `owner` | Empresa activa | Control total tenant y gestión de miembros. |
+| `admin` | Empresa activa | Administra operación y miembros por debajo de admin. |
+| `manager` | Empresa activa | Lee operación, gestiona asistencia/tickets, no gestiona miembros. |
+| `employee` | Usuario propio | Solo asistencia y tickets propios. |
 
----
+## Permisos backend
 
-## Permisos por recurso
+| Permiso | owner | admin | manager | employee | superadmin |
+| --- | --- | --- | --- | --- | --- |
+| `employees:read` | yes | yes | yes | no | no |
+| `employees:write` | yes | yes | no | no | no |
+| `schedules:read` | yes | yes | yes | no | no |
+| `schedules:write` | yes | yes | no | no | no |
+| `attendance:read` | yes | yes | yes | own | no |
+| `attendance:write` | yes | yes | yes | own | no |
+| `attendance:manage` | yes | yes | yes | no | no |
+| `metrics:read` | yes | yes | yes | no | no |
+| `tickets:read` | yes | yes | yes | own | no |
+| `tickets:write` | yes | yes | yes | own | no |
+| `exports:read` | yes | yes | no | no | no |
+| `locations:read` | yes | yes | yes | no | no |
+| `locations:write` | yes | yes | no | no | no |
+| `users:manage` | yes | yes | no | no | no |
+| `superadmin:access` | no | no | no | no | yes |
 
-### Empleados (`/employees`)
+`superadmin` intentionally has no tenant permissions. It can only access explicit internal endpoints such as `GET /superadmin/status`.
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Listar empleados | ✗ | ✓ | ✓ | ✓ | ✓ |
-| Ver empleado | ✗ | ✓ | ✓ | ✓ | ✓ |
-| Crear empleado | ✗ | ✗ | ✓ | ✓ | ✓ |
-| Editar empleado | ✗ | ✗ | ✓ | ✓ | ✓ |
-| Desactivar empleado | ✗ | ✗ | ✓ | ✓ | ✓ |
+## Gestión de miembros e invitaciones
 
-### Gestión de usuarios (`/users`)
+Rutas reales:
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Listar usuarios | ✗ | ✗ | ✓ | ✓ | ✓ |
-| Ver usuario | ✗ | ✗ | ✓ | ✓ | ✓ |
-| Crear usuario admin/manager | ✗ | ✗ | hasta manager | hasta admin | ✓ |
-| Cambiar rol | ✗ | ✗ | hasta manager | hasta admin | hasta owner |
-| Activar/desactivar usuario | ✗ | ✗ | manager/employee | admin/manager/employee | todos |
+| Endpoint | Roles | Estado |
+| --- | --- | --- |
+| `GET /businesses/{business_id}/members` | owner, admin | Lista miembros tenant. |
+| `POST /businesses/{business_id}/invitations` | owner, admin | Crea invitación pendiente y devuelve `acceptance_url`. |
+| `GET /businesses/{business_id}/invitations` | owner, admin | Lista invitaciones y expira pendientes vencidas. |
+| `DELETE /businesses/{business_id}/invitations/{invitation_id}` | owner, admin | Revoca invitaciones pendientes. |
+| `POST /invitations/{token}/accept` | público | Acepta token, crea usuario y marca invitación como aceptada. |
+| `POST /businesses/{business_id}/members/{user_id}/role` | owner, admin | Cambia rol con reglas anti-escalado. |
+| `DELETE /businesses/{business_id}/members/{user_id}` | owner, admin | Desactiva acceso, protegiendo al último owner. |
 
-**Reglas de escalado de roles (implementadas en `UserService`):**
-- Nadie puede asignarse a sí mismo el rol SUPERADMIN via API — validado en Pydantic y en `UserService`.
-- Un ADMIN solo puede asignar roles `manager` o `employee`.
-- Un OWNER puede asignar roles `admin`, `manager` o `employee`.
-- Nadie puede modificar la cuenta de un OWNER/SUPERADMIN salvo el propio SUPERADMIN.
-- Nadie puede cambiar su propio rol.
+Roles invitables:
 
-### Fichaje (`/attendance`)
+| Actor | Puede invitar/asignar |
+| --- | --- |
+| owner | admin, manager, employee |
+| admin | manager, employee |
+| manager, employee, superadmin | ninguno |
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Ver sesiones propias | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Ver sesiones de otros | ✗ (solo propias) | ✓ | ✓ | ✓ | ✓ |
-| Fichar entrada (propio) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Fichar entrada (otro empleado) | ✗ | ✓ | ✓ | ✓ | ✓ |
-| Fichar salida | ídem entrada | ídem | ídem | ídem | ídem |
+Estados de invitación:
 
-### Horarios (`/schedules`)
+| Estado | Significado |
+| --- | --- |
+| `pending` | Token vigente y no usado. |
+| `accepted` | Token usado correctamente; usuario creado. |
+| `expired` | Token vencido. La ventana actual es de 7 días. |
+| `revoked` | Invitación cancelada por owner/admin. |
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Ver horarios | ✗ | ✓ | ✓ | ✓ | ✓ |
-| Crear/editar horarios | ✗ | ✗ | ✓ | ✓ | ✓ |
+El token se almacena únicamente como hash. El enlace raw solo se devuelve al crear la invitación.
 
-### Métricas (`/metrics`)
+## Kiosk protegido
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Overview | ✗ | ✓ | ✓ | ✓ | ✓ |
-| Con filtros de fecha | — | plan PRO+ | plan PRO+ | plan PRO+ | ✓ |
+`/kiosk` ya no es público. Requiere sesión autenticada con rol tenant permitido (`owner`, `admin` o `manager`) y después valida el PIN del empleado en backend al fichar entrada/salida.
 
-### Tickets (`/tickets`)
+Usuarios no autenticados son redirigidos a `/login`. `employee` no puede administrar kiosk. `superadmin` tampoco, porque no pertenece al flujo tenant.
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Ver propios | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Ver todos | ✗ (solo propios) | ✓ | ✓ | ✓ | ✓ |
-| Crear (propio) | ✓ | ✓ | ✓ | ✓ | ✓ |
+## Superadmin
 
-### Exportaciones (`/exports`)
+Por decisión de producto, no existe consola web de superadmin en el MVP. El frontend redirige a `/access-unavailable` y muestra una pantalla explícita. El backend mantiene `superadmin:access` solo para endpoints internos.
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Exportar asistencia | ✗ | ✗ | ✓ (plan PRO+) | ✓ (plan PRO+) | ✓ |
+## Auditoría y seguridad
 
-### Ubicaciones (`/locations`)
+`AuditLog` registra eventos sensibles:
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Ver ubicaciones | ✗ | ✓ | ✓ | ✓ | ✓ |
-| Crear ubicación | ✗ | ✗ | ✓ (plan BUSINESS) | ✓ (plan BUSINESS) | ✓ |
+- login fallido
+- invitación creada
+- invitación aceptada
+- invitación revocada
+- cambio de rol
+- revocación de acceso
+- acceso denegado por permisos
 
-### Planes (`/plans`)
+Rate limiting usa memoria por defecto. Para producción multi-worker, la estrategia está encapsulada y puede cambiarse con:
 
-| Acción | employee | manager | admin | owner | superadmin |
-|--------|----------|---------|-------|-------|------------|
-| Listar planes disponibles | ✓ (público) | ✓ | ✓ | ✓ | ✓ |
-| Ver plan actual | ✓ (autenticado) | ✓ | ✓ | ✓ | ✓ |
+- `CLOCKLY_RATE_LIMIT_BACKEND=redis`
+- `CLOCKLY_REDIS_URL=redis://...`
+- `CLOCKLY_RATE_LIMIT_KEY_PREFIX=clockly:rate-limit`
 
----
-
-## Límites por plan
-
-| Característica | FREE | PRO | BUSINESS |
-|----------------|------|-----|----------|
-| Empleados activos | 5 | 30 | Ilimitados |
-| Exportaciones PDF/Excel | ✗ | ✓ | ✓ |
-| Filtros avanzados | ✗ | ✓ | ✓ |
-| Multi-sede | ✗ | ✗ | ✓ |
-| Informes de admin | ✗ | ✓ | ✓ |
-| Soporte prioritario | ✗ | ✓ | ✓ |
-
----
-
-## Invitación/creación de usuarios admin o manager
-
-**Estado actual:** implementado mediante `POST /users` (sin email transaccional).
-
-Flujo disponible:
-1. Owner/Admin llama a `POST /users` con `{email, full_name, password, role}`.
-2. El nuevo usuario puede hacer login inmediatamente con las credenciales proporcionadas.
-3. El admin comunica las credenciales al usuario por un canal seguro fuera de banda.
-
-**Pendiente (requiere backend de email):**
-- Sistema de invitación por enlace (`POST /invitations` + token de activación).
-- Estados de invitación: pendiente / aceptada / expirada / revocada.
-- Flujo de "olvidé mi contraseña" con reset por email (`POST /auth/forgot-password`).
-
----
-
-## Flujo de superadmin
-
-El rol SUPERADMIN **solo puede crearse** mediante el script `seed.py` con
-`--superadmin-email` y `--superadmin-password`. No existe ningún endpoint
-público que permita asignar este rol. El endpoint `/superadmin/status`
-requiere `role == SUPERADMIN`; cualquier otro rol recibe 403.
-
----
-
-## Riesgos pendientes antes de publicación
-
-1. **Email transaccional** — sin él, las contraseñas se distribuyen manualmente.
-   Impacto: credencial inicial expuesta en el canal de comunicación.
-2. **Rate limiting multi-worker** — el `SlidingWindowLimiter` es in-process.
-   En producción con múltiples workers, usar `slowapi` + Redis o límite en proxy.
-3. **HSTS / CSP** — headers de seguridad adicionales pendientes en `main.py`.
-4. **Audit log** — el modelo `AuditLog` existe pero ningún endpoint escribe en él.
-   Cambios de rol, creación de usuarios y fichajes deberían auditarse.
+Headers de seguridad se aplican en producción en backend y frontend: HSTS, CSP básica, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` y `Permissions-Policy`.

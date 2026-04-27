@@ -29,7 +29,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       {login.error && (
-        <div className="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-3.5 py-3 text-sm text-danger-DEFAULT">
+        <div role="alert" className="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-3.5 py-3 text-sm text-danger-DEFAULT">
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <span className="text-[13px]">
             {(login.error as { detail?: string })?.detail ??

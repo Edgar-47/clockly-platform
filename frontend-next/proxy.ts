@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/login"];
+const PUBLIC_PATHS = ["/", "/login", "/forgot-password", "/accept-invitation"];
 const SESSION_COOKIES = ["clockly_access", "clockly_refresh"];
 
 function isPublic(pathname: string): boolean {

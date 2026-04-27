@@ -17,6 +17,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.user_repository import UserRepository
+from app.services.audit_log import AuditLogService
 from app.services.permissions import permissions_for_role
 
 
@@ -44,6 +45,16 @@ class AuthService:
     ) -> AuthTokens:
         user = self.users.get_by_email(identifier.lower())
         if user is None or not user.is_active or not verify_password(password, user.password_hash):
+            AuditLogService(self.db).safe_record(
+                "auth.login_failed",
+                company_id=user.company_id if user else None,
+                actor_user_id=user.id if user else None,
+                resource_type="user",
+                resource_id=str(user.id) if user else None,
+                metadata={"identifier": identifier.lower(), "reason": "invalid_credentials"},
+                ip_address=ip_address,
+                commit=True,
+            )
             raise AuthenticationError("Invalid email or password.")
         company = self.companies.get(user.company_id)
         if company is None:

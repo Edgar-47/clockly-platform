@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface-bg px-4 py-4 text-[13px] text-ink-muted space-y-2">
+      <div className="space-y-2 rounded-lg border border-border bg-surface-bg px-4 py-4 text-[13px] text-ink-muted">
         <p className="font-medium text-ink">¿Olvidaste tu contraseña?</p>
         <p>
           Contacta con el administrador de tu empresa para que restablezca tu acceso
