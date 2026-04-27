@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from app.models.schedule import Schedule
     from app.models.ticket import Ticket
     from app.models.user import User
+    from app.models.user_invitation import UserInvitation
 
 
 class Company(TimestampMixin, Base):
@@ -61,3 +62,4 @@ class Company(TimestampMixin, Base):
     schedules: Mapped[list[Schedule]] = relationship(back_populates="company", cascade="all, delete-orphan")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="company")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="company")
+    invitations: Mapped[list[UserInvitation]] = relationship(back_populates="company", cascade="all, delete-orphan")

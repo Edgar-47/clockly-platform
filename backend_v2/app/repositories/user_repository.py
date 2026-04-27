@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.refresh_token import RefreshToken
+from app.models.enums import UserRole
 from app.models.user import User
 
 
@@ -57,6 +58,21 @@ class UserRepository:
             stmt = stmt.where(User.is_active.is_(True))
         return int(self.db.scalar(stmt) or 0)
 
+    def count_by_company_and_role(
+        self,
+        company_id: UUID,
+        role: UserRole,
+        *,
+        include_inactive: bool = False,
+    ) -> int:
+        stmt = select(func.count(User.id)).where(
+            User.company_id == company_id,
+            User.role == role,
+        )
+        if not include_inactive:
+            stmt = stmt.where(User.is_active.is_(True))
+        return int(self.db.scalar(stmt) or 0)
+
     def add(self, user: User) -> User:
         self.db.add(user)
         self.db.flush()
@@ -83,4 +99,3 @@ class UserRepository:
         refresh_token.revoked_at = datetime.now(UTC)
         refresh_token.replaced_by_token_id = replacement_id
         self.db.add(refresh_token)
-

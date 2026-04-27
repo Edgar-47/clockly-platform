@@ -4,20 +4,6 @@ from app.models.enums import UserRole
 ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
     UserRole.SUPERADMIN: {
         "superadmin:access",
-        "employees:read",
-        "employees:write",
-        "schedules:read",
-        "schedules:write",
-        "attendance:read",
-        "attendance:write",
-        "attendance:manage",
-        "metrics:read",
-        "tickets:read",
-        "tickets:write",
-        "exports:read",
-        "locations:read",
-        "locations:write",
-        "users:manage",
     },
     UserRole.OWNER: {
         "employees:read",
@@ -70,8 +56,8 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
     },
 }
 
-# Roles that can access business administration features
-ADMIN_ROLES = {UserRole.SUPERADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER}
+# Roles that can access tenant administration features.
+ADMIN_ROLES = {UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER}
 
 
 def permissions_for_role(role: UserRole) -> list[str]:

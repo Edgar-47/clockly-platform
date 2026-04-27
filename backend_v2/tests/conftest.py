@@ -31,6 +31,7 @@ from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.schedule import Schedule  # noqa: F401
 from app.models.ticket import Ticket  # noqa: F401
 from app.models.user import User
+from app.models.user_invitation import UserInvitation  # noqa: F401
 from app.core.rate_limit import kiosk_limiter, login_limiter, refresh_limiter
 from app.services.plans import apply_plan_to_company
 

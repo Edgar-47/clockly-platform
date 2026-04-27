@@ -5,10 +5,12 @@ from app.models.company_location import CompanyLocation
 from app.models.company_usage_log import CompanyUsageLog
 from app.models.employee import Employee
 from app.models.enums import AttendanceMethod, AttendanceStatus, PlanType, TicketStatus, UserRole
+from app.models.enums import InvitationStatus
 from app.models.refresh_token import RefreshToken
 from app.models.schedule import Schedule
 from app.models.ticket import Ticket
 from app.models.user import User
+from app.models.user_invitation import UserInvitation
 
 __all__ = [
     "AttendanceMethod",
@@ -19,11 +21,13 @@ __all__ = [
     "CompanyLocation",
     "CompanyUsageLog",
     "Employee",
+    "InvitationStatus",
     "PlanType",
     "RefreshToken",
     "Schedule",
     "Ticket",
     "TicketStatus",
     "User",
+    "UserInvitation",
     "UserRole",
 ]

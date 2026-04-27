@@ -243,3 +243,11 @@ class TestSuperadminBlock:
 
         resp = client.get("/superadmin/status", headers=auth_headers(owner))
         assert resp.status_code == 403
+
+    def test_superadmin_cannot_use_tenant_employee_api(self, client, db):
+        company = make_company(db)
+        superadmin = make_user(db, company=company, email="root@test.com", role=UserRole.SUPERADMIN)
+        db.commit()
+
+        resp = client.get("/employees", headers=auth_headers(superadmin))
+        assert resp.status_code == 403

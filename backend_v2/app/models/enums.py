@@ -9,6 +9,13 @@ class UserRole(StrEnum):
     EMPLOYEE = "employee"
 
 
+class InvitationStatus(StrEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    EXPIRED = "expired"
+    REVOKED = "revoked"
+
+
 class PlanType(StrEnum):
     FREE = "free"
     PRO = "pro"
