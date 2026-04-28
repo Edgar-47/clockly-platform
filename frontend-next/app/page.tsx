@@ -67,10 +67,10 @@ export default function LandingPage() {
               Acceso admin
             </Link>
             <Link
-              href="#planes"
+              href="/register-company"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
             >
-              Ver planes
+              Crear empresa
             </Link>
           </div>
         </div>
@@ -96,10 +96,10 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/login"
+              href="/register-company"
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-primary-dark"
             >
-              Acceder al panel
+              Crear empresa
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
@@ -216,10 +216,10 @@ export default function LandingPage() {
             Accede al panel y trabaja sobre una base coherente de empleados, asistencia e incidencias.
           </p>
           <Link
-            href="/login"
+            href="/register-company"
             className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-bold text-primary transition-all hover:-translate-y-0.5 hover:bg-white/90"
           >
-            Acceder al panel
+            Crear empresa
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

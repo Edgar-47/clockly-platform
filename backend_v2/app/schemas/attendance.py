@@ -35,6 +35,11 @@ class AttendanceSessionRead(BaseModel):
     status: AttendanceStatus
     method: AttendanceMethod
     notes: str | None
+    company_timezone: str | None = None
+    is_corrected: bool = False
+    corrected_at: datetime | None = None
+    corrected_by_user_id: UUID | None = None
+    auto_closed: bool = False
     created_at: datetime
     updated_at: datetime
     employee: AttendanceEmployeeRead | None = None
@@ -87,6 +92,7 @@ class ClockInRequest(BaseModel):
     accuracy_meters: float | None = Field(default=None, ge=0.0)
     location_source: LocationSource = LocationSource.UNKNOWN
     location_permission_status: LocationPermissionStatus = LocationPermissionStatus.UNKNOWN
+    auto_close_open_session: bool = False
 
     @field_validator("pin", mode="before")
     @classmethod
@@ -157,3 +163,21 @@ class AttendanceQuery(BaseModel):
     status: AttendanceStatus | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None
+
+
+class AttendanceSessionAdminUpdate(BaseModel):
+    clock_in: datetime | None = None
+    clock_out: datetime | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+    mark_corrected: bool = True
+
+
+class AutoCloseOpenSessionsRequest(BaseModel):
+    older_than_hours: int | None = Field(default=None, ge=1, le=72)
+    close_at: datetime | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+class AutoCloseOpenSessionsResponse(BaseModel):
+    closed_count: int
+    items: list[AttendanceSessionRead]

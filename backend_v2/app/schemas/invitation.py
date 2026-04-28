@@ -35,6 +35,10 @@ class InvitationAccept(BaseModel):
         return value
 
 
+class InvitationAcceptByToken(InvitationAccept):
+    token: str = Field(min_length=32, max_length=512)
+
+
 class InvitationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -60,3 +64,12 @@ class InvitationListResponse(BaseModel):
 class InvitationAcceptResponse(BaseModel):
     ok: bool = True
     invitation: InvitationRead
+
+
+class InvitationPreviewResponse(BaseModel):
+    id: UUID
+    email: str
+    role: UserRole
+    company_name: str
+    status: InvitationStatus
+    expires_at: datetime

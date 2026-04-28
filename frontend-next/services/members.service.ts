@@ -6,6 +6,7 @@ import type {
   InvitationAcceptResponse,
   InvitationCreateRequest,
   InvitationCreateResponse,
+  InvitationPreview,
   Member,
 } from "@/types/member";
 
@@ -28,6 +29,9 @@ export const membersService = {
   revokeMember: (businessId: string, userId: string) =>
     api.delete<Member>(`/businesses/${businessId}/members/${userId}`),
 
+  previewInvitation: (token: string) =>
+    api.get<InvitationPreview>(`/invitations/${token}`),
+
   acceptInvitation: (token: string, payload: InvitationAcceptRequest) =>
-    api.post<InvitationAcceptResponse>(`/invitations/${token}/accept`, payload),
+    api.post<InvitationAcceptResponse>("/invitations/accept", { ...payload, token }),
 };

@@ -25,9 +25,12 @@ def current_plan(ctx: TenantContext = Depends(get_current_context)) -> CompanyPl
         has_exports=ctx.company.has_exports,
         has_advanced_filters=ctx.company.has_advanced_filters,
         has_multi_location=ctx.company.has_multi_location,
+        has_geolocation=ctx.company.has_geolocation,
         has_admin_reports=ctx.company.has_admin_reports,
         has_support=ctx.company.has_support,
         trial_ends_at=ctx.company.trial_ends_at,
         is_active_subscription=ctx.company.is_active_subscription,
+        is_beta_user=ctx.company.is_beta_user,
+        stripe_subscription_status=ctx.company.stripe_subscription_status,
         created_by=ctx.company.created_by,
     )

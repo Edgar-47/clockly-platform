@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     email_smtp_password: str | None = Field(default=None, validation_alias="CLOCKLY_EMAIL_SMTP_PASSWORD")
     email_smtp_use_tls: bool = Field(default=True, validation_alias="CLOCKLY_EMAIL_SMTP_USE_TLS")
     email_smtp_timeout_seconds: float = Field(default=10.0, validation_alias="CLOCKLY_EMAIL_SMTP_TIMEOUT_SECONDS")
+    stripe_secret_key: str | None = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str | None = Field(default=None, validation_alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_pro: str | None = Field(default=None, validation_alias="STRIPE_PRICE_PRO")
+    stripe_price_business: str | None = Field(default=None, validation_alias="STRIPE_PRICE_BUSINESS")
+    billing_success_url: str = Field(
+        default="http://localhost:3000/settings?billing=success",
+        validation_alias="CLOCKLY_BILLING_SUCCESS_URL",
+    )
+    billing_cancel_url: str = Field(
+        default="http://localhost:3000/upgrade?billing=cancelled",
+        validation_alias="CLOCKLY_BILLING_CANCEL_URL",
+    )
 
     @field_validator("cors_allowed_origins", "trusted_hosts", mode="before")
     @classmethod
@@ -101,6 +113,12 @@ class Settings(BaseSettings):
                 raise ValueError("CLOCKLY_RATE_LIMIT_ENABLED cannot be false in production.")
             if self.rate_limit_backend == "redis" and not self.redis_url:
                 raise ValueError("CLOCKLY_REDIS_URL must be set when CLOCKLY_RATE_LIMIT_BACKEND=redis.")
+            if self.email_provider == "noop":
+                raise ValueError("CLOCKLY_EMAIL_PROVIDER must be configured in production.")
+            if not self.stripe_secret_key:
+                raise ValueError("STRIPE_SECRET_KEY must be set in production.")
+            if not self.stripe_webhook_secret:
+                raise ValueError("STRIPE_WEBHOOK_SECRET must be set in production.")
         return self
 
 

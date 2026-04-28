@@ -73,14 +73,23 @@ class RedisSlidingWindowStore:
 
 
 class SlidingWindowLimiter:
-    def __init__(self, max_requests: int, window_seconds: int, *, store: RateLimitStore) -> None:
+    def __init__(
+        self,
+        max_requests: int,
+        window_seconds: int,
+        *,
+        store: RateLimitStore,
+        key_prefix: str,
+    ) -> None:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self._store = store
         self._buckets = getattr(store, "buckets", {})
+        self.key_prefix = key_prefix
 
     def check(self, key: str) -> None:
-        if not self._store.allow(key, max_requests=self.max_requests, window_seconds=self.window_seconds):
+        scoped_key = f"{self.key_prefix}:{key}"
+        if not self._store.allow(scoped_key, max_requests=self.max_requests, window_seconds=self.window_seconds):
             raise RateLimitError(
                 f"Demasiados intentos. Espera {self.window_seconds} segundos antes de volver a intentarlo."
             )
@@ -103,13 +112,19 @@ def _build_store() -> RateLimitStore:
 _store = _build_store()
 
 # 5 login attempts per IP per 60 s prevents credential brute force.
-login_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=60, store=_store)
+login_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=60, store=_store, key_prefix="login")
+
+# 5 public company registrations per IP per 5 min prevents signup abuse.
+registration_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=300, store=_store, key_prefix="registration")
+
+# 5 reset requests per IP per 5 min prevents mailbox and token abuse.
+password_reset_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=300, store=_store, key_prefix="password-reset")
 
 # 20 refresh attempts per IP per 60 s; real users should rarely hit this.
-refresh_limiter = SlidingWindowLimiter(max_requests=20, window_seconds=60, store=_store)
+refresh_limiter = SlidingWindowLimiter(max_requests=20, window_seconds=60, store=_store, key_prefix="refresh")
 
 # 10 kiosk clock-in/out attempts per IP per 60 s prevents PIN brute force.
-kiosk_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=60, store=_store)
+kiosk_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=60, store=_store, key_prefix="kiosk")
 
 
 def client_ip(request: Request) -> str:

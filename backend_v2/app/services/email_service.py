@@ -34,16 +34,30 @@ class InvitationEmail:
     expires_at: datetime
 
 
+@dataclass(frozen=True)
+class PasswordResetEmail:
+    to_email: str
+    full_name: str
+    reset_url: str
+    expires_at: datetime
+
+
 class EmailProvider(Protocol):
     def send(self, message: TransactionalEmail) -> None:
         ...
 
 
 class NoopEmailProvider:
+    def __init__(self, *, include_body_in_logs: bool = False) -> None:
+        self.include_body_in_logs = include_body_in_logs
+
     def send(self, message: TransactionalEmail) -> None:
+        extra = {"to_email": message.to_email, "subject": message.subject}
+        if self.include_body_in_logs:
+            extra["text_body"] = message.text_body
         logger.info(
             "Transactional email suppressed by noop provider.",
-            extra={"to_email": message.to_email, "subject": message.subject},
+            extra=extra,
         )
 
 
@@ -104,7 +118,7 @@ class EmailService:
         settings = settings or get_settings()
         provider = settings.email_provider
         if provider == "noop":
-            return cls(NoopEmailProvider())
+            return cls(NoopEmailProvider(include_body_in_logs=settings.environment.lower() != "production"))
         if provider == "smtp":
             if not settings.email_from or not settings.email_smtp_host:
                 raise EmailSendError("SMTP email provider is missing required configuration.")
@@ -131,6 +145,21 @@ class EmailService:
                 "Acepta la invitacion aqui:\n"
                 f"{invitation.acceptance_url}\n\n"
                 f"Este enlace caduca el {invitation.expires_at.isoformat()}."
+            ),
+        )
+        self.provider.send(message)
+
+    def send_password_reset_email(self, reset: PasswordResetEmail) -> None:
+        message = TransactionalEmail(
+            to_email=reset.to_email,
+            subject="Restablece tu contrasena de ClockLy",
+            text_body=(
+                f"Hola {reset.full_name},\n\n"
+                "Hemos recibido una solicitud para restablecer tu contrasena de ClockLy.\n"
+                "Puedes definir una nueva contrasena aqui:\n"
+                f"{reset.reset_url}\n\n"
+                f"Este enlace caduca el {reset.expires_at.isoformat()}.\n"
+                "Si no has solicitado este cambio, puedes ignorar este email."
             ),
         )
         self.provider.send(message)

@@ -17,12 +17,13 @@
 - Recommended order is to publish web SaaS + API first, then plan native mobile
   after MVP web flows are stable.
 
-## Onboarding Gap
+## Onboarding
 
-- Initial company/owner creation currently depends on `backend_v2/seed.py` or
-  manual provisioning.
-- Self-service company signup, owner creation, and first setup remain a product
-  blocker for open public acquisition.
+- Public company/owner creation is available through `/register-company`.
+- First setup is handled by `/onboarding`: company confirmation, first
+  employee, kiosk PIN, invitations, and completion.
+- `backend_v2/seed.py` remains a local demo helper only, not a production
+  provisioning dependency.
 
 ## Redis Rate Limiting
 
@@ -36,7 +37,9 @@
 ## Transactional Email
 
 - Invitation creation is the source of truth; email delivery is best-effort.
-- `CLOCKLY_EMAIL_PROVIDER=noop` keeps local development dependency-free.
+- Invitations and password reset use the shared transactional email service.
+- `CLOCKLY_EMAIL_PROVIDER=noop` keeps local development dependency-free and is
+  rejected in production.
 - `CLOCKLY_EMAIL_PROVIDER=smtp` is the first concrete provider.
 - Resend, SendGrid, and Mailgun are reserved provider names for future adapters.
 - A provider failure is logged and the API still returns `acceptance_url`.

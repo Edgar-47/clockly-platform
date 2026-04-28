@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import NamedTuple
 from uuid import UUID
 
-from sqlalchemy import Select, func, literal, select, union_all
+from sqlalchemy import Select, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.attendance_session import AttendanceSession
@@ -71,21 +71,66 @@ class AttendanceRepository:
 
     def get(self, session_id: UUID) -> AttendanceSession | None:
         return self.db.scalar(
-            select(AttendanceSession).where(
+            select(AttendanceSession)
+            .options(joinedload(AttendanceSession.employee))
+            .where(
                 AttendanceSession.id == session_id,
                 AttendanceSession.company_id == self.company_id,
             )
         )
 
-    def get_open_for_employee(self, employee_id: UUID, *, lock: bool = False) -> AttendanceSession | None:
+    def get_open_for_employee(
+        self,
+        employee_id: UUID,
+        *,
+        lock: bool = False,
+        exclude_session_id: UUID | None = None,
+    ) -> AttendanceSession | None:
         statement = select(AttendanceSession).where(
             AttendanceSession.company_id == self.company_id,
             AttendanceSession.employee_id == employee_id,
             AttendanceSession.status == AttendanceStatus.OPEN,
         )
+        if exclude_session_id is not None:
+            statement = statement.where(AttendanceSession.id != exclude_session_id)
         if lock:
             statement = statement.with_for_update()
         return self.db.scalar(statement)
+
+    def list_open_older_than(self, cutoff: datetime, *, limit: int = 500) -> list[AttendanceSession]:
+        return list(
+            self.db.scalars(
+                select(AttendanceSession)
+                .options(joinedload(AttendanceSession.employee))
+                .where(
+                    AttendanceSession.company_id == self.company_id,
+                    AttendanceSession.status == AttendanceStatus.OPEN,
+                    AttendanceSession.clock_in <= cutoff,
+                )
+                .order_by(AttendanceSession.clock_in.asc())
+                .limit(limit)
+                .with_for_update()
+            )
+        )
+
+    def find_overlapping_session(
+        self,
+        *,
+        employee_id: UUID,
+        clock_in: datetime,
+        clock_out: datetime | None,
+        exclude_session_id: UUID | None = None,
+    ) -> AttendanceSession | None:
+        statement = select(AttendanceSession).where(
+            AttendanceSession.company_id == self.company_id,
+            AttendanceSession.employee_id == employee_id,
+            AttendanceSession.status != AttendanceStatus.VOID,
+            AttendanceSession.clock_in < (clock_out if clock_out is not None else datetime.max.replace(tzinfo=UTC)),
+            or_(AttendanceSession.clock_out.is_(None), AttendanceSession.clock_out > clock_in),
+        )
+        if exclude_session_id is not None:
+            statement = statement.where(AttendanceSession.id != exclude_session_id)
+        return self.db.scalar(statement.limit(1))
 
     def add(self, session: AttendanceSession) -> AttendanceSession:
         self.db.add(session)

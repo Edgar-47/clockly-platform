@@ -8,9 +8,10 @@ import type { SessionReport } from "@/types/attendance";
 interface RecentSessionsProps {
   sessions?: SessionReport[];
   loading?: boolean;
+  companyTimeZone?: string;
 }
 
-export function RecentSessions({ sessions, loading }: RecentSessionsProps) {
+export function RecentSessions({ sessions, loading, companyTimeZone }: RecentSessionsProps) {
   return (
     <div className="rounded-lg border border-border bg-white shadow-xs">
       <div className="border-b border-border px-5 py-4">
@@ -71,11 +72,11 @@ export function RecentSessions({ sessions, loading }: RecentSessionsProps) {
                     {s.employee?.full_name ?? s.employee_name ?? `Empleado ${s.employee_id.slice(0, 8)}`}
                   </td>
                   <td className="px-5 py-3 text-[13px] text-ink-muted tabular-nums">
-                    {formatDateTime(s.clock_in_time)}
+                    {formatDateTime(s.clock_in_time, companyTimeZone)}
                   </td>
                   <td className="px-5 py-3 text-[13px] text-ink-muted tabular-nums">
                     {s.clock_out_time
-                      ? formatDateTime(s.clock_out_time)
+                      ? formatDateTime(s.clock_out_time, companyTimeZone)
                       : "—"}
                   </td>
                   <td className="px-5 py-3 text-[13px] text-ink-muted tabular-nums">

@@ -91,6 +91,14 @@ class InvitationService:
             raise ConflictError("A pending invitation already exists for this email.") from exc
         return InvitationCreateResult(invitation=invitation, acceptance_token=token)
 
+    def preview_invitation(self, token: str) -> UserInvitation:
+        invitation = self.invitations.get_by_token_hash(hash_token(token))
+        if invitation is None:
+            raise NotFoundError("Invitation not found.")
+        self._mark_expired_if_needed(invitation)
+        self.db.commit()
+        return invitation
+
     def revoke_invitation(self, invitation_id: UUID, *, actor: User) -> UserInvitation:
         self._assert_actor_can_manage_members(actor)
         invitation = self.invitations.get_by_id(invitation_id)
@@ -119,14 +127,7 @@ class InvitationService:
             raise ConflictError("Invitation cannot be reused.")
 
         now = datetime.now(UTC)
-        expires_at = invitation.expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=UTC)
-        if expires_at <= now:
-            invitation.status = InvitationStatus.EXPIRED
-            self.db.add(invitation)
-            self.db.commit()
-            raise ConflictError("Invitation has expired.")
+        self._raise_if_expired(invitation, now)
 
         existing_user = self.users.get_by_email(invitation.email)
         if existing_user is not None:
@@ -209,6 +210,26 @@ class InvitationService:
 
     def _expire_pending_invitations(self) -> None:
         self.invitations.mark_expired_before(datetime.now(UTC))
+
+    def _mark_expired_if_needed(self, invitation: UserInvitation) -> None:
+        if invitation.status != InvitationStatus.PENDING:
+            return
+        expires_at = invitation.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at <= datetime.now(UTC):
+            invitation.status = InvitationStatus.EXPIRED
+            self.db.add(invitation)
+
+    def _raise_if_expired(self, invitation: UserInvitation, now: datetime) -> None:
+        expires_at = invitation.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at <= now:
+            invitation.status = InvitationStatus.EXPIRED
+            self.db.add(invitation)
+            self.db.commit()
+            raise ConflictError("Invitation has expired.")
 
     def _assert_actor_can_invite(self, actor: User, target_role: UserRole) -> None:
         self._assert_actor_can_manage_members(actor)

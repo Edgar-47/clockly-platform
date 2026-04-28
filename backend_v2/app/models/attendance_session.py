@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,12 +22,21 @@ class AttendanceSession(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("duration_seconds IS NULL OR duration_seconds >= 0", name="duration_non_negative"),
         CheckConstraint("clock_out IS NULL OR clock_out >= clock_in", name="clock_out_after_clock_in"),
+        CheckConstraint(
+            "("
+            "(status = 'open' AND clock_out IS NULL AND duration_seconds IS NULL) OR "
+            "(status = 'closed' AND clock_out IS NOT NULL AND duration_seconds IS NOT NULL) OR "
+            "status = 'void'"
+            ")",
+            name="status_timestamp_consistency",
+        ),
         Index(
             "uq_attendance_sessions_one_open_per_employee",
             "company_id",
             "employee_id",
             unique=True,
             postgresql_where=text("status = 'open'"),
+            sqlite_where=text("status = 'open'"),
         ),
         Index("ix_attendance_sessions_company_clock_in", "company_id", "clock_in"),
         Index("ix_attendance_sessions_company_status", "company_id", "status"),
@@ -61,6 +70,10 @@ class AttendanceSession(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     closed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    corrected_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    corrected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     source: Mapped[str | None] = mapped_column(String(40))
 
     # Geolocation — clock-in
@@ -95,4 +108,3 @@ class AttendanceSession(TimestampMixin, Base):
 
     company: Mapped[Company] = relationship(back_populates="attendance_sessions")
     employee: Mapped[Employee] = relationship(back_populates="attendance_sessions")
-

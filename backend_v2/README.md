@@ -36,6 +36,7 @@ backend_v2/
 ### Visibles en el frontend web actual
 
 - `/auth/*`
+- `/onboarding/*`
 - `/employees/*`
 - `/attendance/*`
 - `/exports/attendance`
@@ -56,7 +57,7 @@ backend_v2/
 copy .env.example .env
 python -m pip install -r ..\requirements.txt
 alembic upgrade head
-python seed.py
+# Opcional: python seed.py para demo local. El alta real usa /register-company.
 python main.py --host 127.0.0.1 --port 8010 --reload
 ```
 
@@ -85,10 +86,16 @@ python -m pytest
 ## Notas de contrato
 
 - `GET /auth/me` es la fuente de verdad de la sesion.
+- `POST /auth/register-company` crea empresas nuevas sin `seed.py` y emite
+  sesion owner.
+- `POST /auth/request-password-reset` y `POST /auth/reset-password` cubren el
+  reset real con token seguro, expiracion y email transaccional.
 - El frontend hace refresh controlado con `POST /auth/refresh` tras `401`.
 - Las acciones de kiosk validan PIN en backend.
 - Las invitaciones intentan email transaccional si `CLOCKLY_EMAIL_PROVIDER` no
   es `noop`; ante fallo de envio se registra el error y se conserva el
   `acceptance_url` de fallback.
+- `CLOCKLY_EMAIL_PROVIDER=noop` solo es valido fuera de produccion; staging y
+  produccion deben configurar proveedor real.
 - El API de horarios existe, pero su UI web esta retirada del flujo principal
   hasta que el producto este completo end-to-end.

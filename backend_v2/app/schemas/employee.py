@@ -112,3 +112,26 @@ class EmployeeListResponse(BaseModel):
     total: int
     limit: int | None
     offset: int
+
+
+class EmployeePinReset(BaseModel):
+    pin: str | None = Field(default=None, min_length=4, max_length=4)
+
+    @field_validator("pin")
+    @classmethod
+    def validate_pin(cls, value: str | None) -> str | None:
+        if value and not value.isdigit():
+            raise ValueError("PIN must contain digits only.")
+        return value
+
+
+class EmployeeOwnPinChange(BaseModel):
+    current_pin: str | None = Field(default=None, min_length=4, max_length=4)
+    new_pin: str = Field(min_length=4, max_length=4)
+
+    @field_validator("current_pin", "new_pin")
+    @classmethod
+    def validate_pin(cls, value: str | None) -> str | None:
+        if value and not value.isdigit():
+            raise ValueError("PIN must contain digits only.")
+        return value

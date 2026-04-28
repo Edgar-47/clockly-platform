@@ -99,3 +99,19 @@ class UserRepository:
         refresh_token.revoked_at = datetime.now(UTC)
         refresh_token.replaced_by_token_id = replacement_id
         self.db.add(refresh_token)
+
+    def revoke_active_refresh_tokens_for_user(self, user_id: UUID) -> int:
+        tokens = list(
+            self.db.scalars(
+                select(RefreshToken).where(
+                    RefreshToken.user_id == user_id,
+                    RefreshToken.revoked_at.is_(None),
+                )
+            )
+        )
+        now = datetime.now(UTC)
+        for token in tokens:
+            if token.is_active:
+                token.revoked_at = now
+                self.db.add(token)
+        return len(tokens)

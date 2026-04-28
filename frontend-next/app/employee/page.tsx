@@ -1,6 +1,8 @@
 "use client";
 
-import { Clock, LogOut, TicketCheck, CheckCircle2, Circle } from "lucide-react";
+import { type FormEvent, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { Clock, LogOut, TicketCheck, CheckCircle2, Circle, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useEmployeeSession, useLogout } from "@/hooks/use-auth";
 import { useClockIn, useClockOut, useAttendanceHistory } from "@/hooks/use-attendance";
@@ -11,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/shared/logo";
 import { formatDateTime, formatSeconds } from "@/lib/format";
+import { employeesService } from "@/services/employees.service";
 import type { TicketCreateRequest, TicketStatus } from "@/types/ticket";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -25,6 +28,17 @@ export default function EmployeePage() {
   const logout = useLogout();
   const clockIn = useClockIn();
   const clockOut = useClockOut();
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const changePin = useMutation({
+    mutationFn: () => employeesService.changeOwnPin({ current_pin: currentPin || undefined, new_pin: newPin }),
+    onSuccess: () => {
+      setCurrentPin("");
+      setNewPin("");
+      toast.success("PIN actualizado.");
+    },
+    onError: (error) => toast.error((error as Error).message ?? "No se pudo cambiar el PIN."),
+  });
 
   // Backend scopes sessions to this employee automatically.
   const { data: openSessions, isLoading: statusLoading } = useAttendanceHistory({ status: "open" });
@@ -61,6 +75,8 @@ export default function EmployeePage() {
 
   const activeSession = openSessions?.[0] ?? null;
   const isClockedIn = Boolean(activeSession);
+  const companyTimeZone = session.data.company.timezone;
+  const hasGeolocation = session.data.company.has_geolocation;
 
   const handleClockIn = () => {
     clockIn.mutate(undefined, {
@@ -93,6 +109,15 @@ export default function EmployeePage() {
       onSuccess: () => toast.success("Incidencia creada."),
       onError: () => toast.error("No se pudo crear la incidencia."),
     });
+  };
+
+  const handleChangePin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (newPin.length !== 4) {
+      toast.error("El PIN debe tener 4 digitos.");
+      return;
+    }
+    changePin.mutate();
   };
 
   return (
@@ -144,13 +169,20 @@ export default function EmployeePage() {
                   <div className="rounded-md border border-success-border bg-success-bg px-4 py-3 text-sm">
                     <p className="text-[13px] font-semibold text-success-DEFAULT">Trabajando desde</p>
                     <p className="text-[13px] text-ink-muted mt-0.5">
-                      {formatDateTime(activeSession.clock_in_time)}
+                      {formatDateTime(activeSession.clock_in_time, companyTimeZone)}
                     </p>
                     {activeSession.total_seconds != null && activeSession.total_seconds > 0 && (
                       <p className="text-[12px] text-ink-muted mt-0.5 tabular-nums">
                         {formatSeconds(activeSession.total_seconds)} trabajados
                       </p>
                     )}
+                  </div>
+                )}
+
+                {hasGeolocation && (
+                  <div className="flex gap-2 rounded-md border border-border bg-surface-bg px-3 py-2 text-[12px] text-ink-muted">
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    <span>Tu ubicacion se usara solo para validar el fichaje. Puedes denegar el permiso y el fichaje se registrara igualmente.</span>
                   </div>
                 )}
 
@@ -177,6 +209,34 @@ export default function EmployeePage() {
                 </div>
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Create ticket card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>PIN de kiosk</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangePin} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+              <input
+                value={currentPin}
+                onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="PIN actual"
+                inputMode="numeric"
+                className="rounded-md border border-border px-3 py-2 text-sm"
+              />
+              <input
+                value={newPin}
+                onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="Nuevo PIN"
+                inputMode="numeric"
+                className="rounded-md border border-border px-3 py-2 text-sm"
+              />
+              <Button type="submit" loading={changePin.isPending}>
+                Cambiar
+              </Button>
+            </form>
           </CardContent>
         </Card>
 

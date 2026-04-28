@@ -21,8 +21,13 @@ class CompanyRepository:
     def get_by_slug(self, slug: str) -> Company | None:
         return self.db.scalar(select(Company).where(Company.slug == slug))
 
+    def get_by_stripe_customer_id(self, customer_id: str) -> Company | None:
+        return self.db.scalar(select(Company).where(Company.stripe_customer_id == customer_id))
+
+    def get_by_stripe_subscription_id(self, subscription_id: str) -> Company | None:
+        return self.db.scalar(select(Company).where(Company.stripe_subscription_id == subscription_id))
+
     def add(self, company: Company) -> Company:
         self.db.add(company)
         self.db.flush()
         return company
-

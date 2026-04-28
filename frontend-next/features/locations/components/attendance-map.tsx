@@ -10,6 +10,7 @@ interface AttendanceMapProps {
   workLocations: WorkLocation[];
   selectedEventId?: string | null;
   onSelectEvent?: (event: AttendanceLocationEvent) => void;
+  companyTimeZone?: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -32,6 +33,7 @@ export function AttendanceMap({
   workLocations,
   selectedEventId,
   onSelectEvent,
+  companyTimeZone,
 }: AttendanceMapProps) {
   const mapRef = useRef<LeafletMap | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,7 +140,7 @@ export function AttendanceMap({
         });
 
         const marker = L.marker([lat, lng], { icon })
-          .bindPopup(buildPopupHtml(event))
+          .bindPopup(buildPopupHtml(event, companyTimeZone))
           .addTo(mapRef.current!);
 
         marker.on("click", () => onSelectEvent?.(event));
@@ -152,7 +154,7 @@ export function AttendanceMap({
         mapRef.current!.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
       }
     });
-  }, [events, onSelectEvent, selectedEventId]);
+  }, [companyTimeZone, events, onSelectEvent, selectedEventId]);
 
   // Pan to selected event
   useEffect(() => {
@@ -174,7 +176,7 @@ export function AttendanceMap({
   );
 }
 
-function buildPopupHtml(event: AttendanceLocationEvent): string {
+function buildPopupHtml(event: AttendanceLocationEvent, companyTimeZone?: string): string {
   const name = event.employee?.full_name ?? "Empleado";
   const type = event.event_type === "clock_in" ? "Entrada" : "Salida";
   const time = new Date(event.occurred_at).toLocaleString("es-ES", {
@@ -183,6 +185,7 @@ function buildPopupHtml(event: AttendanceLocationEvent): string {
     year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: companyTimeZone,
   });
   const statusLabel: Record<string, string> = {
     in_range: "En rango",

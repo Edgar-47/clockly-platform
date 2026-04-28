@@ -19,6 +19,7 @@ export interface PlanUsage {
     has_exports: boolean;
     has_advanced_filters: boolean;
     has_multi_location: boolean;
+    has_geolocation: boolean;
     has_admin_reports: boolean;
     has_support: boolean;
   };
@@ -30,6 +31,7 @@ export interface DashboardSummary {
     id: string;
     name: string;
     role: string;
+    timezone: string;
   } | null;
   usage: PlanUsage | null;
   total_employees: number;

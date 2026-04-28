@@ -17,6 +17,7 @@ export default function AnalyticsPage() {
   const employees = data?.metrics?.employees ?? [];
   const maxWorked = Math.max(...employees.map((employee) => employee.worked_seconds), 1);
   const recentSessions = data?.recent_sessions ?? [];
+  const companyTimeZone = me.data?.company.timezone;
 
   return (
     <>
@@ -132,7 +133,7 @@ export default function AnalyticsPage() {
                           {session.employee?.full_name ?? session.employee_name}
                         </p>
                         <p className="text-xs text-ink-muted">
-                          {formatDateTime(session.clock_in_time)}
+                          {formatDateTime(session.clock_in_time, companyTimeZone)}
                         </p>
                       </div>
                       <span className="shrink-0 text-sm font-medium text-ink-muted">

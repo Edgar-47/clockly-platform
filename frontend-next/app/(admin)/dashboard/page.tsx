@@ -59,6 +59,7 @@ export default function DashboardPage() {
           <RecentSessions
             sessions={data?.recent_sessions}
             loading={isLoading}
+            companyTimeZone={data?.business?.timezone}
           />
           <ActiveEmployees
             statuses={data?.clocked_in_statuses}

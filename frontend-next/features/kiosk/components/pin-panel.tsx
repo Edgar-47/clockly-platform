@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
-import { Delete, ArrowLeft } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Delete, ArrowLeft, MapPin } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useKioskStore } from "@/features/kiosk/kiosk.store";
@@ -21,12 +21,14 @@ export function PinPanel() {
 
   const clockIn = useClockIn();
   const clockOut = useClockOut();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isClockedIn = selectedEmployee?.is_clocked_in ?? false;
   const employee = selectedEmployee?.employee;
 
   const handleClock = useCallback(() => {
     if (!selectedEmployee) return;
+    setErrorMessage(null);
     const action = isClockedIn ? clockOut : clockIn;
     action.mutate(
       { employee_id: selectedEmployee.employee.id, method: "kiosk", pin },
@@ -36,9 +38,9 @@ export function PinPanel() {
           setTimeout(reset, 3000);
         },
         onError: (err) => {
-          toast.error(
-            (err as { detail?: string })?.detail ?? "Error al fichar",
-          );
+          const message = (err as Error).message || "Error al fichar";
+          setErrorMessage(message);
+          toast.error(message);
           clearPin();
         },
       },
@@ -95,6 +97,17 @@ export function PinPanel() {
             )}
           />
         ))}
+      </div>
+
+      {errorMessage && (
+        <div className="w-full rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-center text-sm font-semibold text-danger-DEFAULT">
+          {errorMessage}
+        </div>
+      )}
+
+      <div className="flex gap-2 rounded-md border border-border bg-surface-bg px-3 py-2 text-[12px] text-ink-muted">
+        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+        <span>Tu ubicacion se usara solo para validar el fichaje. Puedes denegar el permiso.</span>
       </div>
 
       {/* Numpad */}

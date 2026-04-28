@@ -73,10 +73,13 @@ Response:
     "has_exports": true,
     "has_advanced_filters": true,
     "has_multi_location": false,
+    "has_geolocation": true,
     "has_admin_reports": true,
     "has_support": true,
     "trial_ends_at": null,
     "is_active_subscription": true,
+    "is_beta_user": false,
+    "stripe_subscription_status": "active",
     "created_by": "uuid"
   },
   "permissions": [
@@ -85,6 +88,29 @@ Response:
   ]
 }
 ```
+
+### POST `/auth/register-company`
+
+Public endpoint used by `/register-company`.
+
+Request:
+
+```json
+{
+  "company_name": "Acme Clinic",
+  "owner_email": "owner@acme.example",
+  "owner_full_name": "Acme Owner",
+  "password": "strong-password",
+  "timezone": "Europe/Madrid",
+  "plan_type": "pro"
+}
+```
+
+Creates `Company`, owner `User`, plan-derived company fields, and
+`company_settings` for onboarding. The response is the same session payload as
+login and sets `clockly_access` and `clockly_refresh`.
+
+Duplicate owner email or duplicate company slug returns `409`.
 
 ### POST `/auth/refresh`
 
@@ -114,6 +140,56 @@ Response:
 }
 ```
 
+### POST `/auth/request-password-reset`
+
+Public endpoint used by `/forgot-password`.
+
+Request:
+
+```json
+{
+  "email": "owner@acme.example"
+}
+```
+
+Always returns the same success shape, whether or not the email exists. When an
+active user exists, the backend creates a hashed, expiring token and sends a
+transactional email containing `/reset-password/{token}`.
+
+### POST `/auth/reset-password`
+
+Public endpoint used by `/reset-password/{token}`.
+
+Request:
+
+```json
+{
+  "token": "...",
+  "password": "new-strong-password"
+}
+```
+
+Valid tokens change the user password, mark the token used, and revoke active
+refresh tokens for that user. Used or expired tokens return `409`; unknown
+tokens return `404`.
+
+## Onboarding
+
+Visible in the current web UI under `/onboarding` after public company
+registration:
+
+- `GET /onboarding/status`
+- `PUT /onboarding/company`
+- `POST /onboarding/first-employee`
+- `POST /onboarding/kiosk-pin`
+- `POST /onboarding/invitations`
+- `POST /onboarding/invitations/skip`
+- `POST /onboarding/complete`
+
+All onboarding endpoints require an authenticated owner/admin session
+(`users:manage`). Completion requires at least one active employee and at least
+one kiosk PIN configured on an employee.
+
 ## Members and invitations
 
 Visible in the current web UI under `/settings`:
@@ -124,6 +200,8 @@ Visible in the current web UI under `/settings`:
 - `DELETE /businesses/{business_id}/invitations/{invitation_id}`
 - `POST /businesses/{business_id}/members/{user_id}/role`
 - `DELETE /businesses/{business_id}/members/{user_id}`
+- `GET /invitations/{token}`
+- `POST /invitations/accept`
 - `POST /invitations/{token}/accept`
 
 Tenant member management requires `users:manage`, currently granted to `owner`
@@ -161,6 +239,9 @@ Invitation states: `pending`, `accepted`, `expired`, `revoked`.
 ### POST `/invitations/{token}/accept`
 
 Public endpoint used by `/accept-invitation/{token}`.
+
+The same acceptance flow is also available as `POST /invitations/accept` with
+the token in the request body, which is the preferred web client path.
 
 Request:
 
@@ -201,8 +282,51 @@ Plans expose company capabilities such as:
 - `has_exports`
 - `has_advanced_filters`
 - `has_multi_location`
+- `has_geolocation`
 - `has_admin_reports`
 - `has_support`
+
+## Billing
+
+Stripe Billing is the active monetization path:
+
+- `POST /billing/checkout`
+- `POST /billing/portal`
+- `POST /billing/webhook`
+
+`POST /billing/checkout` requires `users:manage` and creates a Stripe Checkout
+Session in subscription mode for `pro` or `business`.
+
+Request:
+
+```json
+{
+  "plan_type": "pro"
+}
+```
+
+Response:
+
+```json
+{
+  "url": "https://checkout.stripe.com/..."
+}
+```
+
+`POST /billing/portal` creates a Stripe Customer Portal session for the active
+tenant customer.
+
+The webhook accepts Stripe events and updates tenant billing state. Supported
+events:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+
+Subscription create/update maps Stripe Price IDs back to `PlanType` and syncs
+plan-derived tenant capabilities. Subscription deletion moves the tenant back
+to Free and marks the subscription inactive.
 
 ## Employees
 
@@ -212,6 +336,8 @@ Visible in the current web UI (`/employees`):
 - `GET /employees/{employee_id}`
 - `POST /employees`
 - `PATCH /employees/{employee_id}`
+- `POST /employees/{employee_id}/pin`
+- `POST /employees/me/pin`
 
 Contract notes:
 
@@ -221,6 +347,8 @@ Contract notes:
 - Employee creation can include login credentials and a 4-digit kiosk PIN.
 - Employee updates accept `hired_on`, so the web field "Fecha de alta"
   persists through `PATCH /employees/{employee_id}`.
+- Admins can reset or clear kiosk PINs with `POST /employees/{employee_id}/pin`.
+- Employees can change their own PIN with `POST /employees/me/pin`.
 
 ## Attendance
 
@@ -229,6 +357,8 @@ Visible in the current web UI (`/sessions`, `/employee`, `/kiosk`):
 - `GET /attendance/sessions`
 - `POST /attendance/clock-in`
 - `POST /attendance/clock-out`
+- `PATCH /attendance/sessions/{session_id}`
+- `POST /attendance/sessions/bulk/auto-close`
 
 ### GET `/attendance/sessions`
 
@@ -243,6 +373,8 @@ Notes:
 
 - Employee users are automatically scoped to their own sessions.
 - Advanced filters require `has_advanced_filters`.
+- Datetime responses are serialized in the tenant company timezone. The backend
+  stores all timestamps in UTC.
 
 ### POST `/attendance/clock-in`
 
@@ -253,7 +385,13 @@ Request:
   "employee_id": "uuid",
   "method": "kiosk",
   "pin": "1234",
-  "notes": "optional"
+  "notes": "optional",
+  "auto_close_open_session": false,
+  "latitude": 41.3851,
+  "longitude": 2.1734,
+  "accuracy_meters": 15,
+  "location_source": "browser",
+  "location_permission_status": "granted"
 }
 ```
 
@@ -267,9 +405,48 @@ Request:
   "session_id": "uuid",
   "method": "kiosk",
   "pin": "1234",
-  "notes": "optional"
+  "notes": "optional",
+  "latitude": 41.3851,
+  "longitude": 2.1734,
+  "accuracy_meters": 15,
+  "location_source": "browser",
+  "location_permission_status": "granted"
 }
 ```
+
+### PATCH `/attendance/sessions/{session_id}`
+
+Admin correction endpoint. It validates tenant ownership, prevents overlapping
+sessions, recalculates duration, and marks the session corrected.
+
+Request:
+
+```json
+{
+  "clock_in": "2026-04-28T09:00:00",
+  "clock_out": "2026-04-28T17:30:00",
+  "notes": "Correccion validada por administracion",
+  "mark_corrected": true
+}
+```
+
+Naive datetimes are interpreted in the tenant company timezone before storing
+UTC.
+
+### POST `/attendance/sessions/bulk/auto-close`
+
+Admin endpoint for optional automatic closure of stale open sessions.
+
+Request:
+
+```json
+{
+  "older_than_hours": 16,
+  "notes": "Cierre automatico de fin de jornada"
+}
+```
+
+Response includes `closed_count` and the corrected sessions.
 
 Kiosk/PIN rules:
 
@@ -280,6 +457,8 @@ Kiosk/PIN rules:
 - Admin-managed kiosk actions are validated in the backend against the
   employee PIN hash.
 - Employees clocking their own web session do not need a PIN.
+- Kiosk attempts are rate limited and return `429` with a clear message when
+  too many PIN attempts are made.
 
 ## Exports
 
@@ -295,6 +474,9 @@ Contract notes:
 - Requires `has_exports`.
 - Filtered exports also require `has_advanced_filters`.
 - Response is a file download with `Content-Disposition`.
+- XLSX/PDF exports include employee, DNI/ID, entry/exit dates and times,
+  `hh:mm` duration, status, notes, company name, report range, and tenant
+  timezone.
 
 ## Metrics
 
@@ -365,6 +547,9 @@ Work-location endpoints:
 - `DELETE /locations/{location_id}`
 
 Creating locations requires `has_multi_location`.
+Attendance-location map endpoints require `has_geolocation`. Clock-in/out never
+blocks solely because location permission is denied; denied/unavailable status
+is stored with the attendance session.
 
 Known MVP limitation: `work_location_id` filtering is present in the
 attendance-location query contract but is not linked to sessions yet; geofence
@@ -404,9 +589,10 @@ no tenant permissions.
   production can switch strategy with `CLOCKLY_RATE_LIMIT_BACKEND=redis` and
   `CLOCKLY_REDIS_URL`. `CLOCKLY_RATE_LIMIT_ENABLED=false` is rejected in
   production.
-- Transactional email defaults to `CLOCKLY_EMAIL_PROVIDER=noop`. SMTP is the
-  first concrete provider; Resend, SendGrid, and Mailgun are reserved adapter
-  names for future provider modules.
+- Transactional email defaults to `CLOCKLY_EMAIL_PROVIDER=noop` only outside
+  production. Production rejects `noop`; SMTP is the first concrete provider.
+  Resend, SendGrid, and Mailgun are reserved adapter names for future provider
+  modules.
 - Audit logs are written for failed login, invitation lifecycle events, member
   role/access changes, and permission denials.
 
@@ -420,7 +606,7 @@ no tenant permissions.
 - Required staging baseline:
   - managed PostgreSQL
   - `alembic upgrade head`
-  - real SMTP provider for invitations
+- real SMTP provider for invitations and password reset
   - Redis-backed rate limiting for multi-worker deployment
   - `CLOCKLY_ENV=production`
   - explicit CORS origins and trusted hosts
@@ -429,9 +615,9 @@ no tenant permissions.
 - E2E CI is gated by `E2E_ENABLED=true` and `E2E_OWNER_PASSWORD`. Recommended
   scenarios: invitation accepted, employee portal, kiosk with PIN,
   geolocation granted, geolocation denied, and plan gating.
-- Current onboarding remains seed/manual provisioning through
-  `backend_v2/seed.py`; self-service company/owner signup is a product
-  blocker for public acquisition.
+- Self-service company/owner onboarding is available through
+  `/register-company` and `/onboarding`; `backend_v2/seed.py` remains local
+  demo provisioning only.
 - Legal/operational checklist before real customers: privacy policy,
   punctual-geolocation notice, attendance retention policy, data export
   process, terms of service, and documented consent or legal basis for
@@ -441,7 +627,6 @@ no tenant permissions.
 
 These are not current product features and must not be described as active:
 
-- forgot password reset flow
 - expenses UI
 - businesses UI / multi-business switcher
 - schedules UI

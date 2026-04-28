@@ -13,11 +13,13 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.timezones import to_tenant_timezone
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.models.attendance_session import AttendanceSession
 from app.models.employee import Employee
 from app.models.enums import AttendanceMethod, AttendanceStatus, LocationPermissionStatus, LocationSource, LocationStatus
+from app.services.plans import check_plan_feature
 
 
 router = APIRouter(prefix="/attendance-locations", tags=["attendance-locations"])
@@ -140,6 +142,7 @@ def list_location_events(
     ctx: TenantContext = Depends(require_permission("locations:read")),
     db: Session = Depends(get_db),
 ) -> AttendanceLocationListResponse:
+    check_plan_feature(db, ctx.company_id, "has_geolocation", actor_user_id=ctx.user.id)
     base = _apply_filters(
         _base_query(db, ctx.company_id),
         employee_id=employee_id,
@@ -163,7 +166,7 @@ def list_location_events(
                 employee_id=s.employee_id,
                 employee=emp,
                 event_type="clock_in",
-                occurred_at=s.clock_in,
+                occurred_at=to_tenant_timezone(s.clock_in, ctx.company.timezone),
                 latitude=s.clock_in_latitude,
                 longitude=s.clock_in_longitude,
                 accuracy_meters=s.clock_in_accuracy_meters,
@@ -184,7 +187,7 @@ def list_location_events(
                     employee_id=s.employee_id,
                     employee=emp,
                     event_type="clock_out",
-                    occurred_at=s.clock_out,
+                    occurred_at=to_tenant_timezone(s.clock_out, ctx.company.timezone),
                     latitude=s.clock_out_latitude,
                     longitude=s.clock_out_longitude,
                     accuracy_meters=s.clock_out_accuracy_meters,
@@ -206,6 +209,7 @@ def latest_locations(
     db: Session = Depends(get_db),
 ) -> list[LatestLocationItem]:
     """Return the most recent attended session per employee (open preferred)."""
+    check_plan_feature(db, ctx.company_id, "has_geolocation", actor_user_id=ctx.user.id)
     # Subquery: max clock_in per employee
     sub = (
         select(
@@ -228,7 +232,7 @@ def latest_locations(
             employee_id=s.employee_id,
             employee=_employee_snippet(s),
             session_id=s.id,
-            occurred_at=s.clock_in,
+            occurred_at=to_tenant_timezone(s.clock_in, ctx.company.timezone),
             latitude=s.clock_in_latitude,
             longitude=s.clock_in_longitude,
             location_status=s.clock_in_location_status,
@@ -246,6 +250,7 @@ def location_summary(
     ctx: TenantContext = Depends(require_permission("locations:read")),
     db: Session = Depends(get_db),
 ) -> LocationSummary:
+    check_plan_feature(db, ctx.company_id, "has_geolocation", actor_user_id=ctx.user.id)
     base = select(AttendanceSession).where(AttendanceSession.company_id == ctx.company_id)
     if date_from:
         base = base.where(AttendanceSession.clock_in >= date_from)

@@ -1,11 +1,15 @@
 "use client";
 
 import { CheckCircle2, Sparkles } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePlans } from "@/hooks/use-plans";
 import { cn } from "@/lib/utils";
 import type { PlanType } from "@/types/plan";
+import { billingService } from "@/services/billing.service";
 
 interface PlanCardsProps {
   currentPlan?: PlanType;
@@ -14,6 +18,13 @@ interface PlanCardsProps {
 
 export function PlanCards({ currentPlan, compact = false }: PlanCardsProps) {
   const plans = usePlans();
+  const checkout = useMutation({
+    mutationFn: (plan: Exclude<PlanType, "free">) => billingService.checkout(plan),
+    onSuccess: ({ url }) => {
+      window.location.href = url;
+    },
+    onError: (error) => toast.error((error as Error).message ?? "No se pudo iniciar el checkout."),
+  });
 
   if (plans.isLoading) {
     return (
@@ -67,6 +78,16 @@ export function PlanCards({ currentPlan, compact = false }: PlanCardsProps) {
                 </li>
               ))}
             </ul>
+            {!isCurrent && plan.code !== "free" && (
+              <Button
+                className="mt-5 w-full"
+                variant={plan.recommended ? "default" : "secondary"}
+                loading={checkout.isPending}
+                onClick={() => checkout.mutate(plan.code as Exclude<PlanType, "free">)}
+              >
+                {plan.cta_label}
+              </Button>
+            )}
           </div>
         );
       })}

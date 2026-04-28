@@ -28,6 +28,7 @@ export const dashboardService = {
         id: me.company.id,
         name: me.company.name,
         role: me.user.role,
+        timezone: me.company.timezone,
       },
       usage: {
         plan: {
@@ -37,6 +38,7 @@ export const dashboardService = {
           has_exports: me.company.has_exports,
           has_advanced_filters: me.company.has_advanced_filters,
           has_multi_location: me.company.has_multi_location,
+          has_geolocation: me.company.has_geolocation,
           has_admin_reports: me.company.has_admin_reports,
           has_support: me.company.has_support,
         },

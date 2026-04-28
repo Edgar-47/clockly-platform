@@ -46,6 +46,10 @@ function normalizeSession(session: SessionReport): SessionReport {
     clock_out_time: session.clock_out_time ?? session.clock_out,
     is_active: session.is_active ?? session.status === "open",
     total_seconds: session.total_seconds ?? session.duration_seconds,
+    is_corrected: session.is_corrected ?? false,
+    corrected_at: session.corrected_at ?? null,
+    corrected_by_user_id: session.corrected_by_user_id ?? null,
+    auto_closed: session.auto_closed ?? false,
     employee_name: employee?.full_name ?? session.employee_name,
     employee_initials: employee?.initials ?? session.employee_initials,
     employee: employee
@@ -117,8 +121,8 @@ export const attendanceService = {
 
   history: (filters: AttendanceHistoryFilters = {}) => {
     const params = new URLSearchParams();
-    if (filters.date_from) params.set("date_from", filters.date_from);
-    if (filters.date_to) params.set("date_to", filters.date_to);
+    if (filters.date_from) params.set("date_from", `${filters.date_from}T00:00:00`);
+    if (filters.date_to) params.set("date_to", `${filters.date_to}T23:59:59`);
     if (filters.employee_id)
       params.set("employee_id", String(filters.employee_id));
     if (filters.status) params.set("status", filters.status);
@@ -132,10 +136,21 @@ export const attendanceService = {
 
   downloadExport: (format: "excel" | "pdf", filters: AttendanceHistoryFilters = {}) => {
     const params = new URLSearchParams({ format });
-    if (filters.date_from) params.set("date_from", filters.date_from);
-    if (filters.date_to) params.set("date_to", filters.date_to);
+    if (filters.date_from) params.set("date_from", `${filters.date_from}T00:00:00`);
+    if (filters.date_to) params.set("date_to", `${filters.date_to}T23:59:59`);
     if (filters.employee_id) params.set("employee_id", filters.employee_id);
     if (filters.status) params.set("status", filters.status);
     return api.download(`/exports/attendance?${params}`);
   },
+
+  updateSession: (id: string, payload: { clock_in?: string; clock_out?: string | null; notes?: string | null; mark_corrected?: boolean }) =>
+    api.patch<SessionReport>(`/attendance/sessions/${id}`, payload).then(normalizeSession),
+
+  autoCloseOpen: (payload?: { older_than_hours?: number; notes?: string }) =>
+    api
+      .post<{ closed_count: number; items: SessionReport[] }>("/attendance/sessions/bulk/auto-close", payload)
+      .then((response) => ({
+        ...response,
+        items: response.items.map(normalizeSession),
+      })),
 };

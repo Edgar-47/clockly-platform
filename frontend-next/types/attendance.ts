@@ -16,6 +16,11 @@ export interface AttendanceSession {
   status: "open" | "closed" | "void";
   method: "web" | "kiosk" | "mobile" | "pin" | "admin";
   notes: string | null;
+  company_timezone?: string | null;
+  is_corrected: boolean;
+  corrected_at: string | null;
+  corrected_by_user_id: string | null;
+  auto_closed: boolean;
   created_at: string;
   updated_at: string;
   employee_name?: string;
@@ -87,6 +92,7 @@ export interface ClockRequest {
   accuracy_meters?: number;
   location_source?: string;
   location_permission_status?: string;
+  auto_close_open_session?: boolean;
 }
 
 export interface AttendanceHistoryFilters {

@@ -18,12 +18,16 @@ frontend Jinja ni con otra SPA activa dentro de este repo.
 
 - `/`
 - `/login`
+- `/register-company`
+- `/forgot-password`
+- `/reset-password/{token}`
 - `/accept-invitation/{token}`
 - `/access-unavailable`
 
 ### Admin
 
 - `/dashboard`
+- `/onboarding`
 - `/employees`
 - `/sessions`
 - `/analytics`
@@ -39,7 +43,6 @@ frontend Jinja ni con otra SPA activa dentro de este repo.
 
 Estas rutas existen solo para redirigir fuera de superficies no listas:
 
-- `/forgot-password`
 - `/expenses`
 - `/businesses`
 - `/schedules`
@@ -63,6 +66,9 @@ npm run lint
 ## Notas operativas
 
 - El kiosk ya no es una demo publica: requiere sesion admin activa.
+- `/register-company` crea tenant + owner y redirige al wizard `/onboarding`.
+- `/forgot-password` y `/reset-password/{token}` usan el reset real del
+  backend; no exponen si un email existe.
 - Solo aparecen en el kiosk empleados activos con PIN configurado.
 - Los E2E autenticados saltan localmente si no hay `E2E_OWNER_PASSWORD`, pero
   fallan explicitamente en CI cuando `E2E_AUTH_REQUIRED=true`.

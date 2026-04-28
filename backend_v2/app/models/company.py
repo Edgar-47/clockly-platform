@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.models.attendance_session import AttendanceSession
     from app.models.employee import Employee
     from app.models.company_location import CompanyLocation
+    from app.models.company_settings import CompanySettings
     from app.models.schedule import Schedule
     from app.models.ticket import Ticket
     from app.models.user import User
@@ -41,10 +42,15 @@ class Company(TimestampMixin, Base):
     has_exports: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     has_advanced_filters: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     has_multi_location: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_geolocation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     has_admin_reports: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     has_support: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_active_subscription: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_beta_user: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(120), unique=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(120), unique=True)
+    stripe_subscription_status: Mapped[str | None] = mapped_column(String(80))
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -63,3 +69,8 @@ class Company(TimestampMixin, Base):
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="company")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="company")
     invitations: Mapped[list[UserInvitation]] = relationship(back_populates="company", cascade="all, delete-orphan")
+    settings: Mapped[CompanySettings | None] = relationship(
+        back_populates="company",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )

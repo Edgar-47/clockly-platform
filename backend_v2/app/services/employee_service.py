@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, PermissionDenied
-from app.core.security import hash_password, hash_pin
+from app.core.security import hash_password, hash_pin, verify_password
 from app.models.employee import Employee
 from app.models.enums import UserRole
 from app.models.user import User
@@ -164,6 +164,28 @@ class EmployeeService:
             _raise_from_integrity(exc)
 
         logger.info("[EmployeeService] Employee updated: id=%s", employee_id)
+        return employee
+
+    def reset_pin(self, employee_id: UUID, pin: str | None, *, actor_user_id: UUID | None = None) -> Employee:
+        employee = self.employees.get(employee_id)
+        if employee is None:
+            raise NotFoundError("Employee not found.")
+        employee.pin_hash = hash_pin(pin) if pin else None
+        self.db.add(employee)
+        self.db.commit()
+        logger.info("[EmployeeService] Kiosk PIN reset for employee=%s by user=%s", employee_id, actor_user_id)
+        return employee
+
+    def change_own_pin(self, actor: User, *, current_pin: str | None, new_pin: str) -> Employee:
+        employee = self.employees.get_by_user_id(actor.id)
+        if employee is None:
+            raise NotFoundError("Employee not found.")
+        if employee.pin_hash and (not current_pin or not verify_password(current_pin, employee.pin_hash)):
+            raise PermissionDenied("Current PIN is incorrect.")
+        employee.pin_hash = hash_pin(new_pin)
+        self.db.add(employee)
+        self.db.commit()
+        logger.info("[EmployeeService] Employee changed own kiosk PIN: employee=%s", employee.id)
         return employee
 
 

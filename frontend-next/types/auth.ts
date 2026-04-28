@@ -23,6 +23,8 @@ export interface CompanyContext extends PlanFeatures {
   max_employees: number | null;
   trial_ends_at: string | null;
   is_active_subscription: boolean;
+  is_beta_user: boolean;
+  stripe_subscription_status: string | null;
   created_by: string | null;
 }
 
@@ -45,6 +47,29 @@ export interface MePayload {
 export interface LoginRequest {
   identifier: string;
   password: string;
+}
+
+export interface RegisterCompanyRequest {
+  company_name: string;
+  owner_email: string;
+  owner_full_name: string;
+  password: string;
+  timezone: string;
+  plan_type: PlanType;
+}
+
+export interface PasswordResetRequest {
+  email: string;
+}
+
+export interface PasswordResetConfirmRequest {
+  token: string;
+  password: string;
+}
+
+export interface MessageResponse {
+  ok: true;
+  message: string;
 }
 
 // Superadmin is reserved for a future internal console and must not enter tenant dashboards.

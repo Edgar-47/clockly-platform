@@ -34,3 +34,12 @@ export interface InvitationAcceptResponse {
   ok: true;
   invitation: Invitation;
 }
+
+export interface InvitationPreview {
+  id: string;
+  email: string;
+  role: UserRole;
+  company_name: string;
+  status: InvitationStatus;
+  expires_at: string;
+}

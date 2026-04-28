@@ -7,7 +7,14 @@ from app.core.errors import NotFoundError
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.repositories.employee_repository import EmployeeRepository
-from app.schemas.employee import EmployeeCreate, EmployeeListResponse, EmployeeRead, EmployeeUpdate
+from app.schemas.employee import (
+    EmployeeCreate,
+    EmployeeListResponse,
+    EmployeeOwnPinChange,
+    EmployeePinReset,
+    EmployeeRead,
+    EmployeeUpdate,
+)
 from app.services.employee_service import EmployeeService
 
 
@@ -59,3 +66,30 @@ def update_employee(
     db: Session = Depends(get_db),
 ) -> EmployeeRead:
     return EmployeeService(db, company_id=ctx.company_id).update_employee(employee_id, payload, actor_user_id=ctx.user.id)
+
+
+@router.post("/me/pin", response_model=EmployeeRead)
+def change_own_pin(
+    payload: EmployeeOwnPinChange,
+    ctx: TenantContext = Depends(require_permission("attendance:write")),
+    db: Session = Depends(get_db),
+) -> EmployeeRead:
+    return EmployeeService(db, company_id=ctx.company_id).change_own_pin(
+        ctx.user,
+        current_pin=payload.current_pin,
+        new_pin=payload.new_pin,
+    )
+
+
+@router.post("/{employee_id}/pin", response_model=EmployeeRead)
+def reset_employee_pin(
+    employee_id: UUID,
+    payload: EmployeePinReset,
+    ctx: TenantContext = Depends(require_permission("employees:write")),
+    db: Session = Depends(get_db),
+) -> EmployeeRead:
+    return EmployeeService(db, company_id=ctx.company_id).reset_pin(
+        employee_id,
+        payload.pin,
+        actor_user_id=ctx.user.id,
+    )

@@ -3,7 +3,7 @@
 import { type FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MailPlus, ShieldCheck, UserMinus } from "lucide-react";
+import { CreditCard, MailPlus, ShieldCheck, UserMinus } from "lucide-react";
 import { Topbar } from "@/components/shared/topbar";
 import { PlanCards } from "@/components/shared/plan-cards";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMe } from "@/hooks/use-auth";
 import { membersService } from "@/services/members.service";
+import { billingService } from "@/services/billing.service";
 import type { UserRole } from "@/types/auth";
 import type { InvitationCreateResponse, Member } from "@/types/member";
 
@@ -119,6 +120,16 @@ export default function SettingsPage() {
     },
   });
 
+  const openBillingPortal = useMutation({
+    mutationFn: () => billingService.portal(window.location.href),
+    onSuccess: ({ url }) => {
+      window.location.href = url;
+    },
+    onError: (error: { detail?: string; message?: string }) => {
+      toast.error(error.detail ?? error.message ?? "No se pudo abrir el portal de facturacion.");
+    },
+  });
+
   function handleInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!company || !inviteEmail.trim()) return;
@@ -153,6 +164,17 @@ export default function SettingsPage() {
                 <dd className="text-[14px] font-semibold text-ink">{company?.timezone ?? "-"}</dd>
               </div>
             </dl>
+            <div className="mt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                loading={openBillingPortal.isPending}
+                onClick={() => openBillingPortal.mutate()}
+              >
+                <CreditCard className="h-4 w-4" />
+                Gestionar facturacion
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

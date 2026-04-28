@@ -4,6 +4,8 @@ Covers: normal flow, double clock-in, inactive employee,
 kiosk PIN validation, employee self-scope enforcement.
 """
 
+from datetime import UTC, datetime, timedelta
+
 from tests.conftest import auth_headers, make_company, make_employee, make_open_session, make_user
 from app.models.enums import UserRole
 
@@ -197,3 +199,50 @@ class TestAttendancePagination:
         data = resp.json()
         assert len(data["items"]) == 2
         assert data["total"] == 5
+
+
+class TestAttendanceAdminCorrections:
+    def test_admin_edits_session_and_marks_corrected(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        session = make_open_session(db, company=company, employee=emp, user=admin)
+        db.commit()
+
+        resp = client.patch(
+            f"/attendance/sessions/{session.id}",
+            headers=auth_headers(admin),
+            json={
+                "clock_in": "2026-04-28T09:00:00",
+                "clock_out": "2026-04-28T17:30:00",
+                "notes": "Correccion administrativa",
+                "mark_corrected": True,
+            },
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "closed"
+        assert data["duration_seconds"] == 30600
+        assert data["is_corrected"] is True
+        assert data["notes"] == "Correccion administrativa"
+
+    def test_admin_auto_closes_old_open_sessions(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        session = make_open_session(db, company=company, employee=emp, user=admin)
+        session.clock_in = datetime.now(UTC) - timedelta(hours=20)
+        db.commit()
+
+        resp = client.post(
+            "/attendance/sessions/bulk/auto-close",
+            headers=auth_headers(admin),
+            json={"older_than_hours": 16, "notes": "Auto cierre"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["closed_count"] == 1
+        assert data["items"][0]["status"] == "closed"
+        assert data["items"][0]["auto_closed"] is True

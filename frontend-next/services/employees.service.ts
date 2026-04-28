@@ -28,4 +28,10 @@ export const employeesService = {
 
   setActive: (id: string, isActive: boolean) =>
     api.patch<Employee>(`/employees/${id}`, { is_active: isActive }).then(normalizeEmployee),
+
+  resetPin: (id: string, pin: string | null) =>
+    api.post<Employee>(`/employees/${id}/pin`, { pin }).then(normalizeEmployee),
+
+  changeOwnPin: (payload: { current_pin?: string; new_pin: string }) =>
+    api.post<Employee>("/employees/me/pin", payload).then(normalizeEmployee),
 };

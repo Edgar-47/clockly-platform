@@ -22,6 +22,13 @@ arquitectura activa de este repositorio es `frontend-next/` + `backend_v2/`.
 
 ```text
 Landing (/)
+  -> Registro publico (/register-company)
+  -> POST /auth/register-company
+  -> backend_v2 crea Company + owner + settings y emite cookies HttpOnly
+  -> Wizard (/onboarding)
+  -> dashboard
+
+Landing (/)
   -> Login (/login)
   -> POST /auth/login
   -> backend_v2 emite cookies HttpOnly
@@ -35,6 +42,7 @@ Owner / admin / manager
   -> /analytics
   -> /tickets
   -> /settings
+  -> /upgrade
   -> /kiosk (abierto desde sesion admin)
 
 Owner / admin
@@ -43,6 +51,7 @@ Owner / admin
 
 Invited user
   -> /accept-invitation/{token}
+  -> preview publico de invitacion
   -> /login
 
 Employee
@@ -54,6 +63,7 @@ Kiosk
   -> requiere sesion admin activa
   -> solo muestra empleados activos con PIN configurado
   -> valida PIN en backend al fichar entrada o salida
+  -> rate limiting por IP/empleado ante intentos repetidos
 
 Superadmin
   -> /access-unavailable hasta que exista consola interna real
@@ -64,7 +74,11 @@ Superadmin
 Rutas web activas y defendibles:
 
 - `/` landing publica
+- `/register-company` alta publica de empresa + owner
 - `/login` acceso por email + password
+- `/forgot-password` solicitud real de reset por email
+- `/reset-password/{token}` cambio real de password con token
+- `/onboarding` wizard inicial para owner/admin
 - `/dashboard` panel admin
 - `/employees` gestion de empleados
 - `/sessions` historial de fichajes y exportaciones
@@ -74,13 +88,13 @@ Rutas web activas y defendibles:
 - `/work-locations` gestion de centros de trabajo
 - `/settings` contexto de empresa y plan actual
 - `/settings` miembros e invitaciones para owner/admin
+- `/upgrade` planes y checkout de Stripe
 - `/employee` autoservicio del empleado autenticado
 - `/kiosk` kiosk real, protegido y con PIN validado en backend
 - `/accept-invitation/{token}` aceptacion publica de invitacion
 
 Superficies retiradas del flujo principal:
 
-- `/forgot-password` muestra un mensaje informativo; no hay reset por email
 - `/expenses` redirige a `/dashboard`
 - `/businesses` redirige a `/settings`
 - `/schedules` redirige a `/dashboard`
@@ -123,7 +137,7 @@ docker compose up -d postgres
 cd backend_v2
 copy .env.example .env
 alembic upgrade head
-python seed.py
+# Opcional: python seed.py para demo local. El alta real usa /register-company.
 python main.py --host 127.0.0.1 --port 8010 --reload
 ```
 
@@ -147,6 +161,12 @@ URLs locales:
 ## Auth y sesion
 
 - `POST /auth/login` devuelve payload de sesion y fija cookies HttpOnly.
+- `POST /auth/register-company` crea el tenant, el owner, la configuracion
+  base de onboarding y fija cookies HttpOnly.
+- `POST /auth/request-password-reset` siempre responde igual y envia email si
+  el usuario existe.
+- `POST /auth/reset-password` valida un token seguro, cambia la password,
+  invalida el token y revoca refresh tokens activos.
 - `GET /auth/me` es la fuente de verdad del usuario actual.
 - El proxy de Next solo decide acceso inicial por presencia de cookie.
 - El cliente HTTP del frontend hace una unica revalidacion con
@@ -158,11 +178,42 @@ URLs locales:
 - `superadmin` no se considera rol admin tenant; queda reservado para consola
   interna futura.
 
+## Monetizacion
+
+- Planes activos: Free, Pro y Business.
+- Los limites de empleados, exportaciones, geolocalizacion, filtros avanzados
+  e informes se validan en backend.
+- `/upgrade` inicia `POST /billing/checkout` para suscripcion Stripe.
+- `/settings` abre `POST /billing/portal` para gestion de facturacion.
+- `POST /billing/webhook` sincroniza `customer.subscription.created`,
+  `customer.subscription.updated` y `customer.subscription.deleted` con el plan
+  del tenant.
+- Variables necesarias para cobrar: `STRIPE_SECRET_KEY`,
+  `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_BUSINESS`,
+  `CLOCKLY_BILLING_SUCCESS_URL` y `CLOCKLY_BILLING_CANCEL_URL`.
+
+## Fichajes y cumplimiento
+
+- Los fichajes se guardan en UTC y se devuelven al frontend en la zona horaria
+  de la empresa.
+- `attendance_sessions` impide estados inconsistentes: una sesion abierta no
+  puede tener salida/duracion y una cerrada debe tener ambas.
+- Admin puede corregir entrada/salida, notas y marcar el registro como
+  corregido desde `/sessions`.
+- Hay auto-cierre opcional de sesiones abiertas antiguas mediante
+  `POST /attendance/sessions/bulk/auto-close`.
+- Geolocalizacion puntual guarda latitud, longitud y precision cuando el plan
+  lo permite; si el empleado deniega permiso, el fichaje sigue siendo valido.
+
 ## Miembros e invitaciones
 
 - Owner/admin gestionan miembros desde `/settings`.
 - `POST /businesses/{id}/invitations` devuelve un `acceptance_url`.
 - `/accept-invitation/{token}` permite crear cuenta con nombre y contraseña.
+- `GET /invitations/{token}` permite validar el estado antes de mostrar el
+  formulario publico.
+- `POST /invitations/accept` acepta el token en body; se mantiene
+  `POST /invitations/{token}/accept` por compatibilidad.
 - Estados soportados: `pending`, `accepted`, `expired`, `revoked`.
 - Roles invitables: owner -> admin/manager/employee; admin -> manager/employee.
 - La invitacion no crea sesion automaticamente; el usuario entra por `/login`.
@@ -191,13 +242,16 @@ Estado de bloqueadores de publicacion:
 - [x] Tickets usan estados backend: `open`, `in_review`, `resolved`,
   `rejected`.
 - [x] Contrato API actualizado para Locations y tickets.
-- [ ] Onboarding self-service de empresa/owner. Hoy depende de
-  `backend_v2/seed.py` o provisioning manual.
+- [x] Onboarding self-service de empresa/owner sin depender de `seed.py`.
+- [x] Reset de password real con token seguro y email transaccional.
+- [x] Fichajes endurecidos con edicion administrativa y auto-cierre.
+- [x] Exportaciones XLSX/PDF con formato de informe.
+- [x] Stripe Checkout, Billing Portal y webhooks de suscripcion.
 - [ ] Checklist legal listo antes de clientes reales.
 
 Staging real debe usar PostgreSQL gestionado, `alembic upgrade head`, SMTP real
-para invitaciones, Redis para rate limit multi-worker, `CLOCKLY_ENV=production`,
-CORS y trusted hosts explicitos, backups con prueba de restore, logs de
+para invitaciones y reset de password, Redis para rate limit multi-worker,
+`CLOCKLY_ENV=production`, CORS y trusted hosts explicitos, backups con prueba de restore, logs de
 aplicacion y revision de `audit_logs`.
 
 E2E en CI: activar con `E2E_ENABLED=true` y configurar el secret
@@ -224,12 +278,12 @@ Checklist legal/operativo antes de clientes reales:
 - La identidad `superadmin` es de plataforma: no debe entrar en dashboards
   tenant. Mientras no exista consola interna, el frontend la envia a
   `/access-unavailable` y el backend no le concede permisos tenant.
-- No hay flujo real de recuperacion de password en esta version. Por eso no se
-  expone como reset funcional al usuario.
 - Rate limiting usa memoria por defecto; se puede desactivar solo fuera de
   produccion con `CLOCKLY_RATE_LIMIT_ENABLED=false`. En produccion multi-worker
   se debe configurar Redis con `CLOCKLY_RATE_LIMIT_BACKEND=redis` y
   `CLOCKLY_REDIS_URL`.
+- `CLOCKLY_EMAIL_PROVIDER=noop` solo es fallback de desarrollo. En produccion
+  se rechaza y debe configurarse SMTP u otro adaptador soportado.
 - `AuditLog` registra login fallido, permisos denegados, invitaciones y cambios
   sensibles de miembros.
 

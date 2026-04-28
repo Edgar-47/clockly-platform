@@ -11,6 +11,7 @@ import {
   MapPin,
   MonitorSmartphone,
   Settings,
+  Sparkles,
   TicketCheck,
   Users,
 } from "lucide-react";
@@ -40,6 +41,7 @@ const NAV_OPERATIONS: NavItem[] = [
 
 const NAV_CONFIG: NavItem[] = [
   { label: "Centros de trabajo", href: "/work-locations", icon: Building2 },
+  { label: "Upgrade", href: "/upgrade", icon: Sparkles },
   { label: "Configuración", href: "/settings", icon: Settings },
 ];
 

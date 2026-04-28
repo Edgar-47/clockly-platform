@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.company import Company
+from app.models.company_settings import CompanySettings
 from app.models.enums import PlanType, UserRole
 from app.models.user import User
 from app.services.plans import apply_plan_to_company
@@ -79,6 +80,10 @@ def seed(args: argparse.Namespace) -> None:
 
         if company.created_by is None:
             company.created_by = owner.id
+
+        settings = db.query(CompanySettings).filter_by(company_id=company.id).first()
+        if not settings:
+            db.add(CompanySettings(company_id=company.id, onboarding_step="complete"))
 
         if args.superadmin_email or args.superadmin_password:
             if not args.superadmin_email or not args.superadmin_password:

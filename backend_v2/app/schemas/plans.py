@@ -10,6 +10,7 @@ class PlanFeatures(BaseModel):
     has_exports: bool
     has_advanced_filters: bool
     has_multi_location: bool
+    has_geolocation: bool
     has_admin_reports: bool
     has_support: bool
 
@@ -22,6 +23,7 @@ class PlanDefinitionRead(BaseModel):
     has_exports: bool
     has_advanced_filters: bool
     has_multi_location: bool
+    has_geolocation: bool
     has_admin_reports: bool
     has_support: bool
     cta_label: str
@@ -42,8 +44,11 @@ class CompanyPlanContext(BaseModel):
     has_exports: bool
     has_advanced_filters: bool
     has_multi_location: bool
+    has_geolocation: bool
     has_admin_reports: bool
     has_support: bool
     trial_ends_at: datetime | None
     is_active_subscription: bool
+    is_beta_user: bool
+    stripe_subscription_status: str | None
     created_by: UUID | None

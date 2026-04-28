@@ -4,6 +4,7 @@ export interface PlanFeatures {
   has_exports: boolean;
   has_advanced_filters: boolean;
   has_multi_location: boolean;
+  has_geolocation: boolean;
   has_admin_reports: boolean;
   has_support: boolean;
 }
@@ -30,5 +31,7 @@ export interface CompanyPlanContext extends PlanFeatures {
   max_employees: number | null;
   trial_ends_at: string | null;
   is_active_subscription: boolean;
+  is_beta_user: boolean;
+  stripe_subscription_status: string | null;
   created_by: string | null;
 }

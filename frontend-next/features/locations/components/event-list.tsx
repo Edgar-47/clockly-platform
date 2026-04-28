@@ -10,6 +10,7 @@ interface EventListProps {
   events: AttendanceLocationEvent[];
   selectedId: string | null;
   onSelect: (id: string, event: AttendanceLocationEvent) => void;
+  companyTimeZone?: string;
 }
 
 const STATUS_CLASSES: Record<string, string> = {
@@ -43,7 +44,7 @@ function StatusChip({ status }: { status: string | null }) {
   );
 }
 
-export function EventList({ events, selectedId, onSelect }: EventListProps) {
+export function EventList({ events, selectedId, onSelect, companyTimeZone }: EventListProps) {
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -91,7 +92,7 @@ export function EventList({ events, selectedId, onSelect }: EventListProps) {
                   <p className="truncate text-[13px] font-semibold text-ink">{name}</p>
                 </div>
                 <p className="mt-0.5 text-[11px] tabular-nums text-ink-xmuted">
-                  {formatDateTime(event.occurred_at)}
+                  {formatDateTime(event.occurred_at, companyTimeZone)}
                 </p>
                 {event.distance_meters != null && (
                   <p className="mt-0.5 text-[11px] text-ink-muted">

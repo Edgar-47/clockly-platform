@@ -27,6 +27,7 @@ export default function SessionsPage() {
           onFilterChange={setFilters}
           canExport={Boolean(me.data?.company.has_exports)}
           canUseAdvancedFilters={Boolean(me.data?.company.has_advanced_filters)}
+          companyTimeZone={me.data?.company.timezone}
         />
       </div>
     </>

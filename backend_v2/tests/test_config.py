@@ -10,6 +10,9 @@ def _production_settings(**overrides) -> Settings:
         "CLOCKLY_SECRET_KEY": "x" * 32,
         "CLOCKLY_CORS_ALLOWED_ORIGINS": ["https://app.clockly.example"],
         "CLOCKLY_TRUSTED_HOSTS": ["api.clockly.example"],
+        "CLOCKLY_EMAIL_PROVIDER": "smtp",
+        "CLOCKLY_EMAIL_FROM": "no-reply@clockly.example",
+        "CLOCKLY_EMAIL_SMTP_HOST": "smtp.clockly.example",
     }
     values.update(overrides)
     return Settings(**values)
@@ -34,3 +37,8 @@ def test_smtp_email_requires_sender_and_host():
             CLOCKLY_EMAIL_PROVIDER="smtp",
             CLOCKLY_EMAIL_FROM="no-reply@clockly.example",
         )
+
+
+def test_production_requires_transactional_email_provider():
+    with pytest.raises(ValidationError, match="CLOCKLY_EMAIL_PROVIDER"):
+        _production_settings(CLOCKLY_EMAIL_PROVIDER="noop")

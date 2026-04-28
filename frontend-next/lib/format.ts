@@ -1,15 +1,43 @@
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string, timeZone?: string): string {
+  if (timeZone) {
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      timeZone,
+    }).format(parseISO(iso));
+  }
   return format(parseISO(iso), "dd MMM yyyy", { locale: es });
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string, timeZone?: string): string {
+  if (timeZone) {
+    const parts = new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone,
+    }).formatToParts(parseISO(iso));
+    const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+    return `${get("day")} ${get("month")} · ${get("hour")}:${get("minute")}`;
+  }
   return format(parseISO(iso), "dd MMM · HH:mm", { locale: es });
 }
 
-export function formatTime(iso: string): string {
+export function formatTime(iso: string, timeZone?: string): string {
+  if (timeZone) {
+    return new Intl.DateTimeFormat("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone,
+    }).format(parseISO(iso));
+  }
   return format(parseISO(iso), "HH:mm", { locale: es });
 }
 

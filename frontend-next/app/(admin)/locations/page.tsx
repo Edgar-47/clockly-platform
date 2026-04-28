@@ -1,13 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useState } from "react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { MapPin } from "lucide-react";
 import { useAttendanceLocationEvents, useLocationSummary, useWorkLocations } from "@/hooks/use-locations";
+import { useMe } from "@/hooks/use-auth";
 import { EventList } from "@/features/locations/components/event-list";
 import { LocationFilters, type LocationFilterState } from "@/features/locations/components/location-filters";
 import { LocationStats } from "@/features/locations/components/location-stats";
+import { Button } from "@/components/ui/button";
 import type { AttendanceLocationEvent } from "@/types/location";
 
 // Leaflet must not run on the server
@@ -30,6 +33,7 @@ export default function LocationsPage() {
   const [filters, setFilters] = useState<LocationFilterState>(todayFilter);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<AttendanceLocationEvent | null>(null);
+  const me = useMe();
 
   const { data: eventsData, isLoading: eventsLoading } = useAttendanceLocationEvents({
     date_from: filters.date_from,
@@ -50,6 +54,22 @@ export default function LocationsPage() {
     filters.event_type
       ? allEvents.filter((e) => e.event_type === filters.event_type)
       : allEvents;
+
+  if (me.data && !me.data.company.has_geolocation) {
+    return (
+      <div className="flex h-[calc(100vh-62px)] items-center justify-center p-6">
+        <div className="max-w-md rounded-lg border border-warning-border bg-warning-bg p-5">
+          <h1 className="text-sm font-bold text-ink">Geolocalizacion disponible en Pro</h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            Activa un plan con geolocalizacion para ver fichajes en mapa y validar ubicaciones.
+          </p>
+          <Button asChild className="mt-4" size="sm">
+            <Link href="/upgrade">Ver planes</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSelectEvent = (id: string, event: AttendanceLocationEvent) => {
     setSelectedId(id);
@@ -94,6 +114,7 @@ export default function LocationsPage() {
               const id = `${ev.session_id}-${ev.event_type}`;
               handleSelectEvent(id, ev);
             }}
+            companyTimeZone={me.data?.company.timezone}
           />
         </div>
 
@@ -117,6 +138,7 @@ export default function LocationsPage() {
               events={filteredEvents}
               selectedId={selectedId}
               onSelect={handleSelectEvent}
+              companyTimeZone={me.data?.company.timezone}
             />
           </div>
         </div>

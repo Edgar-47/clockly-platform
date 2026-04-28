@@ -32,7 +32,7 @@ from app.models.schedule import Schedule  # noqa: F401
 from app.models.ticket import Ticket  # noqa: F401
 from app.models.user import User
 from app.models.user_invitation import UserInvitation  # noqa: F401
-from app.core.rate_limit import kiosk_limiter, login_limiter, refresh_limiter
+from app.core.rate_limit import kiosk_limiter, login_limiter, password_reset_limiter, refresh_limiter, registration_limiter
 from app.services.plans import apply_plan_to_company
 
 
@@ -42,6 +42,8 @@ from app.services.plans import apply_plan_to_company
 def reset_rate_limiters():
     """Clear in-memory rate limiter state before each test to prevent interference."""
     login_limiter._buckets.clear()
+    registration_limiter._buckets.clear()
+    password_reset_limiter._buckets.clear()
     refresh_limiter._buckets.clear()
     kiosk_limiter._buckets.clear()
     yield

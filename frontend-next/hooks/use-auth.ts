@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { HttpError } from "@/lib/api-client";
 import { authService } from "@/services/auth.service";
 import { ADMIN_ROLES, isAdminRole } from "@/types/auth";
-import type { LoginRequest, UserRole } from "@/types/auth";
+import type { LoginRequest, RegisterCompanyRequest, UserRole } from "@/types/auth";
 
 const EMPLOYEE_ROLES: UserRole[] = ["employee"];
 
@@ -79,6 +79,19 @@ export function useLogin() {
             ? "/employee"
             : "/dashboard";
       router.push(safeNext ?? defaultRoute);
+    },
+  });
+}
+
+export function useRegisterCompany() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
+  return useMutation({
+    mutationFn: (payload: RegisterCompanyRequest) => authService.registerCompany(payload),
+    onSuccess: (session) => {
+      queryClient.setQueryData(authKeys.me, session);
+      router.push("/onboarding");
     },
   });
 }

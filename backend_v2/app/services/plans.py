@@ -18,6 +18,7 @@ PlanFeatureName = Literal[
     "has_exports",
     "has_advanced_filters",
     "has_multi_location",
+    "has_geolocation",
     "has_admin_reports",
     "has_support",
 ]
@@ -26,6 +27,7 @@ PLAN_FEATURES: tuple[PlanFeatureName, ...] = (
     "has_exports",
     "has_advanced_filters",
     "has_multi_location",
+    "has_geolocation",
     "has_admin_reports",
     "has_support",
 )
@@ -40,6 +42,7 @@ class PlanDefinition:
     has_exports: bool
     has_advanced_filters: bool
     has_multi_location: bool
+    has_geolocation: bool
     has_admin_reports: bool
     has_support: bool
     cta_label: str
@@ -60,6 +63,7 @@ PLAN_DEFINITIONS: dict[PlanType, PlanDefinition] = {
         has_exports=False,
         has_advanced_filters=False,
         has_multi_location=False,
+        has_geolocation=False,
         has_admin_reports=False,
         has_support=False,
         cta_label="Solicitar acceso",
@@ -72,6 +76,7 @@ PLAN_DEFINITIONS: dict[PlanType, PlanDefinition] = {
         has_exports=True,
         has_advanced_filters=True,
         has_multi_location=False,
+        has_geolocation=True,
         has_admin_reports=True,
         has_support=True,
         cta_label="Quiero Pro",
@@ -85,6 +90,7 @@ PLAN_DEFINITIONS: dict[PlanType, PlanDefinition] = {
         has_exports=True,
         has_advanced_filters=True,
         has_multi_location=True,
+        has_geolocation=True,
         has_admin_reports=True,
         has_support=True,
         cta_label="Planificar demo",
@@ -96,6 +102,7 @@ FEATURE_REQUIRED_PLAN: dict[PlanFeatureName, PlanType] = {
     "has_exports": PlanType.PRO,
     "has_advanced_filters": PlanType.PRO,
     "has_multi_location": PlanType.BUSINESS,
+    "has_geolocation": PlanType.PRO,
     "has_admin_reports": PlanType.PRO,
     "has_support": PlanType.PRO,
 }
@@ -104,6 +111,7 @@ FEATURE_LABELS: dict[PlanFeatureName, str] = {
     "has_exports": "exportaciones PDF y Excel",
     "has_advanced_filters": "filtros avanzados",
     "has_multi_location": "multi negocio y sedes",
+    "has_geolocation": "geolocalizacion en fichajes",
     "has_admin_reports": "informes de administracion",
     "has_support": "soporte prioritario",
 }
@@ -145,6 +153,8 @@ def feature_labels_for_plan(plan: PlanDefinition) -> list[str]:
         labels.append("Informes de administracion")
     if plan.has_multi_location:
         labels.append("Multi negocio y sedes")
+    if plan.has_geolocation:
+        labels.append("Geolocalizacion de fichajes")
     if plan.has_support:
         labels.append("Soporte prioritario")
     if plan.custom_onboarding:
@@ -165,6 +175,7 @@ def apply_plan_to_company(company: Company, plan_type: PlanType | str) -> Compan
     company.has_exports = plan.has_exports
     company.has_advanced_filters = plan.has_advanced_filters
     company.has_multi_location = plan.has_multi_location
+    company.has_geolocation = plan.has_geolocation
     company.has_admin_reports = plan.has_admin_reports
     company.has_support = plan.has_support
     return company
