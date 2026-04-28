@@ -11,9 +11,13 @@ from app.core.security import verify_password
 from app.core.timezones import duration_seconds, ensure_utc
 from app.models.attendance_session import AttendanceSession
 from app.models.company_location import CompanyLocation
+from app.models.attendance_incident import AttendanceIncident
 from app.models.enums import (
+    AttendanceIncidentType,
     AttendanceMethod,
     AttendanceStatus,
+    ClockOutSource,
+    IncidentStatus,
     LocationPermissionStatus,
     LocationSource,
     LocationStatus,
@@ -44,6 +48,7 @@ class AttendanceService:
         *,
         employee_id: UUID | None = None,
         status: AttendanceStatus | None = None,
+        clock_out_source: ClockOutSource | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
         limit: int = 100,
@@ -54,6 +59,7 @@ class AttendanceService:
         items = self.attendance.list_sessions(
             employee_id=employee_id,
             status=status,
+            clock_out_source=clock_out_source,
             date_from=date_from,
             date_to=date_to,
             limit=limit,
@@ -62,6 +68,7 @@ class AttendanceService:
         total = self.attendance.count_sessions(
             employee_id=employee_id,
             status=status,
+            clock_out_source=clock_out_source,
             date_from=date_from,
             date_to=date_to,
         )
@@ -158,6 +165,7 @@ class AttendanceService:
         session.duration_seconds = duration_seconds(session.clock_in, closed_at)
         session.status = AttendanceStatus.CLOSED
         session.closed_by_user_id = actor.id
+        session.clock_out_source = self._clock_out_source_for_actor(actor)
         if notes:
             session.notes = notes if not session.notes else f"{session.notes}\n{notes}"
         # Geolocation
@@ -184,7 +192,7 @@ class AttendanceService:
         payload: AttendanceSessionAdminUpdate,
         actor: User,
     ) -> AttendanceSession:
-        if actor.role not in {UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER}:
+        if actor.role not in {UserRole.OWNER, UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER}:
             raise PermissionDenied("Admin access required.")
 
         session = self.attendance.get(session_id)
@@ -221,6 +229,10 @@ class AttendanceService:
         session.clock_out = clock_out
         session.status = AttendanceStatus.CLOSED if clock_out is not None else AttendanceStatus.OPEN
         session.duration_seconds = duration_seconds(clock_in, clock_out) if clock_out is not None else None
+        if clock_out is not None:
+            session.clock_out_source = ClockOutSource.MANUAL
+        else:
+            session.clock_out_source = None
         if "notes" in updates:
             session.notes = updates["notes"]
         if updates.get("mark_corrected", True):
@@ -239,7 +251,7 @@ class AttendanceService:
         payload: AutoCloseOpenSessionsRequest,
         actor: User,
     ) -> list[AttendanceSession]:
-        if actor.role not in {UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER}:
+        if actor.role not in {UserRole.OWNER, UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER}:
             raise PermissionDenied("Admin access required.")
 
         settings = self.settings.get_or_create()
@@ -353,7 +365,7 @@ class AttendanceService:
         self,
         session: AttendanceSession,
         *,
-        actor: User,
+        actor: User | None,
         close_at: datetime,
         notes: str | None,
     ) -> None:
@@ -367,14 +379,54 @@ class AttendanceService:
         session.clock_out = close_at
         session.duration_seconds = duration_seconds(clock_in, close_at)
         session.status = AttendanceStatus.CLOSED
-        session.closed_by_user_id = actor.id
-        session.corrected_by_user_id = actor.id
+        session.closed_by_user_id = actor.id if actor else None
+        session.corrected_by_user_id = actor.id if actor else None
         session.corrected_at = datetime.now(UTC)
         session.is_corrected = True
         session.auto_closed = True
+        session.clock_out_source = ClockOutSource.AUTO
+        session.has_incident = True
+        session.incident_type = AttendanceIncidentType.AUTO_CLOCK_OUT
+        session.closed_automatically_at = datetime.now(UTC)
         if notes:
             session.notes = notes if not session.notes else f"{session.notes}\n{notes}"
         self.db.add(session)
+        self.db.flush()
+        self._ensure_auto_clock_out_incident(session, actor=actor, close_at=close_at)
+
+    def _ensure_auto_clock_out_incident(
+        self,
+        session: AttendanceSession,
+        *,
+        actor: User | None,
+        close_at: datetime,
+    ) -> AttendanceIncident:
+        existing = self.db.scalar(
+            select(AttendanceIncident).where(
+                AttendanceIncident.company_id == self.company_id,
+                AttendanceIncident.attendance_session_id == session.id,
+                AttendanceIncident.type == AttendanceIncidentType.AUTO_CLOCK_OUT,
+            )
+        )
+        if existing is not None:
+            return existing
+        incident = AttendanceIncident(
+            company_id=self.company_id,
+            employee_id=session.employee_id,
+            attendance_session_id=session.id,
+            type=AttendanceIncidentType.AUTO_CLOCK_OUT,
+            status=IncidentStatus.OPEN,
+            title="Desfichaje automatico por olvido",
+            description="La sesion fue cerrada automaticamente al superar la hora limite configurada.",
+            metadata_json={
+                "closed_at": close_at.isoformat(),
+                "configured_by_user_id": str(actor.id) if actor else None,
+                "session_id": str(session.id),
+                "employee_id": str(session.employee_id),
+            },
+        )
+        self.db.add(incident)
+        return incident
 
     def _auto_close_at(self, session: AttendanceSession, older_than_hours: int) -> datetime:
         clock_in = self._to_utc(session.clock_in)
@@ -401,7 +453,7 @@ class AttendanceService:
         return own_employee
 
     def _ensure_can_manage_employee(self, actor: User, employee_user_id: UUID | None) -> None:
-        if actor.role in {UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER}:
+        if actor.role in {UserRole.OWNER, UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER}:
             return
         if employee_user_id == actor.id:
             return
@@ -423,3 +475,8 @@ class AttendanceService:
             raise PermissionDenied("Introduce tu PIN de 4 digitos.")
         if not employee.pin_hash or not verify_password(pin, employee.pin_hash):
             raise PermissionDenied("PIN incorrecto.")
+
+    def _clock_out_source_for_actor(self, actor: User) -> ClockOutSource:
+        if actor.role == UserRole.EMPLOYEE:
+            return ClockOutSource.EMPLOYEE
+        return ClockOutSource.ADMIN

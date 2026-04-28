@@ -21,7 +21,7 @@ export function MetricsGrid({ data, loading }: MetricsGridProps) {
         loading={loading}
       />
       <StatCard
-        label="Trabajando ahora"
+        label="Fichados ahora"
         value={data?.total_clocked_in ?? 0}
         icon={<CheckCircle className="h-5 w-5" />}
         iconColor="green"
@@ -35,8 +35,8 @@ export function MetricsGrid({ data, loading }: MetricsGridProps) {
         loading={loading}
       />
       <StatCard
-        label="Total horas registradas"
-        value={data?.kpis ? formatSeconds(data.kpis.total_worked_seconds) : "-"}
+        label="Horas registradas"
+        value={data?.kpis ? formatSeconds(data.kpis.total_worked_seconds) : "—"}
         icon={<Clock className="h-5 w-5" />}
         iconColor="orange"
         trend={

@@ -48,6 +48,16 @@ Owner / admin / manager
 Owner / admin
   -> /settings
   -> gestion de miembros e invitaciones
+  -> configuracion de desfichaje automatico
+
+HR manager
+  -> /dashboard
+  -> /employees
+  -> /sessions
+  -> /analytics
+  -> /tickets
+  -> /salaries
+  -> sin acceso a /settings, billing, planes ni configuracion sensible
 
 Invited user
   -> /accept-invitation/{token}
@@ -84,10 +94,12 @@ Rutas web activas y defendibles:
 - `/sessions` historial de fichajes y exportaciones
 - `/analytics` metricas conectadas al backend
 - `/tickets` incidencias conectadas al backend
+- `/salaries` salarios estimados y calculo de pagos por periodo
 - `/locations` mapa/listado de eventos de geolocalizacion de fichajes
 - `/work-locations` gestion de centros de trabajo
 - `/settings` contexto de empresa y plan actual
 - `/settings` miembros e invitaciones para owner/admin
+- `/settings` desfichaje automatico para owner/admin
 - `/upgrade` planes y checkout de Stripe
 - `/employee` autoservicio del empleado autenticado
 - `/kiosk` kiosk real, protegido y con PIN validado en backend
@@ -202,8 +214,39 @@ URLs locales:
   corregido desde `/sessions`.
 - Hay auto-cierre opcional de sesiones abiertas antiguas mediante
   `POST /attendance/sessions/bulk/auto-close`.
+- El desfichaje automatico por olvido se configura en `/settings` con una hora
+  limite por zona horaria. La ejecucion segura vive en backend con
+  `python backend_v2/scripts/run_auto_clock_out.py` o
+  `POST /attendance/sessions/bulk/auto-clock-out` para ejecucion manual
+  owner/admin.
+- Cada desfichaje automatico marca `clock_out_source = auto`, `auto_closed`,
+  `has_incident`, `incident_type = auto_clock_out`,
+  `closed_automatically_at` y crea `attendance_incidents`.
 - Geolocalizacion puntual guarda latitud, longitud y precision cuando el plan
   lo permite; si el empleado deniega permiso, el fichaje sigue siendo valido.
+
+## Roles y RRHH
+
+- Nuevo rol: `hr_manager` / Responsable RRHH.
+- Puede gestionar empleados, usuarios de empleado, fichajes, incidencias,
+  metricas, exportaciones y salarios estimados.
+- No puede modificar configuracion de local/empresa, billing, planes,
+  integraciones, owner, roles superiores ni ajustes sensibles.
+- La seguridad se aplica en backend por permisos; el frontend solo oculta rutas
+  no permitidas.
+
+## Salarios estimados
+
+- Pantalla activa: `/salaries`.
+- Endpoints: `/salary-profiles`, `/salary-calculations` y
+  `/exports/salary-calculation`.
+- Modalidades: por hora, por dia trabajado, por turno, fijo mensual y semanal.
+- La fuente de verdad son `attendance_sessions` cerradas; sesiones abiertas se
+  ignoran y se reportan como pendientes.
+- Los cambios de salario dentro de un periodo se calculan por tramos de
+  vigencia y no sobrescriben historicos.
+- Advertencia legal mostrada y devuelta por API: "Calculo estimado basado en
+  fichajes registrados. Revisar antes de pagar." No es nomina oficial.
 
 ## Miembros e invitaciones
 
@@ -215,7 +258,8 @@ URLs locales:
 - `POST /invitations/accept` acepta el token en body; se mantiene
   `POST /invitations/{token}/accept` por compatibilidad.
 - Estados soportados: `pending`, `accepted`, `expired`, `revoked`.
-- Roles invitables: owner -> admin/manager/employee; admin -> manager/employee.
+- Roles invitables: owner -> admin/hr_manager/manager/employee; admin ->
+  hr_manager/manager/employee.
 - La invitacion no crea sesion automaticamente; el usuario entra por `/login`.
 - Si `CLOCKLY_EMAIL_PROVIDER` esta configurado, el backend intenta enviar email
   transaccional al crear la invitacion. Si el envio falla, la invitacion sigue
@@ -245,6 +289,9 @@ Estado de bloqueadores de publicacion:
 - [x] Onboarding self-service de empresa/owner sin depender de `seed.py`.
 - [x] Reset de password real con token seguro y email transaccional.
 - [x] Fichajes endurecidos con edicion administrativa y auto-cierre.
+- [x] Desfichaje automatico por olvido con incidencia auditable.
+- [x] Rol HR manager con permisos limitados.
+- [x] Salarios estimados basados en fichajes.
 - [x] Exportaciones XLSX/PDF con formato de informe.
 - [x] Stripe Checkout, Billing Portal y webhooks de suscripcion.
 - [ ] Checklist legal listo antes de clientes reales.
@@ -299,6 +346,7 @@ python -m pytest
 cd ..\frontend-next
 npm run type-check
 npm run lint
+npm run build
 npm audit --audit-level=moderate
 ```
 

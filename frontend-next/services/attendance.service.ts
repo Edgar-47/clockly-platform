@@ -50,6 +50,10 @@ function normalizeSession(session: SessionReport): SessionReport {
     corrected_at: session.corrected_at ?? null,
     corrected_by_user_id: session.corrected_by_user_id ?? null,
     auto_closed: session.auto_closed ?? false,
+    clock_out_source: session.clock_out_source ?? null,
+    has_incident: session.has_incident ?? false,
+    incident_type: session.incident_type ?? null,
+    closed_automatically_at: session.closed_automatically_at ?? null,
     employee_name: employee?.full_name ?? session.employee_name,
     employee_initials: employee?.initials ?? session.employee_initials,
     employee: employee
@@ -126,6 +130,7 @@ export const attendanceService = {
     if (filters.employee_id)
       params.set("employee_id", String(filters.employee_id));
     if (filters.status) params.set("status", filters.status);
+    if (filters.clock_out_source) params.set("clock_out_source", filters.clock_out_source);
     const qs = params.toString();
     return api
       .get<{ items: SessionReport[] }>(
@@ -140,6 +145,7 @@ export const attendanceService = {
     if (filters.date_to) params.set("date_to", `${filters.date_to}T23:59:59`);
     if (filters.employee_id) params.set("employee_id", filters.employee_id);
     if (filters.status) params.set("status", filters.status);
+    if (filters.clock_out_source) params.set("clock_out_source", filters.clock_out_source);
     return api.download(`/exports/attendance?${params}`);
   },
 

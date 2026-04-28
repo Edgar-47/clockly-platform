@@ -86,6 +86,27 @@ def require_permission(permission: str):
     return dependency
 
 
+def require_any_permission(*permissions: str):
+    def dependency(
+        ctx: TenantContext = Depends(get_current_context),
+        db: Session = Depends(get_db),
+    ) -> TenantContext:
+        if not any(role_has_permission(ctx.user.role, permission) for permission in permissions):
+            AuditLogService(db).safe_record(
+                "permissions.denied",
+                company_id=ctx.company_id,
+                actor_user_id=ctx.user.id,
+                resource_type="permission",
+                resource_id="|".join(permissions),
+                metadata={"role": ctx.user.role.value},
+                commit=True,
+            )
+            raise PermissionDenied("Insufficient permissions.")
+        return ctx
+
+    return dependency
+
+
 def require_superadmin():
     """Restrict endpoint exclusively to the SUPERADMIN role."""
     def dependency(ctx: TenantContext = Depends(get_current_context)) -> TenantContext:

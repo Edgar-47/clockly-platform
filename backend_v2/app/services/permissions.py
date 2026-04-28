@@ -19,7 +19,13 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "exports:read",
         "locations:read",
         "locations:write",
+        "settings:read",
+        "settings:write",
+        "salary:read",
+        "salary:manage",
         "users:manage",
+        "users:read",
+        "users:write",
     },
     UserRole.ADMIN: {
         "employees:read",
@@ -35,7 +41,27 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "exports:read",
         "locations:read",
         "locations:write",
+        "settings:read",
+        "settings:write",
+        "salary:read",
+        "salary:manage",
         "users:manage",
+        "users:read",
+        "users:write",
+    },
+    UserRole.HR_MANAGER: {
+        "employees:read",
+        "employees:write",
+        "attendance:read",
+        "attendance:manage",
+        "metrics:read",
+        "tickets:read",
+        "tickets:write",
+        "exports:read",
+        "salary:read",
+        "salary:manage",
+        "users:read",
+        "users:write",
     },
     UserRole.MANAGER: {
         "employees:read",
@@ -57,7 +83,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
 }
 
 # Roles that can access tenant administration features.
-ADMIN_ROLES = {UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER}
+ADMIN_ROLES = {UserRole.OWNER, UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER}
 
 
 def permissions_for_role(role: UserRole) -> list[str]:

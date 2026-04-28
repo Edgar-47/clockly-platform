@@ -8,18 +8,20 @@ from app.core.rate_limit import client_ip, kiosk_limiter
 from app.core.timezones import to_tenant_timezone
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
-from app.models.enums import AttendanceMethod, AttendanceStatus, UserRole
+from app.models.enums import AttendanceMethod, AttendanceStatus, ClockOutSource, UserRole
 from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.attendance import (
     AttendanceSessionAdminUpdate,
     AttendanceSessionListResponse,
     AttendanceSessionRead,
+    AutoClockOutRunResponse,
     AutoCloseOpenSessionsRequest,
     AutoCloseOpenSessionsResponse,
     ClockInRequest,
     ClockOutRequest,
 )
 from app.services.attendance_service import AttendanceService
+from app.services.auto_clock_out_service import AutoClockOutService
 from app.services.plans import check_plan_feature
 
 
@@ -30,6 +32,7 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 def list_sessions(
     employee_id: UUID | None = Query(default=None),
     session_status: AttendanceStatus | None = Query(default=None, alias="status"),
+    clock_out_source: ClockOutSource | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
@@ -50,6 +53,7 @@ def list_sessions(
     sessions, total = AttendanceService(db, company_id=ctx.company_id).list_sessions(
         employee_id=employee_id,
         status=session_status,
+        clock_out_source=clock_out_source,
         date_from=date_from,
         date_to=date_to,
         limit=limit,
@@ -162,6 +166,18 @@ def auto_close_open_sessions(
     )
 
 
+@router.post("/sessions/bulk/auto-clock-out", response_model=AutoClockOutRunResponse)
+def run_auto_clock_out(
+    ctx: TenantContext = Depends(require_permission("settings:write")),
+    db: Session = Depends(get_db),
+) -> AutoClockOutRunResponse:
+    result = AutoClockOutService(db, company_id=ctx.company_id).run(actor=ctx.user)
+    return AutoClockOutRunResponse(
+        closed_count=result.closed_count,
+        session_ids=result.session_ids,
+    )
+
+
 def _session_read(session, timezone: str) -> AttendanceSessionRead:
     payload = AttendanceSessionRead.model_validate(session)
     payload.clock_in = to_tenant_timezone(payload.clock_in, timezone)
@@ -169,6 +185,7 @@ def _session_read(session, timezone: str) -> AttendanceSessionRead:
     payload.created_at = to_tenant_timezone(payload.created_at, timezone)
     payload.updated_at = to_tenant_timezone(payload.updated_at, timezone)
     payload.corrected_at = to_tenant_timezone(payload.corrected_at, timezone)
+    payload.closed_automatically_at = to_tenant_timezone(payload.closed_automatically_at, timezone)
     payload.company_timezone = timezone
     return payload
 

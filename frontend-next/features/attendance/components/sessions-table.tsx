@@ -146,6 +146,24 @@ export function SessionsTable({
             <SelectItem value="closed">Cerradas</SelectItem>
           </SelectContent>
         </Select>
+        <Select
+          onValueChange={(value) =>
+            applyFilter({
+              clock_out_source: value === "all" ? undefined : value as AttendanceHistoryFilters["clock_out_source"],
+            })
+          }
+        >
+          <SelectTrigger className="w-[190px]">
+            <SelectValue placeholder="Tipo de cierre" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="employee">Normal</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="manual">Manual</SelectItem>
+            <SelectItem value="auto">Automatico</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="ml-auto flex gap-2">
           <Button variant="ghost" size="sm" loading={autoClose.isPending} onClick={closeOpenSessions}>
             Cerrar abiertas
@@ -267,7 +285,11 @@ export function SessionsTable({
                     <div className="flex flex-wrap gap-1.5">
                       {session.is_active ? <Badge variant="success">Activo</Badge> : <Badge variant="muted">Cerrado</Badge>}
                       {session.is_corrected && <Badge variant="warning">Corregido</Badge>}
-                      {session.auto_closed && <Badge variant="outline">Auto</Badge>}
+                      {session.clock_out_source === "admin" && <Badge variant="outline">Admin</Badge>}
+                      {session.clock_out_source === "manual" && <Badge variant="outline">Manual</Badge>}
+                      {(session.auto_closed || session.clock_out_source === "auto") && (
+                        <Badge variant="warning">Desfichaje automatico</Badge>
+                      )}
                     </div>
                   </td>
                   <td className="px-5 py-3">

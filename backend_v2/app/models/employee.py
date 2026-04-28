@@ -13,6 +13,7 @@ from app.db.base import Base, TimestampMixin
 if TYPE_CHECKING:
     from app.models.attendance_session import AttendanceSession
     from app.models.company import Company
+    from app.models.salary import SalaryProfile
     from app.models.schedule import Schedule
     from app.models.ticket import Ticket
     from app.models.user import User
@@ -60,6 +61,7 @@ class Employee(TimestampMixin, Base):
     schedule: Mapped[Schedule | None] = relationship(back_populates="employees")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="employee")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="employee")
+    salary_profiles: Mapped[list[SalaryProfile]] = relationship(back_populates="employee", cascade="all, delete-orphan")
 
     @property
     def full_name(self) -> str:

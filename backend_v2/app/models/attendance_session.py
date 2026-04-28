@@ -9,10 +9,19 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
-from app.models.enums import AttendanceMethod, AttendanceStatus, LocationPermissionStatus, LocationSource, LocationStatus
+from app.models.enums import (
+    AttendanceIncidentType,
+    AttendanceMethod,
+    AttendanceStatus,
+    ClockOutSource,
+    LocationPermissionStatus,
+    LocationSource,
+    LocationStatus,
+)
 from app.models.types import enum_column
 
 if TYPE_CHECKING:
+    from app.models.attendance_incident import AttendanceIncident
     from app.models.company import Company
     from app.models.employee import Employee
 
@@ -75,6 +84,14 @@ class AttendanceSession(TimestampMixin, Base):
     is_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     auto_closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     source: Mapped[str | None] = mapped_column(String(40))
+    clock_out_source: Mapped[ClockOutSource | None] = mapped_column(
+        enum_column(ClockOutSource, name="clock_out_source", length=16)
+    )
+    has_incident: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    incident_type: Mapped[AttendanceIncidentType | None] = mapped_column(
+        enum_column(AttendanceIncidentType, name="attendance_incident_type", length=40)
+    )
+    closed_automatically_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Geolocation — clock-in
     clock_in_latitude: Mapped[float | None] = mapped_column(Float)
@@ -108,3 +125,7 @@ class AttendanceSession(TimestampMixin, Base):
 
     company: Mapped[Company] = relationship(back_populates="attendance_sessions")
     employee: Mapped[Employee] = relationship(back_populates="attendance_sessions")
+    incidents: Mapped[list[AttendanceIncident]] = relationship(
+        back_populates="attendance_session",
+        cascade="all, delete-orphan",
+    )

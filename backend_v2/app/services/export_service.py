@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import NotFoundError
 from app.core.timezones import ensure_utc
 from app.models.attendance_session import AttendanceSession
-from app.models.enums import AttendanceStatus
+from app.models.enums import AttendanceStatus, ClockOutSource
 from app.repositories.attendance_repository import AttendanceRepository
 from app.repositories.company_repository import CompanyRepository
 
@@ -28,6 +28,7 @@ class ExportService:
         *,
         employee_id: UUID | None = None,
         status: AttendanceStatus | None = AttendanceStatus.CLOSED,
+        clock_out_source: ClockOutSource | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
     ) -> list[AttendanceSession]:
@@ -36,6 +37,7 @@ class ExportService:
         return self.attendance.list_sessions(
             employee_id=employee_id,
             status=status,
+            clock_out_source=clock_out_source,
             date_from=date_from_utc,
             date_to=date_to_utc,
             limit=10_000,

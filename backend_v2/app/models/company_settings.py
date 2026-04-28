@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Time
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,5 +32,13 @@ class CompanySettings(TimestampMixin, Base):
     invitations_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     auto_close_open_sessions: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     auto_close_after_hours: Mapped[int] = mapped_column(Integer, default=16, nullable=False)
+    auto_clock_out_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_clock_out_time: Mapped[time | None] = mapped_column(Time())
+    auto_clock_out_timezone: Mapped[str | None] = mapped_column(String(80))
+    auto_clock_out_grace_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    auto_clock_out_updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+    )
+    auto_clock_out_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     company: Mapped[Company] = relationship(back_populates="settings")

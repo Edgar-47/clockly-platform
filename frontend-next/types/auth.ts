@@ -1,6 +1,6 @@
 import type { PlanFeatures, PlanType } from "./plan";
 
-export type UserRole = "superadmin" | "owner" | "admin" | "manager" | "employee";
+export type UserRole = "superadmin" | "owner" | "admin" | "hr_manager" | "manager" | "employee";
 
 export interface AuthUser {
   id: string;
@@ -73,7 +73,7 @@ export interface MessageResponse {
 }
 
 // Superadmin is reserved for a future internal console and must not enter tenant dashboards.
-export const ADMIN_ROLES: UserRole[] = ["owner", "admin", "manager"];
+export const ADMIN_ROLES: UserRole[] = ["owner", "admin", "hr_manager", "manager"];
 
 export function isAdminRole(role: UserRole): boolean {
   return ADMIN_ROLES.includes(role);

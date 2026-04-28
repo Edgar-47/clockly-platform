@@ -5,6 +5,7 @@ class UserRole(StrEnum):
     SUPERADMIN = "superadmin"
     OWNER = "owner"
     ADMIN = "admin"
+    HR_MANAGER = "hr_manager"
     MANAGER = "manager"
     EMPLOYEE = "employee"
 
@@ -33,6 +34,30 @@ class AttendanceMethod(StrEnum):
     MOBILE = "mobile"
     KIOSK = "kiosk"
     PIN = "pin"
+
+
+class ClockOutSource(StrEnum):
+    EMPLOYEE = "employee"
+    ADMIN = "admin"
+    MANUAL = "manual"
+    AUTO = "auto"
+
+
+class AttendanceIncidentType(StrEnum):
+    AUTO_CLOCK_OUT = "auto_clock_out"
+
+
+class IncidentStatus(StrEnum):
+    OPEN = "open"
+    RESOLVED = "resolved"
+
+
+class SalaryType(StrEnum):
+    HOURLY = "hourly"
+    DAILY = "daily"
+    SHIFT = "shift"
+    MONTHLY = "monthly"
+    WEEKLY = "weekly"
 
 
 class TicketStatus(StrEnum):

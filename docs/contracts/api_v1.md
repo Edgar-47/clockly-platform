@@ -205,7 +205,9 @@ Visible in the current web UI under `/settings`:
 - `POST /invitations/{token}/accept`
 
 Tenant member management requires `users:manage`, currently granted to `owner`
-and `admin`. `superadmin` is not a tenant admin role.
+and `admin`. `superadmin` is not a tenant admin role. `hr_manager` can create
+employee login accounts through `/users` but cannot invite members, change
+roles, deactivate accounts, or access tenant settings/billing.
 
 ### POST `/businesses/{business_id}/invitations`
 
@@ -220,8 +222,8 @@ Request:
 
 Rules:
 
-- `owner` may invite `admin`, `manager`, and `employee`.
-- `admin` may invite `manager` and `employee`.
+- `owner` may invite `admin`, `hr_manager`, `manager`, and `employee`.
+- `admin` may invite `hr_manager`, `manager`, and `employee`.
 - `owner` and `superadmin` cannot be invited through tenant member management.
 - Duplicate pending invitations for the same company/email return `409`.
 
@@ -328,6 +330,34 @@ Subscription create/update maps Stripe Price IDs back to `PlanType` and syncs
 plan-derived tenant capabilities. Subscription deletion moves the tenant back
 to Free and marks the subscription inactive.
 
+## Settings
+
+Visible in the current web UI under `/settings` for `owner` and `admin`:
+
+- `GET /settings/auto-clock-out`
+- `PUT /settings/auto-clock-out`
+
+Requires `settings:read` to view and `settings:write` to modify. The
+`hr_manager`, `manager`, and `employee` roles receive `403`.
+
+Request:
+
+```json
+{
+  "auto_clock_out_enabled": true,
+  "auto_clock_out_time": "23:30",
+  "auto_clock_out_timezone": "Europe/Madrid",
+  "auto_clock_out_grace_minutes": 0
+}
+```
+
+Validation:
+
+- Enabling requires `auto_clock_out_time`.
+- Timezone must be a valid IANA timezone.
+- The backend stores `auto_clock_out_updated_by_user_id` and
+  `auto_clock_out_updated_at`.
+
 ## Employees
 
 Visible in the current web UI (`/employees`):
@@ -359,6 +389,7 @@ Visible in the current web UI (`/sessions`, `/employee`, `/kiosk`):
 - `POST /attendance/clock-out`
 - `PATCH /attendance/sessions/{session_id}`
 - `POST /attendance/sessions/bulk/auto-close`
+- `POST /attendance/sessions/bulk/auto-clock-out`
 
 ### GET `/attendance/sessions`
 
@@ -368,6 +399,7 @@ Query params:
 - `status`
 - `date_from`
 - `date_to`
+- `clock_out_source` (`employee`, `admin`, `manual`, `auto`)
 
 Notes:
 
@@ -448,6 +480,75 @@ Request:
 
 Response includes `closed_count` and the corrected sessions.
 
+### POST `/attendance/sessions/bulk/auto-clock-out`
+
+Runs the configured forgotten clock-out policy for the authenticated tenant.
+This endpoint is intended for owner/admin manual execution and requires
+`settings:write`; scheduled execution should use the backend job instead.
+
+Automatic closures:
+
+- Close only currently open `attendance_sessions`.
+- Respect `company_id` and configured timezone.
+- Are idempotent; already closed sessions are not changed and duplicate
+  incidents are prevented by `(company_id, attendance_session_id, type)`.
+- Set `clock_out_source = auto`, `auto_closed = true`,
+  `has_incident = true`, `incident_type = auto_clock_out`, and
+  `closed_automatically_at`.
+- Create `attendance_incidents.type = auto_clock_out`.
+- Record audit metadata including configured user, execution time, session,
+  employee, timezone, and close timestamp.
+
+Scheduler/job:
+
+```powershell
+cd backend_v2
+python scripts/run_auto_clock_out.py
+```
+
+Run this from cron, Windows Task Scheduler, or a worker scheduler. No critical
+automatic clock-out logic is coupled to the frontend.
+
+## Salary estimates
+
+Visible in the current web UI under `/salaries` for roles with `salary:read`.
+This module is "Salarios estimados" / "Calculo estimado de pagos"; it is not
+official payroll.
+
+- `GET /salary-profiles`
+- `POST /salary-profiles`
+- `GET /salary-profiles/{employee_id}`
+- `PATCH /salary-profiles/{profile_id}`
+- `GET /salary-calculations?employee_id=&from=&to=`
+- `POST /salary-calculations/generate`
+
+Supported salary types:
+
+- `hourly`: worked hours from closed `attendance_sessions` x hourly amount.
+- `daily`: unique worked local days x daily amount.
+- `shift`: closed sessions x shift amount.
+- `monthly`: monthly base prorated by days in the selected range/profile
+  segment.
+- `weekly`: weekly base prorated by selected days / 7.
+
+Rules:
+
+- `attendance_sessions` is the source of truth.
+- Open sessions are ignored and returned as `open_sessions_ignored`.
+- Incidents are counted and surfaced in calculation metadata.
+- Salary profile changes inside a period are split into line items by
+  effective date.
+- Profile creation automatically closes a previous open-ended profile for the
+  same employee when the new profile starts later; overlapping ranges are
+  rejected.
+- All endpoints validate tenant ownership.
+
+Legal warning returned by calculations:
+
+```text
+Calculo estimado basado en fichajes registrados. Revisar antes de pagar.
+```
+
 Kiosk/PIN rules:
 
 - The web route `/kiosk` is protected. It requires an authenticated tenant
@@ -467,6 +568,8 @@ Visible in the current web UI when the company plan allows it:
 - `GET /exports/attendance?format=xlsx`
 - `GET /exports/attendance?format=excel`
 - `GET /exports/attendance?format=pdf`
+- `GET /exports/salary-calculation?format=xlsx&employee_id=&from=&to=`
+- `GET /exports/salary-calculation?format=pdf&employee_id=&from=&to=`
 
 Contract notes:
 
@@ -474,9 +577,11 @@ Contract notes:
 - Requires `has_exports`.
 - Filtered exports also require `has_advanced_filters`.
 - Response is a file download with `Content-Disposition`.
-- XLSX/PDF exports include employee, DNI/ID, entry/exit dates and times,
-  `hh:mm` duration, status, notes, company name, report range, and tenant
-  timezone.
+- XLSX/PDF attendance exports include employee, DNI/ID, entry/exit dates and
+  times, `hh:mm` duration, status, clock-out source, automatic clock-out
+  incidents, notes, company name, report range, and tenant timezone.
+- Salary exports include hours, days, shifts, incident count, profile line
+  items, and estimated total amount for the requested period.
 
 ## Metrics
 
@@ -594,7 +699,8 @@ no tenant permissions.
   Resend, SendGrid, and Mailgun are reserved adapter names for future provider
   modules.
 - Audit logs are written for failed login, invitation lifecycle events, member
-  role/access changes, and permission denials.
+  role/access changes, permission denials, auto clock-out settings/execution,
+  and salary profile/calculation events.
 
 ## MVP publication and staging checklist
 

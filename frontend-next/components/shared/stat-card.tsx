@@ -28,16 +28,16 @@ export function StatCard({
 }: StatCardProps) {
   if (loading) {
     return (
-      <div className="rounded-lg bg-white border border-border shadow-xs p-5">
+      <div className="rounded-xl bg-white border border-border shadow-xs p-5">
         <Skeleton className="h-9 w-9 rounded-lg" />
-        <Skeleton className="h-3.5 w-28 mt-4" />
-        <Skeleton className="h-7 w-16 mt-2" />
+        <Skeleton className="h-3 w-24 mt-5" />
+        <Skeleton className="h-8 w-16 mt-2" />
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg bg-white border border-border shadow-xs p-5 transition-shadow duration-200 hover:shadow-sm">
+    <div className="rounded-xl bg-white border border-border shadow-xs p-5 transition-all duration-200 hover:shadow-sm hover:-translate-y-px">
       <div
         className={cn(
           "flex h-9 w-9 items-center justify-center rounded-lg",
@@ -46,12 +46,14 @@ export function StatCard({
       >
         {icon}
       </div>
-      <p className="mt-4 text-[13px] font-medium text-ink-muted">{label}</p>
-      <p className="mt-1 text-[26px] font-bold tracking-tight text-ink tabular-nums leading-none">
+      <p className="mt-5 text-[12px] font-semibold uppercase tracking-wide text-ink-xmuted">
+        {label}
+      </p>
+      <p className="mt-1.5 text-[30px] font-bold tracking-tight text-ink tabular-nums leading-none">
         {value}
       </p>
       {trend && (
-        <p className="mt-1.5 text-[11px] text-ink-xmuted">{trend}</p>
+        <p className="mt-2 text-[12px] text-ink-xmuted">{trend}</p>
       )}
     </div>
   );

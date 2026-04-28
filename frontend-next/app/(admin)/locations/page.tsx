@@ -4,22 +4,36 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 import { format, startOfDay, endOfDay } from "date-fns";
-import { MapPin } from "lucide-react";
-import { useAttendanceLocationEvents, useLocationSummary, useWorkLocations } from "@/hooks/use-locations";
+import { Download } from "lucide-react";
+import {
+  useAttendanceLocationEvents,
+  useLocationSummary,
+  useWorkLocations,
+} from "@/hooks/use-locations";
 import { useMe } from "@/hooks/use-auth";
 import { EventList } from "@/features/locations/components/event-list";
-import { LocationFilters, type LocationFilterState } from "@/features/locations/components/location-filters";
+import {
+  LocationFilters,
+  type LocationFilterState,
+} from "@/features/locations/components/location-filters";
 import { LocationStats } from "@/features/locations/components/location-stats";
 import { Button } from "@/components/ui/button";
+import { Topbar } from "@/components/shared/topbar";
 import type { AttendanceLocationEvent } from "@/types/location";
 
-// Leaflet must not run on the server
 const AttendanceMap = dynamic(
-  () => import("@/features/locations/components/attendance-map").then((m) => m.AttendanceMap),
-  { ssr: false, loading: () => <div className="h-full animate-pulse rounded-lg bg-surface-bg" /> },
+  () =>
+    import("@/features/locations/components/attendance-map").then(
+      (m) => m.AttendanceMap,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full animate-pulse rounded-xl bg-surface-bg" />
+    ),
+  },
 );
 
-// Leaflet CSS
 import "leaflet/dist/leaflet.css";
 
 function todayFilter(): LocationFilterState {
@@ -32,15 +46,17 @@ function todayFilter(): LocationFilterState {
 export default function LocationsPage() {
   const [filters, setFilters] = useState<LocationFilterState>(todayFilter);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<AttendanceLocationEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] =
+    useState<AttendanceLocationEvent | null>(null);
   const me = useMe();
 
-  const { data: eventsData, isLoading: eventsLoading } = useAttendanceLocationEvents({
-    date_from: filters.date_from,
-    date_to: filters.date_to,
-    location_status: filters.location_status,
-    limit: 200,
-  });
+  const { data: eventsData, isLoading: eventsLoading } =
+    useAttendanceLocationEvents({
+      date_from: filters.date_from,
+      date_to: filters.date_to,
+      location_status: filters.location_status,
+      limit: 200,
+    });
 
   const { data: workLocations = [] } = useWorkLocations();
 
@@ -50,20 +66,22 @@ export default function LocationsPage() {
   });
 
   const allEvents = eventsData?.items ?? [];
-  const filteredEvents =
-    filters.event_type
-      ? allEvents.filter((e) => e.event_type === filters.event_type)
-      : allEvents;
+  const filteredEvents = filters.event_type
+    ? allEvents.filter((e) => e.event_type === filters.event_type)
+    : allEvents;
 
   if (me.data && !me.data.company.has_geolocation) {
     return (
       <div className="flex h-[calc(100vh-62px)] items-center justify-center p-6">
-        <div className="max-w-md rounded-lg border border-warning-border bg-warning-bg p-5">
-          <h1 className="text-sm font-bold text-ink">Geolocalizacion disponible en Pro</h1>
-          <p className="mt-2 text-sm text-ink-muted">
-            Activa un plan con geolocalizacion para ver fichajes en mapa y validar ubicaciones.
+        <div className="max-w-md rounded-xl border border-warning-border bg-warning-bg p-6 text-center">
+          <h1 className="text-[14px] font-bold text-ink">
+            Geolocalización disponible en Pro
+          </h1>
+          <p className="mt-2 text-[13px] text-ink-muted">
+            Activa un plan con geolocalización para ver fichajes en mapa y
+            validar ubicaciones.
           </p>
-          <Button asChild className="mt-4" size="sm">
+          <Button asChild className="mt-5" size="sm">
             <Link href="/upgrade">Ver planes</Link>
           </Button>
         </div>
@@ -77,72 +95,77 @@ export default function LocationsPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-62px)] flex-col gap-4 p-5">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <MapPin className="h-5 w-5 text-primary" />
-          <div>
-            <h1 className="text-[15px] font-bold text-ink">Localizaciones</h1>
-            <p className="text-[12px] text-ink-xmuted">
-              Mapa de fichajes — solo se registra la ubicación puntual del fichaje
-            </p>
-          </div>
-        </div>
-      </div>
+    <>
+      <Topbar
+        title="Localizaciones"
+        actions={
+          <Button variant="outline" size="sm">
+            <Download className="h-3.5 w-3.5" />
+            Exportar
+          </Button>
+        }
+      />
 
-      {/* Stats */}
-      <LocationStats summary={summary} loading={summaryLoading} />
+      <div className="flex h-[calc(100vh-62px)] flex-col gap-4 p-5">
+        {/* Stats */}
+        <LocationStats summary={summary} loading={summaryLoading} />
 
-      {/* Filters */}
-      <LocationFilters value={filters} onChange={setFilters} workLocations={workLocations} />
+        {/* Filters */}
+        <LocationFilters
+          value={filters}
+          onChange={setFilters}
+          workLocations={workLocations}
+        />
 
-      {/* Map + List layout */}
-      <div className="flex min-h-0 flex-1 gap-4">
-        {/* Map */}
-        <div className="relative flex-1 overflow-hidden rounded-lg border border-border bg-surface-bg">
-          {eventsLoading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          )}
-          <AttendanceMap
-            events={filteredEvents}
-            workLocations={workLocations}
-            selectedEventId={selectedId}
-            onSelectEvent={(ev) => {
-              const id = `${ev.session_id}-${ev.event_type}`;
-              handleSelectEvent(id, ev);
-            }}
-            companyTimeZone={me.data?.company.timezone}
-          />
-        </div>
-
-        {/* Sidebar */}
-        <div className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-white">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-[13px] font-semibold text-ink">
-              Fichajes{" "}
-              <span className="ml-1 rounded-full bg-surface-bg px-1.5 py-0.5 text-[11px] font-normal text-ink-muted">
-                {filteredEvents.length}
-              </span>
-            </p>
-            {selectedEvent && (
-              <p className="mt-0.5 truncate text-[11px] text-ink-xmuted">
-                Seleccionado: {selectedEvent.employee?.full_name}
-              </p>
+        {/* Map + List layout */}
+        <div className="flex min-h-0 flex-1 gap-4">
+          {/* Map */}
+          <div className="relative flex-1 overflow-hidden rounded-xl border border-border bg-surface-bg shadow-xs">
+            {eventsLoading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
             )}
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <EventList
+            <AttendanceMap
               events={filteredEvents}
-              selectedId={selectedId}
-              onSelect={handleSelectEvent}
+              workLocations={workLocations}
+              selectedEventId={selectedId}
+              onSelectEvent={(ev) => {
+                const id = `${ev.session_id}-${ev.event_type}`;
+                handleSelectEvent(id, ev);
+              }}
               companyTimeZone={me.data?.company.timezone}
             />
           </div>
+
+          {/* Sidebar */}
+          <div className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-white shadow-xs">
+            <div className="border-b border-border px-4 py-3.5 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] font-semibold text-ink">
+                  Fichajes con coordenadas
+                </p>
+                <span className="rounded-full bg-surface-bg border border-border px-2 py-0.5 text-[11px] font-medium text-ink-muted">
+                  {filteredEvents.length} registros
+                </span>
+              </div>
+              {selectedEvent && (
+                <p className="mt-1 truncate text-[11px] text-ink-xmuted">
+                  → {selectedEvent.employee?.full_name}
+                </p>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <EventList
+                events={filteredEvents}
+                selectedId={selectedId}
+                onSelect={handleSelectEvent}
+                companyTimeZone={me.data?.company.timezone}
+              />
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPin, MapPinOff, HelpCircle, AlertCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { LocationSummary } from "@/types/location";
 
 interface LocationStatsProps {
@@ -8,51 +9,72 @@ interface LocationStatsProps {
   loading?: boolean;
 }
 
-export function LocationStats({ summary, loading }: LocationStatsProps) {
-  const stats = [
-    {
-      label: "En rango",
-      value: summary?.in_range ?? 0,
-      icon: MapPin,
-      color: "text-success-DEFAULT",
-      bg: "bg-success-bg",
-    },
-    {
-      label: "Fuera de rango",
-      value: summary?.out_of_range ?? 0,
-      icon: MapPinOff,
-      color: "text-danger-DEFAULT",
-      bg: "bg-danger-bg",
-    },
-    {
-      label: "Sin ubicación",
-      value: summary?.unknown ?? 0,
-      icon: HelpCircle,
-      color: "text-ink-muted",
-      bg: "bg-surface-bg",
-    },
-    {
-      label: "Empleados con incidencias",
-      value: summary?.employees_with_incidents ?? 0,
-      icon: AlertCircle,
-      color: "text-warning-DEFAULT",
-      bg: "bg-warning-bg",
-    },
-  ];
+const STATS = [
+  {
+    key: "in_range" as const,
+    label: "En rango",
+    icon: MapPin,
+    value: (s: LocationSummary) => s.in_range,
+    color: "text-success-DEFAULT",
+    iconBg: "bg-success-bg",
+    border: "border-success-border",
+  },
+  {
+    key: "out_of_range" as const,
+    label: "Fuera de rango",
+    icon: MapPinOff,
+    value: (s: LocationSummary) => s.out_of_range,
+    color: "text-danger-DEFAULT",
+    iconBg: "bg-danger-bg",
+    border: "border-danger-border",
+  },
+  {
+    key: "unknown" as const,
+    label: "Sin ubicación",
+    icon: HelpCircle,
+    value: (s: LocationSummary) => s.unknown,
+    color: "text-ink-muted",
+    iconBg: "bg-surface-bg",
+    border: "border-border",
+  },
+  {
+    key: "incidents" as const,
+    label: "Con incidencias",
+    icon: AlertCircle,
+    value: (s: LocationSummary) => s.employees_with_incidents,
+    color: "text-warning-DEFAULT",
+    iconBg: "bg-warning-bg",
+    border: "border-warning-border",
+  },
+];
 
+export function LocationStats({ summary, loading }: LocationStatsProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {stats.map(({ label, value, icon: Icon, color, bg }) => (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {STATS.map(({ key, label, icon: Icon, value, color, iconBg, border }) => (
         <div
-          key={label}
-          className={`flex items-center gap-2.5 rounded-lg border border-border ${bg} px-3 py-2`}
+          key={key}
+          className={`flex items-center gap-3 rounded-xl border ${border} bg-white px-4 py-3 shadow-xs`}
         >
-          <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+          <div
+            className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+          >
+            <Icon className={`h-4 w-4 ${color}`} />
+          </div>
           <div>
-            <p className={`text-[18px] font-bold tabular-nums ${loading ? "animate-pulse" : ""} ${color}`}>
-              {loading ? "—" : value}
-            </p>
-            <p className="text-[10px] text-ink-muted">{label}</p>
+            {loading ? (
+              <>
+                <Skeleton className="h-5 w-8 mb-1" />
+                <Skeleton className="h-2.5 w-16" />
+              </>
+            ) : (
+              <>
+                <p className={`text-[20px] font-bold tabular-nums leading-none ${color}`}>
+                  {summary ? value(summary) : 0}
+                </p>
+                <p className="text-[11px] text-ink-xmuted mt-0.5">{label}</p>
+              </>
+            )}
           </div>
         </div>
       ))}

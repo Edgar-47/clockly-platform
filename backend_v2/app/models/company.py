@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.models.company_location import CompanyLocation
     from app.models.company_settings import CompanySettings
     from app.models.schedule import Schedule
+    from app.models.salary import SalaryCalculation, SalaryProfile
     from app.models.ticket import Ticket
     from app.models.user import User
     from app.models.user_invitation import UserInvitation
@@ -53,7 +54,7 @@ class Company(TimestampMixin, Base):
     stripe_subscription_status: Mapped[str | None] = mapped_column(String(80))
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="SET NULL"),
+        ForeignKey("users.id", ondelete="SET NULL", use_alter=True),
         nullable=True,
         index=True,
     )
@@ -69,6 +70,11 @@ class Company(TimestampMixin, Base):
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="company")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="company")
     invitations: Mapped[list[UserInvitation]] = relationship(back_populates="company", cascade="all, delete-orphan")
+    salary_profiles: Mapped[list[SalaryProfile]] = relationship(back_populates="company", cascade="all, delete-orphan")
+    salary_calculations: Mapped[list[SalaryCalculation]] = relationship(
+        back_populates="company",
+        cascade="all, delete-orphan",
+    )
     settings: Mapped[CompanySettings | None] = relationship(
         back_populates="company",
         cascade="all, delete-orphan",

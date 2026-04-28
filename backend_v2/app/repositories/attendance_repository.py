@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.attendance_session import AttendanceSession
 from app.models.employee import Employee
-from app.models.enums import AttendanceStatus
+from app.models.enums import AttendanceStatus, ClockOutSource
 
 
 class OverviewCounts(NamedTuple):
@@ -25,6 +25,7 @@ class AttendanceRepository:
         *,
         employee_id: UUID | None = None,
         status: AttendanceStatus | None = None,
+        clock_out_source: ClockOutSource | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
         limit: int = 100,
@@ -39,6 +40,8 @@ class AttendanceRepository:
             statement = statement.where(AttendanceSession.employee_id == employee_id)
         if status:
             statement = statement.where(AttendanceSession.status == status)
+        if clock_out_source:
+            statement = statement.where(AttendanceSession.clock_out_source == clock_out_source)
         if date_from:
             statement = statement.where(AttendanceSession.clock_in >= date_from)
         if date_to:
@@ -53,6 +56,7 @@ class AttendanceRepository:
         *,
         employee_id: UUID | None = None,
         status: AttendanceStatus | None = None,
+        clock_out_source: ClockOutSource | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
     ) -> int:
@@ -63,6 +67,8 @@ class AttendanceRepository:
             statement = statement.where(AttendanceSession.employee_id == employee_id)
         if status:
             statement = statement.where(AttendanceSession.status == status)
+        if clock_out_source:
+            statement = statement.where(AttendanceSession.clock_out_source == clock_out_source)
         if date_from:
             statement = statement.where(AttendanceSession.clock_in >= date_from)
         if date_to:
@@ -106,6 +112,21 @@ class AttendanceRepository:
                     AttendanceSession.company_id == self.company_id,
                     AttendanceSession.status == AttendanceStatus.OPEN,
                     AttendanceSession.clock_in <= cutoff,
+                )
+                .order_by(AttendanceSession.clock_in.asc())
+                .limit(limit)
+                .with_for_update()
+            )
+        )
+
+    def list_open(self, *, limit: int = 1000) -> list[AttendanceSession]:
+        return list(
+            self.db.scalars(
+                select(AttendanceSession)
+                .options(joinedload(AttendanceSession.employee))
+                .where(
+                    AttendanceSession.company_id == self.company_id,
+                    AttendanceSession.status == AttendanceStatus.OPEN,
                 )
                 .order_by(AttendanceSession.clock_in.asc())
                 .limit(limit)

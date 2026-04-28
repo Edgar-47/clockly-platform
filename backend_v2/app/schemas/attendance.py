@@ -4,8 +4,10 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import (
+    AttendanceIncidentType,
     AttendanceMethod,
     AttendanceStatus,
+    ClockOutSource,
     LocationPermissionStatus,
     LocationSource,
     LocationStatus,
@@ -40,6 +42,10 @@ class AttendanceSessionRead(BaseModel):
     corrected_at: datetime | None = None
     corrected_by_user_id: UUID | None = None
     auto_closed: bool = False
+    clock_out_source: ClockOutSource | None = None
+    has_incident: bool = False
+    incident_type: AttendanceIncidentType | None = None
+    closed_automatically_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     employee: AttendanceEmployeeRead | None = None
@@ -161,6 +167,7 @@ class ClockOutRequest(BaseModel):
 class AttendanceQuery(BaseModel):
     employee_id: UUID | None = None
     status: AttendanceStatus | None = None
+    clock_out_source: ClockOutSource | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None
 
@@ -181,3 +188,8 @@ class AutoCloseOpenSessionsRequest(BaseModel):
 class AutoCloseOpenSessionsResponse(BaseModel):
     closed_count: int
     items: list[AttendanceSessionRead]
+
+
+class AutoClockOutRunResponse(BaseModel):
+    closed_count: int
+    session_ids: list[UUID]

@@ -20,35 +20,50 @@ export default function DashboardPage() {
           <Button asChild size="sm" variant="secondary">
             <Link href="/kiosk" target="_blank">
               <MonitorSmartphone className="h-4 w-4" />
-              Abrir kiosk
+              Abrir Kiosk
             </Link>
           </Button>
         }
       />
 
-      <div className="p-6 space-y-5">
+      <div className="p-6 space-y-6">
         {error && (
-          <div className="rounded-md border border-danger-border bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-DEFAULT">
+          <div className="rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-[13px] text-danger-DEFAULT">
             Error al cargar el dashboard. Comprueba la conexión con el backend.
           </div>
         )}
 
+        {/* Company header */}
         {data?.business && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-[16px] font-semibold text-ink">
+              <h2 className="text-[22px] font-bold tracking-tight text-ink leading-none">
                 {data.business.name}
               </h2>
-              {data.usage && (
-                <p className="text-[13px] text-ink-muted mt-0.5">
-                  Plan{" "}
-                  <span className="font-semibold text-ink">
-                    {data.usage.plan.name}
-                  </span>{" "}
-                  · {data.usage.employee_count}/{data.usage.plan.max_employees ?? "sin limite"}{" "}
-                  empleados
-                </p>
-              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {data.usage && (
+                  <span className="inline-flex items-center rounded-full bg-warning-bg border border-warning-border px-2.5 py-0.5 text-[11px] font-bold text-warning-DEFAULT uppercase tracking-wide">
+                    Plan {data.usage.plan.name}
+                  </span>
+                )}
+                {data.usage && (
+                  <>
+                    <span className="text-[13px] text-ink-xmuted">·</span>
+                    <span className="text-[13px] text-ink-muted">
+                      {data.usage.employee_count}/
+                      {data.usage.plan.max_employees ?? "∞"} empleados
+                    </span>
+                  </>
+                )}
+                {data.business.timezone && (
+                  <>
+                    <span className="text-[13px] text-ink-xmuted">·</span>
+                    <span className="text-[13px] text-ink-muted">
+                      {data.business.timezone}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

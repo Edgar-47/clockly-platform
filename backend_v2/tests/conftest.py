@@ -20,6 +20,7 @@ from app.core.security import create_access_token, hash_password, hash_pin
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.attendance_incident import AttendanceIncident  # noqa: F401
 from app.models.attendance_session import AttendanceSession
 from app.models.audit_log import AuditLog  # noqa: F401 — ensures table is registered
 from app.models.company import Company
@@ -29,6 +30,7 @@ from app.models.employee import Employee
 from app.models.enums import AttendanceMethod, AttendanceStatus, UserRole
 from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.schedule import Schedule  # noqa: F401
+from app.models.salary import SalaryCalculation, SalaryProfile  # noqa: F401
 from app.models.ticket import Ticket  # noqa: F401
 from app.models.user import User
 from app.models.user_invitation import UserInvitation  # noqa: F401

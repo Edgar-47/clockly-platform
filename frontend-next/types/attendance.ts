@@ -3,6 +3,7 @@ export type IncidentType =
   | "early_departure"
   | "absence"
   | "overtime"
+  | "auto_clock_out"
   | null;
 
 export interface AttendanceSession {
@@ -21,6 +22,9 @@ export interface AttendanceSession {
   corrected_at: string | null;
   corrected_by_user_id: string | null;
   auto_closed: boolean;
+  clock_out_source: "employee" | "admin" | "manual" | "auto" | null;
+  has_incident: boolean;
+  closed_automatically_at: string | null;
   created_at: string;
   updated_at: string;
   employee_name?: string;
@@ -100,4 +104,5 @@ export interface AttendanceHistoryFilters {
   date_to?: string;
   employee_id?: string;
   status?: "open" | "closed" | "void";
+  clock_out_source?: "employee" | "admin" | "manual" | "auto";
 }

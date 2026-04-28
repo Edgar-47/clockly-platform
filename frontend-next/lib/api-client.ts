@@ -1,6 +1,6 @@
 import type { ApiError } from "@/types/api";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8010").replace(/\/$/, "");
+const BASE_URL = "/api";
 
 const AUTH_PATHS = {
   login: "/auth/login",

@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 # Roles each actor level is allowed to assign/change-to
 _MAX_ASSIGNABLE: dict[UserRole, set[UserRole]] = {
-    UserRole.SUPERADMIN: {UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE},
-    UserRole.OWNER: {UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE},
-    UserRole.ADMIN: {UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.SUPERADMIN: {UserRole.OWNER, UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.OWNER: {UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.ADMIN: {UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.HR_MANAGER: {UserRole.EMPLOYEE},
 }
 
 # Roles whose holder cannot be modified below OWNER level

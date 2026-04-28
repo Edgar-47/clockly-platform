@@ -3,7 +3,7 @@
 import { type FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CreditCard, MailPlus, ShieldCheck, UserMinus } from "lucide-react";
+import { Clock3, CreditCard, MailPlus, ShieldCheck, UserMinus } from "lucide-react";
 import { Topbar } from "@/components/shared/topbar";
 import { PlanCards } from "@/components/shared/plan-cards";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMe } from "@/hooks/use-auth";
+import { useAutoClockOutSettings, useUpdateAutoClockOutSettings } from "@/hooks/use-settings";
 import { membersService } from "@/services/members.service";
 import { billingService } from "@/services/billing.service";
 import type { UserRole } from "@/types/auth";
@@ -22,6 +23,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   superadmin: "Superadmin",
   owner: "Propietario",
   admin: "Administrador",
+  hr_manager: "Responsable RRHH",
   manager: "Manager",
   employee: "Empleado",
 };
@@ -34,8 +36,8 @@ const INVITATION_STATUS_LABELS: Record<string, string> = {
 };
 
 function manageableRoles(actorRole?: UserRole): UserRole[] {
-  if (actorRole === "owner") return ["admin", "manager", "employee"];
-  if (actorRole === "admin") return ["manager", "employee"];
+  if (actorRole === "owner") return ["admin", "hr_manager", "manager", "employee"];
+  if (actorRole === "admin") return ["hr_manager", "manager", "employee"];
   return [];
 }
 
@@ -44,6 +46,9 @@ export default function SettingsPage() {
   const me = useMe();
   const company = me.data?.company;
   const actor = me.data?.user;
+  const permissions = me.data?.permissions ?? [];
+  const canReadSettings = permissions.includes("settings:read");
+  const canWriteSettings = permissions.includes("settings:write");
   const canManageMembers = me.data?.permissions.includes("users:manage") ?? false;
   const roleOptions = useMemo(() => manageableRoles(actor?.role), [actor?.role]);
   const defaultInviteRole = roleOptions.at(-1) ?? "employee";
@@ -51,6 +56,19 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>(defaultInviteRole);
   const [lastInvitation, setLastInvitation] = useState<InvitationCreateResponse | null>(null);
+  const [autoDraft, setAutoDraft] = useState<{
+    enabled?: boolean;
+    time?: string;
+    timezone?: string;
+    grace?: number;
+  }>({});
+
+  const autoClockOutQuery = useAutoClockOutSettings(canReadSettings);
+  const updateAutoClockOut = useUpdateAutoClockOutSettings();
+  const autoEnabled = autoDraft.enabled ?? autoClockOutQuery.data?.auto_clock_out_enabled ?? false;
+  const autoTime = autoDraft.time ?? autoClockOutQuery.data?.auto_clock_out_time?.slice(0, 5) ?? "";
+  const autoTimezone = autoDraft.timezone ?? autoClockOutQuery.data?.auto_clock_out_timezone ?? company?.timezone ?? "";
+  const autoGrace = autoDraft.grace ?? autoClockOutQuery.data?.auto_clock_out_grace_minutes ?? 0;
 
   const membersQuery = useQuery({
     queryKey: ["members", company?.id],
@@ -136,9 +154,47 @@ export default function SettingsPage() {
     createInvitation.mutate();
   }
 
+  function handleSaveAutoClockOut(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canWriteSettings) return;
+    if (autoEnabled && !autoTime) {
+      toast.error("Define una hora limite para activar el desfichaje automatico.");
+      return;
+    }
+    updateAutoClockOut.mutate(
+      {
+        auto_clock_out_enabled: autoEnabled,
+        auto_clock_out_time: autoTime || null,
+        auto_clock_out_timezone: autoTimezone || company?.timezone || null,
+        auto_clock_out_grace_minutes: autoGrace,
+      },
+      {
+        onSuccess: () => {
+          setAutoDraft({});
+          toast.success("Desfichaje automatico actualizado.");
+        },
+        onError: (error: { detail?: string; message?: string }) =>
+          toast.error(error.detail ?? error.message ?? "No se pudo guardar la configuracion."),
+      },
+    );
+  }
+
   function handleRevokeMember(member: Member) {
     if (!window.confirm(`¿Revocar el acceso de ${member.full_name}?`)) return;
     revokeMember.mutate(member.id);
+  }
+
+  if (me.data && !canReadSettings) {
+    return (
+      <>
+        <Topbar title="Configuracion" />
+        <div className="p-6">
+          <div className="rounded-md border border-warning-border bg-warning-bg px-4 py-3 text-sm text-warning-DEFAULT">
+            Tu rol no puede acceder a la configuracion del local o empresa.
+          </div>
+        </div>
+      </>
+    );
   }
 
   return (
@@ -175,6 +231,76 @@ export default function SettingsPage() {
                 Gestionar facturacion
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-primary" />
+              Desfichaje automatico
+            </CardTitle>
+            <CardDescription>
+              Cierra sesiones abiertas al superar la hora limite del local y las marca como incidencia auditable.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {autoClockOutQuery.isLoading ? (
+              <p className="text-sm text-ink-muted">Cargando configuracion...</p>
+            ) : (
+              <form onSubmit={handleSaveAutoClockOut} className="grid gap-4 md:grid-cols-[180px_180px_1fr_140px_auto] md:items-end">
+                <label className="flex items-center gap-2 rounded-md border border-border bg-surface-bg px-3 py-2.5 text-sm font-medium text-ink">
+                  <input
+                    type="checkbox"
+                    checked={autoEnabled}
+                    disabled={!canWriteSettings}
+                    onChange={(event) => setAutoDraft((current) => ({ ...current, enabled: event.target.checked }))}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  Activado
+                </label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="auto-clock-out-time">Hora limite</Label>
+                  <Input
+                    id="auto-clock-out-time"
+                    type="time"
+                    value={autoTime}
+                    disabled={!canWriteSettings}
+                    onChange={(event) => setAutoDraft((current) => ({ ...current, time: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="auto-clock-out-timezone">Zona horaria</Label>
+                  <Input
+                    id="auto-clock-out-timezone"
+                    value={autoTimezone}
+                    disabled={!canWriteSettings}
+                    onChange={(event) => setAutoDraft((current) => ({ ...current, timezone: event.target.value }))}
+                    placeholder={company?.timezone ?? "Europe/Madrid"}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="auto-clock-out-grace">Margen</Label>
+                  <Input
+                    id="auto-clock-out-grace"
+                    type="number"
+                    min={0}
+                    max={180}
+                    value={autoGrace}
+                    disabled={!canWriteSettings}
+                    onChange={(event) => setAutoDraft((current) => ({ ...current, grace: Number(event.target.value) || 0 }))}
+                  />
+                </div>
+                <Button type="submit" loading={updateAutoClockOut.isPending} disabled={!canWriteSettings}>
+                  Guardar
+                </Button>
+              </form>
+            )}
+            {autoClockOutQuery.data?.auto_clock_out_updated_at && (
+              <p className="mt-3 text-[12px] text-ink-muted">
+                Ultima actualizacion: {new Date(autoClockOutQuery.data.auto_clock_out_updated_at).toLocaleString()}
+              </p>
+            )}
           </CardContent>
         </Card>
 

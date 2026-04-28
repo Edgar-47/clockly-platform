@@ -14,6 +14,8 @@ from app.api.routes import (
     onboarding,
     plans,
     schedules,
+    settings,
+    salary,
     superadmin,
     tickets,
     users,
@@ -28,6 +30,8 @@ api_router.include_router(businesses.router)
 api_router.include_router(invitations.router)
 api_router.include_router(employees.router)
 api_router.include_router(schedules.router)
+api_router.include_router(settings.router)
+api_router.include_router(salary.router)
 api_router.include_router(attendance.router)
 api_router.include_router(metrics.router)
 api_router.include_router(tickets.router)

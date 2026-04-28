@@ -24,13 +24,13 @@ from app.services.plans import check_employee_limit
 INVITATION_EXPIRES_DAYS = 7
 
 _INVITABLE_ROLES: dict[UserRole, set[UserRole]] = {
-    UserRole.OWNER: {UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE},
-    UserRole.ADMIN: {UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.OWNER: {UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.ADMIN: {UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.EMPLOYEE},
 }
 
 _MANAGEABLE_ROLES: dict[UserRole, set[UserRole]] = {
-    UserRole.OWNER: {UserRole.ADMIN, UserRole.MANAGER, UserRole.EMPLOYEE},
-    UserRole.ADMIN: {UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.OWNER: {UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.EMPLOYEE},
+    UserRole.ADMIN: {UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.EMPLOYEE},
 }
 
 
