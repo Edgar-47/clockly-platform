@@ -3,7 +3,7 @@
 import { useState, useDeferredValue, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +34,6 @@ export function EmployeeTable({
   createDisabledReason,
 }: EmployeeTableProps) {
   const [search, setSearch] = useState("");
-  // Defer search filtering so typing stays responsive even with large lists.
   const deferredSearch = useDeferredValue(search);
   const router = useRouter();
   const setActive = useSetEmployeeActive();
@@ -51,10 +50,21 @@ export function EmployeeTable({
     );
   }, [employees, deferredSearch]);
 
+  const handleToggleActive = (e: React.MouseEvent, employee: Employee) => {
+    e.stopPropagation();
+    setActive.mutate(
+      { id: employee.id, isActive: !employee.is_active },
+      {
+        onSuccess: () => toast.success("Estado actualizado."),
+        onError: () => toast.error("No se pudo actualizar el empleado."),
+      },
+    );
+  };
+
   return (
     <div className="rounded-lg border border-border bg-white shadow-xs">
       {/* Header */}
-      <div className="flex flex-col gap-2.5 border-b border-border px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-xmuted" />
           <Input
@@ -69,14 +79,69 @@ export function EmployeeTable({
           disabled={!canCreateEmployee}
           title={!canCreateEmployee ? createDisabledReason : undefined}
           onClick={() => router.push("/employees/new")}
+          className="w-full sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Nuevo empleado
         </Button>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* ── MOBILE CARD LIST (< md) ─────────────────────── */}
+      <div className="divide-y divide-border md:hidden">
+        {loading &&
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+              <Skeleton className="h-9 w-9 rounded-full flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-5 w-14 rounded-full" />
+            </div>
+          ))}
+
+        {!loading && filtered?.length === 0 && (
+          <EmptyState
+            title="Sin empleados"
+            description="Crea el primer empleado para empezar."
+            action={
+              canCreateEmployee
+                ? { label: "Nuevo empleado", onClick: () => router.push("/employees/new") }
+                : undefined
+            }
+          />
+        )}
+
+        {!loading &&
+          filtered?.map((employee) => (
+            <div
+              key={employee.id}
+              className="flex cursor-pointer items-center gap-3 px-4 py-3.5 hover:bg-surface-muted/60 transition-colors"
+              onClick={() => router.push(`/employees/${employee.id}`)}
+            >
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                {getInitials(employee.first_name, employee.last_name)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-[13px] font-semibold text-ink">{employee.full_name}</p>
+                {employee.email && (
+                  <p className="truncate text-[11px] text-ink-muted">{employee.email}</p>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                {employee.is_active ? (
+                  <Badge variant="success">Activo</Badge>
+                ) : (
+                  <Badge variant="danger">Inactivo</Badge>
+                )}
+                <ChevronRight className="h-4 w-4 text-ink-xmuted" />
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* ── DESKTOP TABLE (≥ md) ────────────────────────── */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-muted text-left">
@@ -95,7 +160,7 @@ export function EmployeeTable({
               <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                 Alta
               </th>
-              <th className="px-5 py-3" />
+              <th className="px-5 py-3" scope="col"><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -128,10 +193,7 @@ export function EmployeeTable({
                     description="Crea el primer empleado para empezar."
                     action={
                       canCreateEmployee
-                        ? {
-                            label: "Nuevo empleado",
-                            onClick: () => router.push("/employees/new"),
-                          }
+                        ? { label: "Nuevo empleado", onClick: () => router.push("/employees/new") }
                         : undefined
                     }
                   />
@@ -152,13 +214,9 @@ export function EmployeeTable({
                         {getInitials(employee.first_name, employee.last_name)}
                       </div>
                       <div>
-                        <p className="text-[13px] font-semibold text-ink">
-                          {employee.full_name}
-                        </p>
+                        <p className="text-[13px] font-semibold text-ink">{employee.full_name}</p>
                         {employee.email && (
-                          <p className="text-[11px] text-ink-muted">
-                            {employee.email}
-                          </p>
+                          <p className="text-[11px] text-ink-muted">{employee.email}</p>
                         )}
                       </div>
                     </div>
@@ -183,16 +241,8 @@ export function EmployeeTable({
                   </td>
                   <td className="px-5 py-3">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActive.mutate(
-                          { id: employee.id, isActive: !employee.is_active },
-                          {
-                            onSuccess: () => toast.success("Estado actualizado."),
-                            onError: () => toast.error("No se pudo actualizar el empleado."),
-                          },
-                        );
-                      }}
+                      type="button"
+                      onClick={(e) => handleToggleActive(e, employee)}
                       className="rounded px-2 py-1 text-[12px] font-medium text-ink-muted hover:bg-surface-bg hover:text-ink transition-colors duration-100"
                     >
                       {employee.is_active ? "Desactivar" : "Activar"}
@@ -205,7 +255,7 @@ export function EmployeeTable({
       </div>
 
       {!loading && filtered && (
-        <div className="border-t border-border px-6 py-3 text-xs text-ink-muted">
+        <div className="border-t border-border px-4 py-3 text-xs text-ink-muted sm:px-6">
           {filtered.length} empleado{filtered.length !== 1 ? "s" : ""}
           {search && ` (filtrado de ${employees?.length ?? 0})`}
         </div>

@@ -26,7 +26,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
         {error && (
           <div className="rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-[13px] text-danger-DEFAULT">
             Error al cargar el dashboard. Comprueba la conexión con el backend.
@@ -70,7 +70,7 @@ export default function DashboardPage() {
 
         <MetricsGrid data={data} loading={isLoading} />
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_340px]">
           <RecentSessions
             sessions={data?.recent_sessions}
             loading={isLoading}

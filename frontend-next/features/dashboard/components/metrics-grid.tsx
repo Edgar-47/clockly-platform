@@ -12,7 +12,7 @@ interface MetricsGridProps {
 
 export function MetricsGrid({ data, loading }: MetricsGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <StatCard
         label="Total empleados"
         value={data?.total_employees ?? 0}

@@ -114,85 +114,94 @@ export function SessionsTable({
 
   return (
     <div className="rounded-lg border border-border bg-white shadow-xs">
-      <div className="flex flex-wrap gap-2.5 border-b border-border px-5 py-3.5">
-        {(!canUseAdvancedFilters || !canExport) && <Badge variant="warning">Disponible en Pro</Badge>}
-        <Input
-          type="date"
-          className="w-auto"
-          disabled={!canUseAdvancedFilters}
-          title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
-          onChange={(event) => applyFilter({ date_from: event.target.value || undefined })}
-        />
-        <Input
-          type="date"
-          className="w-auto"
-          disabled={!canUseAdvancedFilters}
-          title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
-          onChange={(event) => applyFilter({ date_to: event.target.value || undefined })}
-        />
-        <Select
-          onValueChange={(value) =>
-            applyFilter({
-              status: value === "all" ? undefined : value === "open" ? "open" : "closed",
-            })
-          }
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="open">Activas</SelectItem>
-            <SelectItem value="closed">Cerradas</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          onValueChange={(value) =>
-            applyFilter({
-              clock_out_source: value === "all" ? undefined : value as AttendanceHistoryFilters["clock_out_source"],
-            })
-          }
-        >
-          <SelectTrigger className="w-[190px]">
-            <SelectValue placeholder="Tipo de cierre" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="employee">Normal</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="manual">Manual</SelectItem>
-            <SelectItem value="auto">Automatico</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="ml-auto flex gap-2">
-          <Button variant="ghost" size="sm" loading={autoClose.isPending} onClick={closeOpenSessions}>
-            Cerrar abiertas
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!canExport}
-            loading={exporting === "excel"}
-            title={!canExport ? "Disponible en Pro" : undefined}
-            onClick={() => handleExport("excel")}
+      {/* ── FILTER BAR ─────────────────────────────────── */}
+      <div className="border-b border-border px-4 py-3 sm:px-5">
+        {(!canUseAdvancedFilters || !canExport) && (
+          <div className="mb-2.5">
+            <Badge variant="warning">Disponible en Pro</Badge>
+          </div>
+        )}
+        {/* Stacked on mobile, inline on sm+ */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Input
+            type="date"
+            className="w-full sm:w-auto"
+            disabled={!canUseAdvancedFilters}
+            title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
+            onChange={(event) => applyFilter({ date_from: event.target.value || undefined })}
+          />
+          <Input
+            type="date"
+            className="w-full sm:w-auto"
+            disabled={!canUseAdvancedFilters}
+            title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
+            onChange={(event) => applyFilter({ date_to: event.target.value || undefined })}
+          />
+          <Select
+            onValueChange={(value) =>
+              applyFilter({
+                status: value === "all" ? undefined : value === "open" ? "open" : "closed",
+              })
+            }
           >
-            Excel
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!canExport}
-            loading={exporting === "pdf"}
-            title={!canExport ? "Disponible en Pro" : undefined}
-            onClick={() => handleExport("pdf")}
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="open">Activas</SelectItem>
+              <SelectItem value="closed">Cerradas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            onValueChange={(value) =>
+              applyFilter({
+                clock_out_source: value === "all" ? undefined : value as AttendanceHistoryFilters["clock_out_source"],
+              })
+            }
           >
-            PDF
-          </Button>
+            <SelectTrigger className="w-full sm:w-[190px]">
+              <SelectValue placeholder="Tipo de cierre" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="employee">Normal</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+              <SelectItem value="auto">Automatico</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap gap-2 sm:ml-auto">
+            <Button variant="ghost" size="sm" loading={autoClose.isPending} onClick={closeOpenSessions}>
+              Cerrar abiertas
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!canExport}
+              loading={exporting === "excel"}
+              title={!canExport ? "Disponible en Pro" : undefined}
+              onClick={() => handleExport("excel")}
+            >
+              Excel
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!canExport}
+              loading={exporting === "pdf"}
+              title={!canExport ? "Disponible en Pro" : undefined}
+              onClick={() => handleExport("pdf")}
+            >
+              PDF
+            </Button>
+          </div>
         </div>
       </div>
 
+      {/* Edit form */}
       {editing && (
-        <div className="grid gap-3 border-b border-border bg-surface-bg px-5 py-4 md:grid-cols-[1fr_1fr_2fr_auto] md:items-end">
+        <div className="grid gap-3 border-b border-border bg-surface-bg px-4 py-4 sm:px-5 md:grid-cols-[1fr_1fr_2fr_auto] md:items-end">
           <div className="space-y-1">
             <label className="text-[11px] font-semibold uppercase text-ink-muted">Entrada</label>
             <Input
@@ -228,7 +237,64 @@ export function SessionsTable({
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      {/* ── MOBILE CARD LIST (< md) ─────────────────────── */}
+      <div className="divide-y divide-border md:hidden">
+        {loading &&
+          Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="space-y-2 px-4 py-3.5">
+              <Skeleton className="h-4 w-40" />
+              <div className="flex gap-3">
+                <Skeleton className="h-3.5 w-28" />
+                <Skeleton className="h-3.5 w-28" />
+              </div>
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+          ))}
+
+        {!loading && (!sessions || sessions.length === 0) && (
+          <div className="px-4 py-10 text-center text-sm text-ink-muted">
+            No hay fichajes con los filtros seleccionados.
+          </div>
+        )}
+
+        {!loading &&
+          sessions?.map((session) => (
+            <div key={session.id} className="space-y-2 px-4 py-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-[13px] font-semibold text-ink">
+                  {session.employee?.full_name ?? session.employee_name ?? `Empleado ${session.employee_id.slice(0, 8)}`}
+                </p>
+                <Button size="sm" variant="ghost" onClick={() => startEdit(session)} className="h-7 px-2 flex-shrink-0">
+                  Editar
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-muted tabular-nums">
+                <span>↓ {formatDateTime(session.clock_in_time, companyTimeZone)}</span>
+                {session.clock_out_time && (
+                  <span>↑ {formatDateTime(session.clock_out_time, companyTimeZone)}</span>
+                )}
+                {session.total_seconds && (
+                  <span className="font-medium text-ink">{formatSeconds(session.total_seconds)}</span>
+                )}
+              </div>
+              {session.notes && (
+                <p className="line-clamp-1 text-[12px] text-ink-muted">{session.notes}</p>
+              )}
+              <div className="flex flex-wrap gap-1.5">
+                {session.is_active ? <Badge variant="success">Activo</Badge> : <Badge variant="muted">Cerrado</Badge>}
+                {session.is_corrected && <Badge variant="warning">Corregido</Badge>}
+                {session.clock_out_source === "admin" && <Badge variant="outline">Admin</Badge>}
+                {session.clock_out_source === "manual" && <Badge variant="outline">Manual</Badge>}
+                {(session.auto_closed || session.clock_out_source === "auto") && (
+                  <Badge variant="warning">Auto</Badge>
+                )}
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* ── DESKTOP TABLE (≥ md) ────────────────────────── */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-muted text-left">
@@ -304,7 +370,7 @@ export function SessionsTable({
       </div>
 
       {!loading && sessions && (
-        <div className="border-t border-border px-5 py-3 text-[12px] text-ink-muted">
+        <div className="border-t border-border px-4 py-3 text-[12px] text-ink-muted sm:px-5">
           {sessions.length} registro{sessions.length !== 1 ? "s" : ""}
         </div>
       )}

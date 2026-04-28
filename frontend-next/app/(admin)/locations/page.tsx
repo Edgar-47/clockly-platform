@@ -106,7 +106,8 @@ export default function LocationsPage() {
         }
       />
 
-      <div className="flex h-[calc(100vh-62px)] flex-col gap-4 p-5">
+      {/* On mobile: scrollable column. On desktop: fixed-height split view. */}
+      <div className="flex flex-col gap-4 p-4 sm:p-5 lg:h-[calc(100vh-62px)]">
         {/* Stats */}
         <LocationStats summary={summary} loading={summaryLoading} />
 
@@ -117,10 +118,10 @@ export default function LocationsPage() {
           workLocations={workLocations}
         />
 
-        {/* Map + List layout */}
-        <div className="flex min-h-0 flex-1 gap-4">
-          {/* Map */}
-          <div className="relative flex-1 overflow-hidden rounded-xl border border-border bg-surface-bg shadow-xs">
+        {/* Map + List layout: stacked on mobile, side-by-side on lg+ */}
+        <div className="flex min-h-0 flex-col gap-4 lg:flex-1 lg:flex-row">
+          {/* Map — fixed height on mobile, flexible on desktop */}
+          <div className="relative h-[320px] overflow-hidden rounded-xl border border-border bg-surface-bg shadow-xs sm:h-[400px] lg:h-auto lg:flex-1">
             {eventsLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -138,9 +139,9 @@ export default function LocationsPage() {
             />
           </div>
 
-          {/* Sidebar */}
-          <div className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-white shadow-xs">
-            <div className="border-b border-border px-4 py-3.5 flex-shrink-0">
+          {/* Event list — full width on mobile, fixed-width sidebar on desktop */}
+          <div className="flex max-h-[380px] w-full shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-white shadow-xs lg:max-h-none lg:w-[320px]">
+            <div className="flex-shrink-0 border-b border-border px-4 py-3.5">
               <div className="flex items-center justify-between">
                 <p className="text-[13px] font-semibold text-ink">
                   Fichajes con coordenadas

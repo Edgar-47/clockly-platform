@@ -22,7 +22,7 @@ export default function AnalyticsPage() {
   return (
     <>
       <Topbar title="Analíticas" />
-      <div className="space-y-5 p-6">
+      <div className="space-y-4 p-4 sm:space-y-5 sm:p-6">
         {dashboard.error && (
           <div className="rounded-md border border-danger-border bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-DEFAULT">
             No se pudieron cargar las analíticas.
@@ -37,7 +37,8 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {/* 1 col → 2 col md → 4 col lg */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Total horas registradas"
             value={kpis ? formatSeconds(kpis.total_worked_seconds) : "0m"}
@@ -68,9 +69,10 @@ export default function AnalyticsPage() {
           />
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        {/* 1 col → 2 col lg */}
+        <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
           <Card>
-            <CardHeader className="flex-row items-center justify-between">
+            <CardHeader className="flex-row items-center justify-between pb-4">
               <CardTitle>Ranking de horas registradas</CardTitle>
               <Badge variant="outline">{employees.length} empleados</Badge>
             </CardHeader>
@@ -85,7 +87,7 @@ export default function AnalyticsPage() {
                     <div key={employee.employee_id} className="space-y-2">
                       <div className="flex items-center justify-between gap-3 text-sm">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                             {index + 1}
                           </span>
                           <span className="truncate font-semibold text-ink">
@@ -112,7 +114,7 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex-row items-center justify-between">
+            <CardHeader className="flex-row items-center justify-between pb-4">
               <CardTitle>Actividad reciente</CardTitle>
               <Badge variant="outline">{recentSessions.length} fichajes</Badge>
             </CardHeader>

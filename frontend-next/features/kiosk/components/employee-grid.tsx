@@ -33,7 +33,7 @@ export function EmployeeGrid({ statuses }: EmployeeGridProps) {
   const selectEmployee = useKioskStore((s) => s.selectEmployee);
 
   return (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {statuses.map((status) => {
         const { employee, is_clocked_in } = status;
         const initials = getInitials(employee.first_name, employee.last_name);
@@ -49,16 +49,21 @@ export function EmployeeGrid({ statuses }: EmployeeGridProps) {
             type="button"
             onClick={() => selectEmployee(status)}
             className={cn(
-              "group relative flex flex-col items-center gap-3 rounded-2xl border p-5 text-center transition-all duration-200 active:scale-[0.96]",
+              "group relative flex flex-col items-center gap-3 rounded-3xl border p-4 text-center transition-all duration-200 active:scale-[0.96] sm:gap-3.5 sm:p-5",
               is_clocked_in
-                ? "border-emerald-500/25 bg-emerald-500/[0.07] hover:border-emerald-500/40 hover:bg-emerald-500/[0.12]"
-                : "border-white/[0.07] bg-white/[0.04] hover:border-white/[0.14] hover:bg-white/[0.08]",
+                ? "bg-[#F0FDF4] border-[#34C759]/20 shadow-sm hover:shadow-md hover:border-[#34C759]/40"
+                : "bg-white border-black/[0.06] shadow-sm hover:shadow-md hover:border-black/[0.12]",
             )}
           >
+            {/* Clocked-in indicator dot */}
+            {is_clocked_in && (
+              <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-[#34C759] animate-pulse-dot" />
+            )}
+
             {/* Avatar */}
             <div
               className={cn(
-                "flex h-14 w-14 items-center justify-center rounded-2xl text-[18px] font-bold text-white",
+                "flex h-12 w-12 items-center justify-center rounded-2xl text-[15px] font-bold text-white shadow-sm sm:h-16 sm:w-16 sm:rounded-2xl sm:text-[19px]",
                 bg,
               )}
             >
@@ -66,23 +71,23 @@ export function EmployeeGrid({ statuses }: EmployeeGridProps) {
             </div>
 
             {/* Name */}
-            <div className="space-y-0.5">
-              <p className="text-[13px] font-semibold text-white/90 leading-tight">
+            <div className="w-full space-y-0.5">
+              <p className="truncate text-[12px] font-semibold text-[#1C1C1E] leading-tight sm:text-[13px]">
                 {employee.first_name}
               </p>
-              <p className="text-[13px] font-semibold text-white/90 leading-tight">
+              <p className="truncate text-[12px] font-semibold text-[#1C1C1E] leading-tight sm:text-[13px]">
                 {employee.last_name}
               </p>
             </div>
 
-            {/* Status */}
+            {/* Status badge */}
             {is_clocked_in ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse-dot flex-shrink-0" />
-                {clockInTime ? `Fichado · ${clockInTime}` : "Fichado"}
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 border border-[#34C759]/20 px-2.5 py-1 text-[10px] font-semibold text-[#34C759] sm:text-[11px]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#34C759] flex-shrink-0" />
+                {clockInTime ?? "Fichado"}
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-white/[0.05] border border-white/[0.07] px-2.5 py-0.5 text-[11px] font-medium text-white/25">
+              <span className="inline-flex items-center rounded-full bg-black/[0.04] border border-black/[0.06] px-2.5 py-1 text-[10px] font-medium text-[#8E8E93] sm:text-[11px]">
                 Libre
               </span>
             )}

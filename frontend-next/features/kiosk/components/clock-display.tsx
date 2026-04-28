@@ -37,24 +37,24 @@ export function ClockDisplay() {
 
   return (
     <div className="text-center select-none">
-      <div className="flex items-baseline justify-center tabular-nums">
-        <span className="kiosk-time-hm text-[104px] text-slate-900 leading-none">
+      <div className="flex items-baseline justify-center tabular-nums tracking-tight">
+        <span className="text-[88px] font-bold text-[#1C1C1E] leading-none sm:text-[112px]">
           {hours}
         </span>
-        <span className="kiosk-time-sep text-[80px] text-slate-300 leading-none mx-1 mb-1">
+        <span className="text-[64px] font-extralight text-[#C7C7CC] leading-none mx-2 sm:text-[84px]">
           :
         </span>
-        <span className="kiosk-time-hm text-[104px] text-slate-900 leading-none">
+        <span className="text-[88px] font-bold text-[#1C1C1E] leading-none sm:text-[112px]">
           {minutes}
         </span>
-        <span className="kiosk-time-sep text-[48px] text-slate-300 leading-none mx-1 self-end mb-3">
+        <span className="text-[38px] font-extralight text-[#C7C7CC] leading-none mx-2 self-end mb-3 sm:text-[50px]">
           :
         </span>
-        <span className="kiosk-time-sec text-[56px] text-[#FF6B35] leading-none self-end mb-1.5">
+        <span className="text-[44px] font-semibold text-[#FF6B35] leading-none self-end mb-1 sm:text-[56px]">
           {seconds}
         </span>
       </div>
-      <p className="kiosk-date mt-4 text-[11px] uppercase text-slate-400 capitalize">
+      <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#AEAEB2] capitalize sm:text-[12px]">
         {date}
       </p>
     </div>

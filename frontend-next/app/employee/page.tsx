@@ -141,7 +141,7 @@ export default function EmployeePage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[560px] space-y-4 p-5">
+      <div className="mx-auto max-w-[560px] space-y-4 p-4 sm:p-5">
         {/* Clock in/out card */}
         <Card>
           <CardHeader className="flex-row items-center justify-between pb-3">
@@ -218,7 +218,7 @@ export default function EmployeePage() {
             <CardTitle>PIN de kiosk</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleChangePin} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+            <form onSubmit={handleChangePin} className="flex flex-col gap-2 sm:grid sm:grid-cols-[1fr_1fr_auto]">
               <input
                 value={currentPin}
                 onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, "").slice(0, 4))}

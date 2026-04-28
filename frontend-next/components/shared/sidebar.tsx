@@ -15,8 +15,10 @@ import {
   Sparkles,
   TicketCheck,
   Users,
+  X,
 } from "lucide-react";
 import { useLogout, useMe } from "@/hooks/use-auth";
+import { useSidebarStore } from "@/store/sidebar.store";
 import { getInitials } from "@/lib/utils";
 import type { UserRole } from "@/types/auth";
 import { cn } from "@/lib/utils";
@@ -53,10 +55,12 @@ function NavGroup({
   label,
   items,
   pathname,
+  onNavigate,
 }: {
   label: string;
   items: NavItem[];
   pathname: string;
+  onNavigate?: () => void;
 }) {
   if (items.length === 0) return null;
 
@@ -75,8 +79,9 @@ function NavGroup({
             <li key={href}>
               <Link
                 href={href}
+                onClick={onNavigate}
                 className={cn(
-                  "group flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium transition-all duration-150",
+                  "group flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] font-medium transition-all duration-150 lg:py-2",
                   active
                     ? "bg-primary/10 text-primary"
                     : "text-ink-muted hover:bg-surface-bg hover:text-ink",
@@ -109,11 +114,13 @@ export function Sidebar() {
   const [firstName = "", ...restName] = user?.full_name.split(" ") ?? [];
   const lastName = restName.join(" ");
 
+  const { isOpen, close } = useSidebarStore();
+
   const roleLabel: Record<string, string> = {
     superadmin: "Superadmin",
     owner: "Propietario",
     admin: "Administrador",
-    hr_manager: "Responsable RRHH",
+    hr_manager: "Resp. RRHH",
     manager: "Manager",
     employee: "Empleado",
   };
@@ -122,16 +129,33 @@ export function Sidebar() {
     (!item.roles || item.roles.includes((role ?? "employee") as UserRole));
   const canOpenKiosk = role === "owner" || role === "admin" || role === "manager";
 
-  return (
-    <aside className="fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-border bg-surface-sidebar">
-      <div className="flex h-[62px] items-center border-b border-border px-5">
+  const sidebarContent = (
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-border bg-surface-sidebar transition-transform duration-300 ease-in-out",
+        // Always visible on desktop
+        "lg:translate-x-0",
+        // Slide in/out on mobile based on store state
+        isOpen ? "translate-x-0" : "-translate-x-full",
+      )}
+    >
+      <div className="flex h-[62px] items-center justify-between border-b border-border px-5">
         <Logo size="sm" />
+        {/* Close button — only visible on mobile */}
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={close}
+          className="rounded-md p-1.5 text-ink-muted hover:bg-surface-bg hover:text-ink transition-colors lg:hidden"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        <NavGroup label="Principal" items={NAV_MAIN.filter(canSee)} pathname={pathname} />
-        <NavGroup label="Operativa" items={NAV_OPERATIONS.filter(canSee)} pathname={pathname} />
-        <NavGroup label="Sistema" items={NAV_CONFIG.filter(canSee)} pathname={pathname} />
+        <NavGroup label="Principal" items={NAV_MAIN.filter(canSee)} pathname={pathname} onNavigate={close} />
+        <NavGroup label="Operativa" items={NAV_OPERATIONS.filter(canSee)} pathname={pathname} onNavigate={close} />
+        <NavGroup label="Sistema" items={NAV_CONFIG.filter(canSee)} pathname={pathname} onNavigate={close} />
       </nav>
 
       <div className="space-y-0.5 border-t border-border p-3">
@@ -155,7 +179,8 @@ export function Sidebar() {
           <Link
             href="/kiosk"
             target="_blank"
-            className="flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-ink-muted transition-colors hover:bg-surface-bg hover:text-ink"
+            onClick={close}
+            className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-surface-bg hover:text-ink lg:py-2"
           >
             <MonitorSmartphone className="h-[15px] w-[15px]" />
             Abrir Kiosk
@@ -164,12 +189,26 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => logout.mutate()}
-          className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-ink-muted transition-all duration-150 hover:bg-danger-bg hover:text-danger-DEFAULT"
+          className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] font-medium text-ink-muted transition-all duration-150 hover:bg-danger-bg hover:text-danger-DEFAULT lg:py-2"
         >
           <LogOut className="h-[15px] w-[15px]" />
           Cerrar sesion
         </button>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {sidebarContent}
+      {/* Mobile backdrop overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[1px] lg:hidden"
+          onClick={close}
+          aria-hidden="true"
+        />
+      )}
+    </>
   );
 }

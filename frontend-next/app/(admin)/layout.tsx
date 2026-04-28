@@ -48,7 +48,9 @@ export default function AdminLayout({
     <AdminGuard>
       <div className="flex min-h-screen bg-surface-bg">
         <Sidebar />
-        <div className="flex-1 pl-[248px]">
+        {/* On mobile: no left padding (sidebar is a drawer overlay).
+            On desktop (lg+): push content right by sidebar width. */}
+        <div className="flex-1 min-w-0 lg:pl-[248px]">
           <main className="min-h-screen">{children}</main>
         </div>
       </div>
