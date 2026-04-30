@@ -105,4 +105,6 @@ export interface AttendanceHistoryFilters {
   employee_id?: string;
   status?: "open" | "closed" | "void";
   clock_out_source?: "employee" | "admin" | "manual" | "auto";
+  limit?: number;
+  offset?: number;
 }

@@ -41,4 +41,8 @@ class CompanySettings(TimestampMixin, Base):
     )
     auto_clock_out_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Late arrival detection settings
+    late_arrivals_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    late_arrival_grace_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
     company: Mapped[Company] = relationship(back_populates="settings")

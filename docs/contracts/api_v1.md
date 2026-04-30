@@ -366,12 +366,14 @@ Visible in the current web UI (`/employees`):
 - `GET /employees/{employee_id}`
 - `POST /employees`
 - `PATCH /employees/{employee_id}`
+- `DELETE /employees/{employee_id}`
 - `POST /employees/{employee_id}/pin`
 - `POST /employees/me/pin`
 
 Contract notes:
 
-- `GET /employees` supports `include_inactive`, `limit`, and `offset`.
+- `GET /employees` supports `include_inactive`, `include_deleted`, `limit`,
+  and `offset`.
 - `EmployeeRead` includes `has_pin` so the frontend can decide kiosk
   availability without exposing PIN material.
 - Employee creation can include login credentials and a 4-digit kiosk PIN.
@@ -379,6 +381,31 @@ Contract notes:
   persists through `PATCH /employees/{employee_id}`.
 - Admins can reset or clear kiosk PINs with `POST /employees/{employee_id}/pin`.
 - Employees can change their own PIN with `POST /employees/me/pin`.
+- Deleting an employee is soft-delete. It sets `is_deleted`, `deleted_at`,
+  `deleted_by` and deactivates any linked user, but historical
+  `attendance_sessions`, tickets and audit references remain intact.
+
+## Users
+
+Visible in member/admin surfaces:
+
+- `GET /users`
+- `GET /users/{user_id}`
+- `POST /users`
+- `PATCH /users/{user_id}/role`
+- `PATCH /users/{user_id}/activate`
+- `PATCH /users/{user_id}/deactivate`
+- `DELETE /users/{user_id}`
+
+Contract notes:
+
+- `GET /users` supports `include_inactive`, `include_deleted`, `limit`, and
+  `offset`.
+- Normal reads exclude soft-deleted users.
+- Deleting a user is soft-delete. It sets `is_active=false`, `is_deleted`,
+  `deleted_at`, `deleted_by` and revokes active refresh tokens.
+- Owner and superadmin protections remain enforced; users cannot delete their
+  own account through tenant member management.
 
 ## Attendance
 
@@ -549,6 +576,102 @@ Legal warning returned by calculations:
 Calculo estimado basado en fichajes registrados. Revisar antes de pagar.
 ```
 
+## Cash closures
+
+Visible in the current web UI under `/cash-closures`:
+
+- `GET /cash-closures`
+- `POST /cash-closures`
+- `GET /cash-closures/{closure_id}`
+- `PATCH /cash-closures/{closure_id}`
+- `GET /cash-closures/prefill`
+- `GET /cash-closures/stats`
+- `GET /cash-closures/charts`
+- `GET /cash-closures/export?format=xlsx`
+- `GET /cash-closures/export?format=csv`
+
+Permissions:
+
+- `manager`: `cash_closures:read`, `cash_closures:write`
+- `admin` and `owner`: read, write, manage, analytics, export
+- `employee`: no cash-closure permissions
+
+Create request:
+
+```json
+{
+  "location_id": "uuid-or-null",
+  "date": "2026-04-29",
+  "shift": "morning",
+  "custom_shift_name": null,
+  "theoretical_total": "398.00",
+  "real_total": "398.00",
+  "notes": "Cierre turno manana",
+  "cash_drawers": [
+    {
+      "name": "Cajon 1",
+      "amount": "98.00"
+    }
+  ],
+  "card_terminals": [
+    {
+      "name": "TPV Barra",
+      "amount": "300.00"
+    }
+  ],
+  "incidence_comment": null
+}
+```
+
+Rules:
+
+- Tenant ownership is enforced through `company_id` on every query.
+- `location_id` is optional, but when supplied it must belong to the tenant.
+- At least one cash drawer or card terminal is required.
+- Backend calculations are authoritative:
+  - `theoretical_total` is supplied at closure level.
+  - `real_total` is supplied at closure level.
+  - `balance = real_total - theoretical_total`
+  - `has_incidence = balance != 0`
+  - `incidence_amount = balance` when there is an incidence
+- Drawer and terminal `amount` values are operational payment breakdowns used
+  for cash/card analytics and export details. Legacy per-line
+  `theoretical_amount`/`real_amount` payloads are still accepted for backward
+  compatibility, but the current UI edits totals only at closure level.
+- `incidence_comment` is required whenever the balance is not zero.
+- Creation signs and locks the record with `signature_name`, `signed_at`, and
+  `locked_at`.
+- `PATCH /cash-closures/{closure_id}` is only for `owner`/`admin` and
+  recomputes balance after historical edits.
+- `GET /cash-closures/prefill` returns default drawer/terminal structures and
+  is the extension point for future POS/ticket/sales integrations.
+
+Analytics query parameters:
+
+- `date_from`
+- `date_to`
+- `shift` (`morning`, `afternoon`, `night`, `custom`)
+- `closed_by_user_id`
+- `location_id`
+- `payment_type` (`all`, `cash`, `card`)
+- `period` (`day`, `week`, `month`)
+
+Exports include:
+
+- Fecha
+- Turno
+- Usuario
+- Local
+- Total teorico
+- Total real
+- Balance
+- Incidencia
+- Comentario incidencia
+- Detalle por cajon
+- Detalle por datafono
+- Firma
+- Fecha firma
+
 Kiosk/PIN rules:
 
 - The web route `/kiosk` is protected. It requires an authenticated tenant
@@ -570,6 +693,8 @@ Visible in the current web UI when the company plan allows it:
 - `GET /exports/attendance?format=pdf`
 - `GET /exports/salary-calculation?format=xlsx&employee_id=&from=&to=`
 - `GET /exports/salary-calculation?format=pdf&employee_id=&from=&to=`
+- `GET /cash-closures/export?format=xlsx`
+- `GET /cash-closures/export?format=csv`
 
 Contract notes:
 
@@ -660,6 +785,32 @@ Known MVP limitation: `work_location_id` filtering is present in the
 attendance-location query contract but is not linked to sessions yet; geofence
 status is computed from stored clock-in/out coordinates and configured centers.
 
+## GDPR and consent
+
+Backend-first GDPR minimum:
+
+- `GET /gdpr/me/export`
+- `GET /gdpr/users/{user_id}/export`
+- `GET /gdpr/employees/{employee_id}/export`
+- `POST /gdpr/geolocation-consents`
+- `GET /gdpr/geolocation-consents/me`
+- `GET /gdpr/users/{user_id}/geolocation-consents`
+
+Rules:
+
+- User self-export returns the authenticated user's JSON export.
+- Admin export requires `gdpr:export`, currently granted to `owner` and
+  `admin`.
+- Exports are tenant-scoped and include user data, employee data when linked,
+  attendance sessions, tickets, geolocation fields stored on attendance
+  sessions, and geolocation consent logs.
+- Export format is JSON now and includes metadata for future ZIP/CSV/PDF.
+- Consent logs persist backend-side with `user_id`, `company_id`,
+  `consent_type`, `consent_version`, `accepted_at`, optional `revoked_at`,
+  source, IP, user-agent and optional metadata.
+- The consent endpoint records acceptance; it does not rely on frontend-only
+  state.
+
 ## Schedules
 
 API exists, but there is no current web UI for it:
@@ -691,16 +842,19 @@ no tenant permissions.
   `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and
   `Permissions-Policy`.
 - Rate limiting defaults to in-process memory for local/dev. Multi-worker
-  production can switch strategy with `CLOCKLY_RATE_LIMIT_BACKEND=redis` and
+  production must use `CLOCKLY_RATE_LIMIT_BACKEND=redis` and
   `CLOCKLY_REDIS_URL`. `CLOCKLY_RATE_LIMIT_ENABLED=false` is rejected in
   production.
 - Transactional email defaults to `CLOCKLY_EMAIL_PROVIDER=noop` only outside
-  production. Production rejects `noop`; SMTP is the first concrete provider.
-  Resend, SendGrid, and Mailgun are reserved adapter names for future provider
-  modules.
+  production. Production rejects `noop`; SMTP and Resend are concrete
+  providers.
+- Logs use `structlog`. Production should set `CLOCKLY_LOG_FORMAT=json`.
+- Sentry is disabled by default and enabled only when `SENTRY_DSN` is set.
+  Passwords, tokens and exact geolocation fields are redacted before sending.
+- Every response includes `X-Request-ID`; incoming `X-Request-ID` is preserved.
 - Audit logs are written for failed login, invitation lifecycle events, member
   role/access changes, permission denials, auto clock-out settings/execution,
-  and salary profile/calculation events.
+  cash-closure creation/edits, and salary profile/calculation events.
 
 ## MVP publication and staging checklist
 

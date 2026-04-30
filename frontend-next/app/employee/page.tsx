@@ -1,8 +1,8 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Clock, LogOut, TicketCheck, CheckCircle2, Circle, MapPin } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle, Clock, History, LogOut, MapPin, TicketCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useEmployeeSession, useLogout } from "@/hooks/use-auth";
 import { useClockIn, useClockOut, useAttendanceHistory } from "@/hooks/use-attendance";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/shared/logo";
 import { formatDateTime, formatSeconds } from "@/lib/format";
 import { employeesService } from "@/services/employees.service";
+import type { AttendanceStatus } from "@/types/attendance";
 import type { TicketCreateRequest, TicketStatus } from "@/types/ticket";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -42,6 +43,7 @@ export default function EmployeePage() {
 
   // Backend scopes sessions to this employee automatically.
   const { data: openSessions, isLoading: statusLoading } = useAttendanceHistory({ status: "open" });
+  const { data: recentSessions, isLoading: historyLoading } = useAttendanceHistory({ status: "closed", limit: 10 });
   const { data: tickets, isLoading: ticketsLoading } = useTickets();
   const createTicket = useCreateTicket();
 
@@ -298,6 +300,53 @@ export default function EmployeePage() {
               </div>
             ) : (
               <p className="py-8 text-center text-[13px] text-ink-muted">Sin incidencias registradas.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Attendance history */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" />
+              Últimos fichajes
+            </CardTitle>
+            <Badge variant="outline">{recentSessions?.length ?? 0}</Badge>
+          </CardHeader>
+          <CardContent>
+            {historyLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 animate-pulse rounded-md bg-surface-bg" />
+                ))}
+              </div>
+            ) : recentSessions && recentSessions.length > 0 ? (
+              <div className="divide-y divide-border">
+                {recentSessions.map((session) => (
+                  <div key={session.id} className="flex items-start justify-between gap-3 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0 text-ink-xmuted" />
+                        <p className="text-[13px] font-medium text-ink tabular-nums">
+                          {formatDateTime(session.clock_in_time, companyTimeZone)}
+                        </p>
+                      </div>
+                      {session.clock_out_time && (
+                        <p className="mt-0.5 text-[12px] text-ink-muted tabular-nums">
+                          Salida: {formatDateTime(session.clock_out_time, companyTimeZone)}
+                        </p>
+                      )}
+                    </div>
+                    {session.total_seconds != null && session.total_seconds > 0 && (
+                      <span className="shrink-0 rounded-md bg-surface-bg px-2 py-1 text-[12px] font-semibold text-ink-muted tabular-nums">
+                        {formatSeconds(session.total_seconds)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-[13px] text-ink-muted">Sin fichajes recientes.</p>
             )}
           </CardContent>
         </Card>

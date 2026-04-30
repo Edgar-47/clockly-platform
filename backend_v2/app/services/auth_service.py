@@ -30,7 +30,7 @@ from app.repositories.password_reset_repository import PasswordResetRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import RegisterCompanyRequest
 from app.services.audit_log import AuditLogService
-from app.services.email_service import PasswordResetEmail
+from app.services.email_service import PasswordResetEmail, SensitiveChangeEmail
 from app.services.plans import apply_plan_to_company
 from app.services.permissions import permissions_for_role
 
@@ -210,7 +210,7 @@ class AuthService:
             expires_at=reset.expires_at,
         )
 
-    def reset_password(self, *, token: str, password: str) -> None:
+    def reset_password(self, *, token: str, password: str) -> SensitiveChangeEmail:
         reset = self.password_resets.get_by_token_hash(hash_token(token))
         if reset is None:
             raise NotFoundError("Password reset token not found.")
@@ -226,7 +226,8 @@ class AuthService:
         if user is None:
             raise NotFoundError("User not found.")
         user.password_hash = hash_password(password)
-        reset.used_at = datetime.now(UTC)
+        changed_at = datetime.now(UTC)
+        reset.used_at = changed_at
         self.db.add(user)
         self.db.add(reset)
         self.users.revoke_active_refresh_tokens_for_user(user.id)
@@ -238,6 +239,12 @@ class AuthService:
             resource_id=str(user.id),
         )
         self.db.commit()
+        return SensitiveChangeEmail(
+            to_email=user.email,
+            full_name=user.full_name,
+            change_name="password_reset",
+            occurred_at=changed_at,
+        )
 
     def _issue_tokens(
         self,

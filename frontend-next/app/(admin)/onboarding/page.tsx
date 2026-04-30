@@ -27,15 +27,37 @@ import type { PlanType } from "@/types/plan";
 
 type StepKey = "company" | "employee" | "kiosk" | "invitations" | "finish";
 
-const STEPS: Array<{ key: StepKey; label: string }> = [
-  { key: "company", label: "Empresa" },
-  { key: "employee", label: "Empleado" },
-  { key: "kiosk", label: "Kiosk PIN" },
-  { key: "invitations", label: "Invitar" },
-  { key: "finish", label: "Final" },
+const STEPS: Array<{ key: StepKey; label: string; index: number }> = [
+  { key: "company", label: "Empresa", index: 1 },
+  { key: "employee", label: "Empleado", index: 2 },
+  { key: "kiosk", label: "Kiosk PIN", index: 3 },
+  { key: "invitations", label: "Invitar", index: 4 },
+  { key: "finish", label: "Final", index: 5 },
 ];
 
 const TIMEZONES = ["Europe/Madrid", "UTC", "Europe/Lisbon", "Europe/Paris", "Europe/London"];
+
+const SECTORS = [
+  "Hostelería y restauración",
+  "Comercio y retail",
+  "Salud y bienestar",
+  "Estética y peluquería",
+  "Fitness y deporte",
+  "Limpieza y mantenimiento",
+  "Logística y transporte",
+  "Educación",
+  "Tecnología",
+  "Servicios profesionales",
+  "Otro",
+];
+
+const COMPANY_SIZES = [
+  { value: "1-5", label: "1–5 empleados" },
+  { value: "6-15", label: "6–15 empleados" },
+  { value: "16-50", label: "16–50 empleados" },
+  { value: "51-200", label: "51–200 empleados" },
+  { value: "200+", label: "Más de 200" },
+];
 
 const INVITE_ROLES: Array<{ value: UserRole; label: string }> = [
   { value: "admin", label: "Administrador" },
@@ -70,6 +92,9 @@ export default function OnboardingPage() {
     companyName?: string;
     timezone?: string;
     planType?: PlanType;
+    sector?: string;
+    companySize?: string;
+    country?: string;
   } | null>(null);
   const [employeeFirstName, setEmployeeFirstName] = useState("");
   const [employeeLastName, setEmployeeLastName] = useState("");
@@ -96,6 +121,9 @@ export default function OnboardingPage() {
         company_name: companyDraft?.companyName ?? status.company_name,
         timezone: companyDraft?.timezone ?? status.timezone,
         plan_type: companyDraft?.planType ?? status.plan_type,
+        sector: companyDraft?.sector ?? undefined,
+        company_size: companyDraft?.companySize ?? undefined,
+        country: companyDraft?.country ?? undefined,
       },
       {
         onSuccess: () => {
@@ -208,6 +236,9 @@ export default function OnboardingPage() {
   }
 
   const activeStep = manualStep ?? normalizeStep(status.onboarding_step);
+  const activeIndex = STEPS.findIndex((s) => s.key === activeStep);
+  const PROGRESS_CLASSES = ["w-1/5", "w-2/5", "w-3/5", "w-4/5", "w-full"] as const;
+  const progressClass = PROGRESS_CLASSES[Math.min(activeIndex, PROGRESS_CLASSES.length - 1)];
   const companyName = companyDraft?.companyName ?? status.company_name;
   const timezone = companyDraft?.timezone ?? status.timezone;
   const planType = companyDraft?.planType ?? status.plan_type;
@@ -216,27 +247,40 @@ export default function OnboardingPage() {
     <>
       <Topbar title="Onboarding" />
       <div className="space-y-5 p-6">
-        <div className="flex flex-wrap gap-2">
-          {STEPS.map((step, index) => {
-            const active = activeStep === step.key;
-            return (
-              <button
-                key={step.key}
-                type="button"
-                onClick={() => setManualStep(step.key)}
-                className={`flex h-9 items-center gap-2 rounded border px-3 text-[13px] font-medium ${
-                  active
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-white text-ink-muted hover:text-ink"
-                }`}
-              >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px]">
-                  {index + 1}
-                </span>
-                {step.label}
-              </button>
-            );
-          })}
+        {/* Progress bar */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="font-semibold text-ink">Configuración inicial</span>
+            <span className="text-ink-muted">{activeIndex + 1} de {STEPS.length}</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-surface-bg overflow-hidden">
+            <div className={`h-full rounded-full bg-primary transition-all duration-500 ${progressClass}`} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {STEPS.map((step) => {
+              const active = activeStep === step.key;
+              const done = step.index < (activeIndex + 1);
+              return (
+                <button
+                  key={step.key}
+                  type="button"
+                  onClick={() => setManualStep(step.key)}
+                  className={`flex h-8 items-center gap-1.5 rounded border px-2.5 text-[12px] font-medium transition-colors ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : done
+                        ? "border-success-border bg-success-bg text-success-DEFAULT"
+                        : "border-border bg-white text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${active ? "bg-primary text-white" : done ? "bg-success text-white" : "bg-surface-bg text-ink-xmuted"}`}>
+                    {done ? "✓" : step.index}
+                  </span>
+                  {step.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
@@ -267,6 +311,30 @@ export default function OnboardingPage() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {TIMEZONES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Sector <span className="text-ink-xmuted text-[11px]">(opcional)</span></Label>
+                      <Select
+                        value={companyDraft?.sector ?? ""}
+                        onValueChange={(value) => setCompanyDraft((draft) => ({ ...(draft ?? {}), sector: value }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Elige sector…" /></SelectTrigger>
+                        <SelectContent>
+                          {SECTORS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Tamaño de equipo <span className="text-ink-xmuted text-[11px]">(opcional)</span></Label>
+                      <Select
+                        value={companyDraft?.companySize ?? ""}
+                        onValueChange={(value) => setCompanyDraft((draft) => ({ ...(draft ?? {}), companySize: value }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Número de empleados…" /></SelectTrigger>
+                        <SelectContent>
+                          {COMPANY_SIZES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>

@@ -131,6 +131,8 @@ export const attendanceService = {
       params.set("employee_id", String(filters.employee_id));
     if (filters.status) params.set("status", filters.status);
     if (filters.clock_out_source) params.set("clock_out_source", filters.clock_out_source);
+    if (filters.limit != null) params.set("limit", String(filters.limit));
+    if (filters.offset != null) params.set("offset", String(filters.offset));
     const qs = params.toString();
     return api
       .get<{ items: SessionReport[] }>(

@@ -11,6 +11,7 @@ interface AttendanceMapProps {
   selectedEventId?: string | null;
   onSelectEvent?: (event: AttendanceLocationEvent) => void;
   companyTimeZone?: string;
+  initialCenter?: [number, number];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -34,6 +35,7 @@ export function AttendanceMap({
   selectedEventId,
   onSelectEvent,
   companyTimeZone,
+  initialCenter,
 }: AttendanceMapProps) {
   const mapRef = useRef<LeafletMap | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,8 +56,10 @@ export function AttendanceMap({
         shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
+      const center: [number, number] = initialCenter ?? [40.416775, -3.70379];
+
       const map = L.map(containerRef.current!, {
-        center: [40.416775, -3.70379],
+        center,
         zoom: 13,
         zoomControl: true,
       });

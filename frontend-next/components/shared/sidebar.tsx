@@ -7,14 +7,20 @@ import {
   Banknote,
   Building2,
   Clock,
+  FileSpreadsheet,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MapPin,
   MonitorSmartphone,
+  Receipt,
   Settings,
+  Shield,
   Sparkles,
   TicketCheck,
+  TimerOff,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import { useLogout, useMe } from "@/hooks/use-auth";
@@ -41,8 +47,13 @@ const NAV_MAIN: NavItem[] = [
 const NAV_OPERATIONS: NavItem[] = [
   { label: "Analiticas", href: "/analytics", icon: BarChart3, permission: "metrics:read" },
   { label: "Incidencias", href: "/tickets", icon: TicketCheck, permission: "tickets:read" },
+  { label: "Retrasos", href: "/late-arrivals", icon: TimerOff, permission: "late_arrivals:read" },
+  { label: "Gastos", href: "/expenses", icon: Receipt, permission: "expense_tickets:read" },
+  { label: "Caja", href: "/cash-closures", icon: Landmark, permission: "cash_closures:read" },
   { label: "Localizaciones", href: "/locations", icon: MapPin, permission: "locations:read" },
   { label: "Salarios", href: "/salaries", icon: Banknote, permission: "salary:read" },
+  { label: "Libro Registro", href: "/sessions/itss", icon: Shield, permission: "exports:read" },
+  { label: "Exportar nómina", href: "/sessions/payroll", icon: Wallet, permission: "exports:read" },
 ];
 
 const NAV_CONFIG: NavItem[] = [

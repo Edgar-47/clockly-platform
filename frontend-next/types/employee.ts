@@ -32,6 +32,19 @@ export interface EmployeeCreateRequest {
   is_active?: boolean;
 }
 
+export interface CsvRowError {
+  row: number;
+  field: string;
+  message: string;
+}
+
+export interface CsvImportResult {
+  imported: number;
+  skipped: number;
+  errors: CsvRowError[];
+  preview: Record<string, string>[];
+}
+
 export interface EmployeeUpdateRequest {
   first_name?: string;
   last_name?: string;

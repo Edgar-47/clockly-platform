@@ -33,6 +33,11 @@ class NotFoundError(AppError):
     code = "not_found"
 
 
+class ValidationError(AppError):
+    status_code = 422
+    code = "validation_error"
+
+
 class ConflictError(AppError):
     status_code = 409
     code = "conflict"
@@ -42,3 +47,17 @@ class RateLimitError(AppError):
     status_code = 429
     code = "rate_limit_exceeded"
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        retry_after_seconds: int,
+        limit: int | None = None,
+        window_seconds: int | None = None,
+    ) -> None:
+        details: dict[str, Any] = {"retry_after_seconds": retry_after_seconds}
+        if limit is not None:
+            details["limit"] = limit
+        if window_seconds is not None:
+            details["window_seconds"] = window_seconds
+        super().__init__(message, details=details)

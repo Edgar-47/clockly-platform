@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -31,11 +32,17 @@ class EmployeeService:
         self,
         *,
         include_inactive: bool = False,
+        include_deleted: bool = False,
         limit: int | None = None,
         offset: int = 0,
     ) -> tuple[list[Employee], int]:
-        items = self.employees.list(include_inactive=include_inactive, limit=limit, offset=offset)
-        total = self.employees.count(include_inactive=include_inactive)
+        items = self.employees.list(
+            include_inactive=include_inactive,
+            include_deleted=include_deleted,
+            limit=limit,
+            offset=offset,
+        )
+        total = self.employees.count(include_inactive=include_inactive, include_deleted=include_deleted)
         return items, total
 
     def create_employee(self, payload: EmployeeCreate, *, actor_user_id: UUID | None = None) -> Employee:
@@ -164,6 +171,32 @@ class EmployeeService:
             _raise_from_integrity(exc)
 
         logger.info("[EmployeeService] Employee updated: id=%s", employee_id)
+        return employee
+
+    def soft_delete_employee(self, employee_id: UUID, *, actor_user_id: UUID) -> Employee:
+        employee = self.employees.get(employee_id)
+        if employee is None:
+            raise NotFoundError("Employee not found.")
+
+        now = datetime.now(UTC)
+        employee.is_active = False
+        employee.is_deleted = True
+        employee.deleted_at = now
+        employee.deleted_by = actor_user_id
+        self.db.add(employee)
+
+        if employee.user_id is not None:
+            linked_user = self.users.get_by_id_in_company(employee.user_id, self.company_id)
+            if linked_user is not None:
+                linked_user.is_active = False
+                linked_user.is_deleted = True
+                linked_user.deleted_at = now
+                linked_user.deleted_by = actor_user_id
+                self.users.revoke_active_refresh_tokens_for_user(linked_user.id)
+                self.db.add(linked_user)
+
+        self.db.commit()
+        logger.info("[EmployeeService] Soft-deleted employee id=%s by user=%s", employee_id, actor_user_id)
         return employee
 
     def reset_pin(self, employee_id: UUID, pin: str | None, *, actor_user_id: UUID | None = None) -> Employee:

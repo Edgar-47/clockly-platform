@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { Download } from "lucide-react";
 import {
@@ -58,7 +58,12 @@ export default function LocationsPage() {
       limit: 200,
     });
 
-  const { data: workLocations = [] } = useWorkLocations();
+  const { data: workLocations = [], isLoading: wlLoading } = useWorkLocations();
+
+  const mapInitialCenter = useMemo<[number, number] | undefined>(() => {
+    const wl = workLocations.find((w) => w.latitude != null && w.longitude != null);
+    return wl ? [wl.latitude!, wl.longitude!] : undefined;
+  }, [workLocations]);
 
   const { data: summary, isLoading: summaryLoading } = useLocationSummary({
     date_from: filters.date_from,
@@ -127,16 +132,19 @@ export default function LocationsPage() {
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             )}
-            <AttendanceMap
-              events={filteredEvents}
-              workLocations={workLocations}
-              selectedEventId={selectedId}
-              onSelectEvent={(ev) => {
-                const id = `${ev.session_id}-${ev.event_type}`;
-                handleSelectEvent(id, ev);
-              }}
-              companyTimeZone={me.data?.company.timezone}
-            />
+            {!wlLoading && (
+              <AttendanceMap
+                events={filteredEvents}
+                workLocations={workLocations}
+                selectedEventId={selectedId}
+                onSelectEvent={(ev) => {
+                  const id = `${ev.session_id}-${ev.event_type}`;
+                  handleSelectEvent(id, ev);
+                }}
+                companyTimeZone={me.data?.company.timezone}
+                initialCenter={mapInitialCenter}
+              />
+            )}
           </div>
 
           {/* Event list — full width on mobile, fixed-width sidebar on desktop */}

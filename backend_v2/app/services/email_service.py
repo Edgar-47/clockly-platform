@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import smtplib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from email.message import EmailMessage
 from typing import Protocol
@@ -22,6 +22,7 @@ class TransactionalEmail:
     to_email: str
     subject: str
     text_body: str
+    html_body: str | None = field(default=None)
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,42 @@ class PasswordResetEmail:
     expires_at: datetime
 
 
+@dataclass(frozen=True)
+class CompanyWelcomeEmail:
+    to_email: str
+    full_name: str
+    company_name: str
+    login_url: str
+
+
+@dataclass(frozen=True)
+class SensitiveChangeEmail:
+    to_email: str
+    full_name: str
+    change_name: str
+    occurred_at: datetime
+
+
+@dataclass(frozen=True)
+class WeeklySummaryEmail:
+    to_email: str
+    full_name: str
+    company_name: str
+    week_label: str
+    total_hours: float
+    session_count: int
+    dashboard_url: str
+
+
+@dataclass(frozen=True)
+class MissedClockoutEmail:
+    to_email: str
+    full_name: str
+    company_name: str
+    clock_in_at: datetime
+    dashboard_url: str
+
+
 class EmailProvider(Protocol):
     def send(self, message: TransactionalEmail) -> None:
         ...
@@ -52,7 +89,7 @@ class NoopEmailProvider:
         self.include_body_in_logs = include_body_in_logs
 
     def send(self, message: TransactionalEmail) -> None:
-        extra = {"to_email": message.to_email, "subject": message.subject}
+        extra: dict = {"to_email": message.to_email, "subject": message.subject}
         if self.include_body_in_logs:
             extra["text_body"] = message.text_body
         logger.info(
@@ -87,6 +124,8 @@ class SMTPEmailProvider:
         email["To"] = message.to_email
         email["Subject"] = message.subject
         email.set_content(message.text_body)
+        if message.html_body:
+            email.add_alternative(message.html_body, subtype="html")
 
         try:
             with smtplib.SMTP(self.host, self.port, timeout=self.timeout_seconds) as client:
@@ -97,6 +136,47 @@ class SMTPEmailProvider:
                 client.send_message(email)
         except (OSError, smtplib.SMTPException) as exc:
             raise EmailSendError("Transactional email provider failed to send.") from exc
+
+
+class ResendEmailProvider:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        api_url: str,
+        from_email: str,
+        timeout_seconds: float,
+    ) -> None:
+        self.api_key = api_key
+        self.api_url = api_url
+        self.from_email = from_email
+        self.timeout_seconds = timeout_seconds
+
+    def send(self, message: TransactionalEmail) -> None:
+        try:
+            import httpx
+
+            payload: dict = {
+                "from": self.from_email,
+                "to": [message.to_email],
+                "subject": message.subject,
+                "text": message.text_body,
+            }
+            if message.html_body:
+                payload["html"] = message.html_body
+
+            response = httpx.post(
+                self.api_url,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+        except Exception as exc:
+            raise EmailSendError("Resend email provider failed to send.") from exc
 
 
 class UnsupportedEmailProvider:
@@ -133,33 +213,111 @@ class EmailService:
                     from_email=settings.email_from,
                 )
             )
+        if provider == "resend":
+            if not settings.email_from or not settings.email_resend_api_key:
+                raise EmailSendError("Resend email provider is missing required configuration.")
+            return cls(
+                ResendEmailProvider(
+                    api_key=settings.email_resend_api_key,
+                    api_url=settings.email_resend_api_url,
+                    from_email=settings.email_from,
+                    timeout_seconds=settings.email_smtp_timeout_seconds,
+                )
+            )
         return cls(UnsupportedEmailProvider(provider))
 
     def send_invitation_email(self, invitation: InvitationEmail) -> None:
-        message = TransactionalEmail(
+        from app.services.email_templates import invitation_email as build
+        subject, text_body, html_body = build(
             to_email=invitation.to_email,
-            subject=f"Invitacion a {invitation.company_name} en ClockLy",
-            text_body=(
-                f"{invitation.invited_by_name} te ha invitado a {invitation.company_name} "
-                f"como {invitation.role.value}.\n\n"
-                "Acepta la invitacion aqui:\n"
-                f"{invitation.acceptance_url}\n\n"
-                f"Este enlace caduca el {invitation.expires_at.isoformat()}."
-            ),
+            company_name=invitation.company_name,
+            invited_by_name=invitation.invited_by_name,
+            role=invitation.role,
+            acceptance_url=invitation.acceptance_url,
+            expires_at=invitation.expires_at,
         )
-        self.provider.send(message)
+        self.provider.send(TransactionalEmail(
+            to_email=invitation.to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        ))
 
     def send_password_reset_email(self, reset: PasswordResetEmail) -> None:
-        message = TransactionalEmail(
+        from app.services.email_templates import password_reset_email as build
+        subject, text_body, html_body = build(
             to_email=reset.to_email,
-            subject="Restablece tu contrasena de ClockLy",
-            text_body=(
-                f"Hola {reset.full_name},\n\n"
-                "Hemos recibido una solicitud para restablecer tu contrasena de ClockLy.\n"
-                "Puedes definir una nueva contrasena aqui:\n"
-                f"{reset.reset_url}\n\n"
-                f"Este enlace caduca el {reset.expires_at.isoformat()}.\n"
-                "Si no has solicitado este cambio, puedes ignorar este email."
-            ),
+            full_name=reset.full_name,
+            reset_url=reset.reset_url,
+            expires_at=reset.expires_at,
         )
-        self.provider.send(message)
+        self.provider.send(TransactionalEmail(
+            to_email=reset.to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        ))
+
+    def send_company_welcome_email(self, welcome: CompanyWelcomeEmail) -> None:
+        from app.services.email_templates import company_welcome_email as build
+        subject, text_body, html_body = build(
+            to_email=welcome.to_email,
+            full_name=welcome.full_name,
+            company_name=welcome.company_name,
+            login_url=welcome.login_url,
+        )
+        self.provider.send(TransactionalEmail(
+            to_email=welcome.to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        ))
+
+    def send_sensitive_change_email(self, change: SensitiveChangeEmail) -> None:
+        from app.services.email_templates import sensitive_change_email as build
+        subject, text_body, html_body = build(
+            to_email=change.to_email,
+            full_name=change.full_name,
+            change_name=change.change_name,
+            occurred_at=change.occurred_at,
+        )
+        self.provider.send(TransactionalEmail(
+            to_email=change.to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        ))
+
+    def send_weekly_summary_email(self, summary: WeeklySummaryEmail) -> None:
+        from app.services.email_templates import weekly_summary_email as build
+        subject, text_body, html_body = build(
+            to_email=summary.to_email,
+            full_name=summary.full_name,
+            company_name=summary.company_name,
+            week_label=summary.week_label,
+            total_hours=summary.total_hours,
+            session_count=summary.session_count,
+            dashboard_url=summary.dashboard_url,
+        )
+        self.provider.send(TransactionalEmail(
+            to_email=summary.to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        ))
+
+    def send_missed_clockout_email(self, missed: MissedClockoutEmail) -> None:
+        from app.services.email_templates import missed_clockout_email as build
+        subject, text_body, html_body = build(
+            to_email=missed.to_email,
+            full_name=missed.full_name,
+            company_name=missed.company_name,
+            clock_in_at=missed.clock_in_at,
+            dashboard_url=missed.dashboard_url,
+        )
+        self.provider.send(TransactionalEmail(
+            to_email=missed.to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        ))

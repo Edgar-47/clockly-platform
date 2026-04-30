@@ -1,5 +1,5 @@
 import { api } from "@/lib/api-client";
-import type { Employee, EmployeeCreateRequest, EmployeeUpdateRequest } from "@/types/employee";
+import type { CsvImportResult, Employee, EmployeeCreateRequest, EmployeeUpdateRequest } from "@/types/employee";
 
 function normalizeEmployee(employee: Omit<Employee, "full_name" | "initials"> & Partial<Employee>): Employee {
   const fullName = employee.full_name ?? `${employee.first_name} ${employee.last_name}`.trim();
@@ -34,4 +34,16 @@ export const employeesService = {
 
   changeOwnPin: (payload: { current_pin?: string; new_pin: string }) =>
     api.post<Employee>("/employees/me/pin", payload).then(normalizeEmployee),
+
+  previewCsv: (file: File): Promise<CsvImportResult> => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.postForm<CsvImportResult>("/employees/csv-preview", form);
+  },
+
+  importCsv: (file: File): Promise<CsvImportResult> => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.postForm<CsvImportResult>("/employees/csv-import", form);
+  },
 };

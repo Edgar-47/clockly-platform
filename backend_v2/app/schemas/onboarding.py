@@ -27,12 +27,16 @@ class OnboardingCompanyUpdate(BaseModel):
     company_name: str = Field(min_length=2, max_length=160)
     timezone: str = Field(min_length=1, max_length=80)
     plan_type: PlanType
+    sector: str | None = Field(default=None, max_length=100)
+    company_size: str | None = Field(default=None, max_length=40)
+    country: str | None = Field(default=None, max_length=80)
 
-    @field_validator("company_name", "timezone", mode="before")
+    @field_validator("company_name", "timezone", "sector", "company_size", "country", mode="before")
     @classmethod
     def strip_strings(cls, value: object) -> object:
         if isinstance(value, str):
-            return value.strip()
+            stripped = value.strip()
+            return stripped or None
         return value
 
     @field_validator("timezone")

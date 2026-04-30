@@ -91,7 +91,10 @@ class SlidingWindowLimiter:
         scoped_key = f"{self.key_prefix}:{key}"
         if not self._store.allow(scoped_key, max_requests=self.max_requests, window_seconds=self.window_seconds):
             raise RateLimitError(
-                f"Demasiados intentos. Espera {self.window_seconds} segundos antes de volver a intentarlo."
+                f"Demasiados intentos. Espera {self.window_seconds} segundos antes de volver a intentarlo.",
+                retry_after_seconds=self.window_seconds,
+                limit=self.max_requests,
+                window_seconds=self.window_seconds,
             )
 
 
@@ -125,6 +128,9 @@ refresh_limiter = SlidingWindowLimiter(max_requests=20, window_seconds=60, store
 
 # 10 kiosk clock-in/out attempts per IP per 60 s prevents PIN brute force.
 kiosk_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=60, store=_store, key_prefix="kiosk")
+
+# Invitation endpoints are public enough to deserve their own budget.
+invitation_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=300, store=_store, key_prefix="invitation")
 
 
 def client_ip(request: Request) -> str:

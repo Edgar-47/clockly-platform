@@ -22,6 +22,13 @@ const nextConfig: NextConfig = {
 
     return [
       {
+        source: "/sw.js",
+        headers: [
+          { key: "Service-Worker-Allowed", value: "/" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },

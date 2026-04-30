@@ -1,4 +1,5 @@
 import logging
+import hashlib
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
@@ -21,7 +22,7 @@ from app.schemas.auth import (
     RegisterCompanyRequest,
     TokenResponse,
 )
-from app.services.email_service import EmailService
+from app.services.email_service import CompanyWelcomeEmail, EmailService
 from app.services.auth_service import AuthService, AuthTokens
 from app.services.plans import get_plan_definition
 from app.services.permissions import permissions_for_role
@@ -38,7 +39,7 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
-    login_limiter.check(client_ip(request))
+    _limit_request(login_limiter, request, payload.login_identifier)
     tokens = AuthService(db).login(
         identifier=payload.login_identifier,
         password=payload.password,
@@ -54,15 +55,30 @@ def register_company(
     payload: RegisterCompanyRequest,
     request: Request,
     response: Response,
+    email_service: EmailService = Depends(get_email_service),
     db: Session = Depends(get_db),
 ) -> TokenResponse:
-    registration_limiter.check(client_ip(request))
+    _limit_request(registration_limiter, request, payload.owner_email)
     tokens = AuthService(db).register_company(
         payload,
         user_agent=request.headers.get("user-agent"),
         ip_address=request.client.host if request.client else None,
     )
     set_auth_cookies(response, access_token=tokens.access_token, refresh_token=tokens.refresh_token)
+    try:
+        email_service.send_company_welcome_email(
+            CompanyWelcomeEmail(
+                to_email=tokens.user.email,
+                full_name=tokens.user.full_name,
+                company_name=tokens.user.company.name,
+                login_url=_login_url(request),
+            )
+        )
+    except Exception:
+        logger.exception(
+            "Company welcome email delivery failed.",
+            extra={"company_id": str(tokens.user.company_id), "user_id": str(tokens.user.id)},
+        )
     return _token_response(tokens)
 
 
@@ -113,7 +129,7 @@ def request_password_reset(
     email_service: EmailService = Depends(get_email_service),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
-    password_reset_limiter.check(client_ip(request))
+    _limit_request(password_reset_limiter, request, payload.email)
     reset_email = AuthService(db).request_password_reset(
         email=payload.email,
         reset_url=_reset_url_template(request),
@@ -125,7 +141,6 @@ def request_password_reset(
         except Exception:
             logger.exception(
                 "Password reset email delivery failed.",
-                extra={"to_email": reset_email.to_email},
             )
     return MessageResponse(message="If the email exists, password reset instructions have been sent.")
 
@@ -134,10 +149,17 @@ def request_password_reset(
 def reset_password(
     payload: PasswordResetConfirm,
     request: Request,
+    email_service: EmailService = Depends(get_email_service),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
-    password_reset_limiter.check(client_ip(request))
-    AuthService(db).reset_password(token=payload.token, password=payload.password)
+    _limit_request(password_reset_limiter, request, payload.token)
+    change_email = AuthService(db).reset_password(token=payload.token, password=payload.password)
+    try:
+        email_service.send_sensitive_change_email(change_email)
+    except Exception:
+        logger.exception(
+            "Sensitive change email delivery failed.",
+        )
     return MessageResponse(message="Password has been reset.")
 
 
@@ -180,3 +202,16 @@ def _company_context(company) -> CompanyContext:
 def _reset_url_template(request: Request) -> str:
     base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
     return f"{base}/reset-password/{{token}}"
+
+
+def _login_url(request: Request) -> str:
+    base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
+    return f"{base}/login"
+
+
+def _limit_request(limiter, request: Request, *values: str | None) -> None:
+    limiter.check(f"ip:{client_ip(request)}")
+    for value in values:
+        normalized = (value or "").strip().lower()
+        if normalized:
+            limiter.check(f"value:{hashlib.sha256(normalized.encode('utf-8')).hexdigest()}")

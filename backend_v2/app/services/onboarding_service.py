@@ -40,6 +40,12 @@ class OnboardingService:
         settings = self.settings.get_or_create()
         company.name = payload.company_name
         company.timezone = payload.timezone
+        if payload.sector is not None:
+            company.sector = payload.sector
+        if payload.company_size is not None:
+            company.company_size = payload.company_size
+        if payload.country is not None:
+            company.country = payload.country
         apply_plan_to_company(company, payload.plan_type)
         settings.onboarding_step = _next_step(settings, "employee")
         self.db.add(company)

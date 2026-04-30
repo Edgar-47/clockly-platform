@@ -15,6 +15,9 @@ class UserRead(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    is_deleted: bool
+    deleted_at: datetime | None
+    deleted_by: UUID | None
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime

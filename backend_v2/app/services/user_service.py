@@ -11,6 +11,7 @@ Rules enforced here:
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -64,16 +65,22 @@ class UserService:
         self,
         *,
         include_inactive: bool = False,
+        include_deleted: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[User], int]:
         items = self.repo.list_by_company(
             self.company_id,
             include_inactive=include_inactive,
+            include_deleted=include_deleted,
             limit=limit,
             offset=offset,
         )
-        total = self.repo.count_by_company(self.company_id, include_inactive=include_inactive)
+        total = self.repo.count_by_company(
+            self.company_id,
+            include_inactive=include_inactive,
+            include_deleted=include_deleted,
+        )
         return items, total
 
     def get_user(self, user_id: UUID) -> User:
@@ -135,5 +142,22 @@ class UserService:
         self.db.commit()
         logger.info(
             "[UserService] User id=%s set is_active=%s (actor=%s)", user_id, is_active, actor.id
+        )
+        return target
+
+    def soft_delete_user(self, user_id: UUID, *, actor: User) -> User:
+        target = self.get_user(user_id)
+        _assert_can_manage_user(actor, target)
+
+        now = datetime.now(UTC)
+        target.is_active = False
+        target.is_deleted = True
+        target.deleted_at = now
+        target.deleted_by = actor.id
+        self.repo.revoke_active_refresh_tokens_for_user(target.id)
+        self.db.add(target)
+        self.db.commit()
+        logger.info(
+            "[UserService] Soft-deleted user id=%s (actor=%s)", user_id, actor.id
         )
         return target

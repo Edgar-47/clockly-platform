@@ -23,7 +23,8 @@ class HttpError extends Error {
 
 async function requestRaw(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body) {
+  // Don't set Content-Type for FormData — browser sets it with boundary automatically.
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -139,6 +140,8 @@ export const api = {
       method: "POST",
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
+  postForm: <T>(path: string, form: FormData) =>
+    request<T>(path, { method: "POST", body: form }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: "PUT",

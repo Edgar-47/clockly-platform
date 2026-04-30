@@ -17,8 +17,12 @@ class Settings(BaseSettings):
     )
 
     app_name: str = Field(default="ClockLy API", validation_alias="CLOCKLY_APP_NAME")
+    app_version: str = Field(default="0.1.0", validation_alias=AliasChoices("CLOCKLY_VERSION", "APP_VERSION"))
     environment: str = Field(default="development", validation_alias=AliasChoices("CLOCKLY_ENV", "ENVIRONMENT"))
     debug: bool = Field(default=False, validation_alias="CLOCKLY_DEBUG")
+    log_format: str = Field(default="console", validation_alias="CLOCKLY_LOG_FORMAT")
+    sentry_dsn: str | None = Field(default=None, validation_alias=AliasChoices("SENTRY_DSN", "CLOCKLY_SENTRY_DSN"))
+    sentry_traces_sample_rate: float = Field(default=0.0, validation_alias="CLOCKLY_SENTRY_TRACES_SAMPLE_RATE")
     database_url: str = Field(
         default="postgresql+psycopg://clockly:clockly@localhost:5432/clockly",
         validation_alias=AliasChoices("DATABASE_URL", "CLOCKLY_DATABASE_URL"),
@@ -55,6 +59,8 @@ class Settings(BaseSettings):
     email_smtp_password: str | None = Field(default=None, validation_alias="CLOCKLY_EMAIL_SMTP_PASSWORD")
     email_smtp_use_tls: bool = Field(default=True, validation_alias="CLOCKLY_EMAIL_SMTP_USE_TLS")
     email_smtp_timeout_seconds: float = Field(default=10.0, validation_alias="CLOCKLY_EMAIL_SMTP_TIMEOUT_SECONDS")
+    email_resend_api_key: str | None = Field(default=None, validation_alias="CLOCKLY_EMAIL_RESEND_API_KEY")
+    email_resend_api_url: str = Field(default="https://api.resend.com/emails", validation_alias="CLOCKLY_EMAIL_RESEND_API_URL")
     stripe_secret_key: str | None = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
     stripe_webhook_secret: str | None = Field(default=None, validation_alias="STRIPE_WEBHOOK_SECRET")
     stripe_price_pro: str | None = Field(default=None, validation_alias="STRIPE_PRICE_PRO")
@@ -87,7 +93,7 @@ class Settings(BaseSettings):
             return "postgresql+psycopg://" + clean.removeprefix("postgresql://")
         return clean
 
-    @field_validator("rate_limit_backend", "email_provider")
+    @field_validator("rate_limit_backend", "email_provider", "log_format")
     @classmethod
     def normalize_lowercase_setting(cls, value: str) -> str:
         return value.strip().lower()
@@ -96,12 +102,16 @@ class Settings(BaseSettings):
     def validate_production_security(self) -> "Settings":
         if self.rate_limit_backend not in {"memory", "redis"}:
             raise ValueError("CLOCKLY_RATE_LIMIT_BACKEND must be 'memory' or 'redis'.")
+        if self.log_format not in {"console", "json"}:
+            raise ValueError("CLOCKLY_LOG_FORMAT must be 'console' or 'json'.")
         if self.email_provider not in {"noop", "smtp", "resend", "sendgrid", "mailgun"}:
             raise ValueError("CLOCKLY_EMAIL_PROVIDER must be 'noop', 'smtp', 'resend', 'sendgrid', or 'mailgun'.")
         if self.email_provider != "noop" and not self.email_from:
             raise ValueError("CLOCKLY_EMAIL_FROM must be set when transactional email is enabled.")
         if self.email_provider == "smtp" and not self.email_smtp_host:
             raise ValueError("CLOCKLY_EMAIL_SMTP_HOST must be set when CLOCKLY_EMAIL_PROVIDER=smtp.")
+        if self.email_provider == "resend" and not self.email_resend_api_key:
+            raise ValueError("CLOCKLY_EMAIL_RESEND_API_KEY must be set when CLOCKLY_EMAIL_PROVIDER=resend.")
         if self.environment.lower() == "production":
             if self.secret_key in {"", "change-me-in-production"}:
                 raise ValueError("CLOCKLY_SECRET_KEY must be set in production.")
@@ -111,6 +121,8 @@ class Settings(BaseSettings):
                 raise ValueError("CLOCKLY_TRUSTED_HOSTS must be explicit in production.")
             if not self.rate_limit_enabled:
                 raise ValueError("CLOCKLY_RATE_LIMIT_ENABLED cannot be false in production.")
+            if self.rate_limit_backend != "redis":
+                raise ValueError("CLOCKLY_RATE_LIMIT_BACKEND must be 'redis' in production.")
             if self.rate_limit_backend == "redis" and not self.redis_url:
                 raise ValueError("CLOCKLY_REDIS_URL must be set when CLOCKLY_RATE_LIMIT_BACKEND=redis.")
             if self.email_provider == "noop":

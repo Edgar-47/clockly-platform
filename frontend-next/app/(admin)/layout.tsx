@@ -1,12 +1,33 @@
 "use client";
 
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/shared/sidebar";
 import { useAdminSession } from "@/hooks/use-auth";
+import { useOnboardingStatus } from "@/hooks/use-onboarding";
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const session = useAdminSession();
+  const pathname = usePathname();
+  const router = useRouter();
 
-  if (session.isLoading) {
+  // Only owner/admin roles need to complete onboarding before accessing the app.
+  // Managers and below skip directly to their views.
+  const isOwnerOrAdmin =
+    session.data?.user.role === "owner" || session.data?.user.role === "admin";
+  const onboarding = useOnboardingStatus();
+
+  useEffect(() => {
+    if (!isOwnerOrAdmin) return;
+    if (!onboarding.data) return;
+    const isComplete = onboarding.data.onboarding_step === "complete";
+    const isOnOnboarding = pathname === "/onboarding";
+    if (!isComplete && !isOnOnboarding) {
+      router.replace("/onboarding");
+    }
+  }, [isOwnerOrAdmin, onboarding.data, pathname, router]);
+
+  if (session.isLoading || (isOwnerOrAdmin && onboarding.isLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-bg">
         <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />

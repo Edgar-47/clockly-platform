@@ -28,6 +28,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("", response_model=UserListResponse)
 def list_users(
     include_inactive: bool = Query(default=False),
+    include_deleted: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     ctx: TenantContext = Depends(require_permission("users:read")),
@@ -35,6 +36,7 @@ def list_users(
 ) -> UserListResponse:
     items, total = UserService(db, company_id=ctx.company_id).list_users(
         include_inactive=include_inactive,
+        include_deleted=include_deleted,
         limit=limit,
         offset=offset,
     )
@@ -89,3 +91,12 @@ def deactivate_user(
     return UserService(db, company_id=ctx.company_id).set_active(
         user_id, is_active=False, actor=ctx.user
     )
+
+
+@router.delete("/{user_id}", response_model=UserRead)
+def delete_user(
+    user_id: UUID,
+    ctx: TenantContext = Depends(require_permission("users:manage")),
+    db: Session = Depends(get_db),
+) -> UserRead:
+    return UserService(db, company_id=ctx.company_id).soft_delete_user(user_id, actor=ctx.user)

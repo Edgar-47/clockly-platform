@@ -102,6 +102,9 @@ class EmployeeRead(BaseModel):
     role_title: str | None
     hired_on: date | None
     is_active: bool
+    is_deleted: bool
+    deleted_at: datetime | None
+    deleted_by: UUID | None
     has_pin: bool
     created_at: datetime
     updated_at: datetime
@@ -135,3 +138,16 @@ class EmployeeOwnPinChange(BaseModel):
         if value and not value.isdigit():
             raise ValueError("PIN must contain digits only.")
         return value
+
+
+class CsvRowError(BaseModel):
+    row: int
+    field: str
+    message: str
+
+
+class CsvImportResult(BaseModel):
+    imported: int
+    skipped: int
+    errors: list[CsvRowError]
+    preview: list[dict[str, str]]

@@ -1,4 +1,5 @@
 import logging
+import hashlib
 
 from fastapi import APIRouter, Depends, Request, status as http_status
 from sqlalchemy.orm import Session
@@ -82,6 +83,7 @@ def create_invitation(
     email_service: EmailService = Depends(get_email_service),
     db: Session = Depends(get_db),
 ) -> OnboardingInvitationResponse:
+    _limit_invitation_create(request, ctx.user.email)
     invitation_payload = InvitationCreate(email=payload.email, role=payload.role)
     result = InvitationService(db, company_id=ctx.company_id).create_invitation(invitation_payload, actor=ctx.user)
     invitation = InvitationRead.model_validate(result.invitation)
@@ -133,3 +135,10 @@ def complete(
 def _acceptance_url(request: Request, token: str) -> str:
     base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
     return f"{base}/accept-invitation/{token}"
+
+
+def _limit_invitation_create(request: Request, actor_email: str) -> None:
+    invitation_limiter.check(f"ip:{client_ip(request)}")
+    digest = hashlib.sha256(actor_email.lower().encode("utf-8")).hexdigest()
+    invitation_limiter.check(f"actor:{digest}")
+from app.core.rate_limit import client_ip, invitation_limiter

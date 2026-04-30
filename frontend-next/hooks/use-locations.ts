@@ -12,10 +12,11 @@ export const locationKeys = {
   summary: (filters: object) => ["locations", "summary", filters] as const,
 };
 
-export function useWorkLocations(includeInactive = false) {
+export function useWorkLocations(includeInactive = false, enabled = true) {
   return useQuery({
     queryKey: locationKeys.workLocations(includeInactive),
     queryFn: () => locationsService.list(includeInactive),
+    enabled,
     staleTime: 60_000,
   });
 }

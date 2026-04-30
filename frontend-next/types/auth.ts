@@ -17,6 +17,9 @@ export interface CompanyContext extends PlanFeatures {
   id: string;
   name: string;
   slug: string;
+  cif: string | null;
+  sector: string | null;
+  company_size: string | null;
   timezone: string;
   plan_type: PlanType;
   plan_name: string;

@@ -54,6 +54,9 @@ backend_v2/
 ## Arranque local
 
 ```powershell
+# Desde la raiz del repo:
+docker compose up -d postgres redis
+cd backend_v2
 copy .env.example .env
 python -m pip install -r ..\requirements.txt
 alembic upgrade head
@@ -83,6 +86,14 @@ python -m compileall app tests
 python -m pytest
 ```
 
+Los tests usan PostgreSQL real con Testcontainers. Requisitos:
+
+- Docker disponible para levantar `postgres:16-alpine`, o
+  `CLOCKLY_TEST_DATABASE_URL` apuntando a una base PostgreSQL de test.
+- Las migraciones Alembic se ejecutan una vez por sesion de pytest.
+- Cada test empieza con tablas truncadas (`RESTART IDENTITY CASCADE`).
+- No hay fallback SQLite para tests backend.
+
 ## Notas de contrato
 
 - `GET /auth/me` es la fuente de verdad de la sesion.
@@ -96,6 +107,13 @@ python -m pytest
   es `noop`; ante fallo de envio se registra el error y se conserva el
   `acceptance_url` de fallback.
 - `CLOCKLY_EMAIL_PROVIDER=noop` solo es valido fuera de produccion; staging y
-  produccion deben configurar proveedor real.
+  produccion deben configurar SMTP o Resend.
+- `User` y `Employee` usan soft-delete. `DELETE /users/{user_id}` y
+  `DELETE /employees/{employee_id}` marcan `is_deleted`, `deleted_at` y
+  `deleted_by`, sin romper fichajes, tickets ni auditoria historica.
+- GDPR minimo vive en `/gdpr/*`: export JSON de datos personales y logs de
+  consentimiento de geolocalizacion.
+- Observabilidad: `X-Request-ID`, logs estructurados con `structlog` y Sentry
+  opcional via `SENTRY_DSN`.
 - El API de horarios existe, pero su UI web esta retirada del flujo principal
   hasta que el producto este completo end-to-end.

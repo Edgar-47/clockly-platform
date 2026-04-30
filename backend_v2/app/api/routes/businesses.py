@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from uuid import UUID
 
@@ -5,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
+from app.core.rate_limit import client_ip, invitation_limiter
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.dependencies.email import get_email_service
@@ -51,6 +53,7 @@ def create_invitation(
     db: Session = Depends(get_db),
 ) -> InvitationCreateResponse:
     _assert_current_business(ctx, business_id)
+    _limit_invitation_create(request, ctx.user.email)
     result = InvitationService(db, company_id=ctx.company_id).create_invitation(payload, actor=ctx.user)
     invitation = InvitationRead.model_validate(result.invitation)
     acceptance_url = _acceptance_url(request, result.acceptance_token)
@@ -129,3 +132,9 @@ def _assert_current_business(ctx: TenantContext, business_id: UUID) -> None:
 def _acceptance_url(request: Request, token: str) -> str:
     base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
     return f"{base}/accept-invitation/{token}"
+
+
+def _limit_invitation_create(request: Request, actor_email: str) -> None:
+    invitation_limiter.check(f"ip:{client_ip(request)}")
+    digest = hashlib.sha256(actor_email.lower().encode("utf-8")).hexdigest()
+    invitation_limiter.check(f"actor:{digest}")

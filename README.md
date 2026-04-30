@@ -41,6 +41,7 @@ Owner / admin / manager
   -> /sessions
   -> /analytics
   -> /tickets
+  -> /cash-closures
   -> /settings
   -> /upgrade
   -> /kiosk (abierto desde sesion admin)
@@ -94,6 +95,7 @@ Rutas web activas y defendibles:
 - `/sessions` historial de fichajes y exportaciones
 - `/analytics` metricas conectadas al backend
 - `/tickets` incidencias conectadas al backend
+- `/cash-closures` cierre de caja con efectivo, datafonos, analitica y exportaciones
 - `/salaries` salarios estimados y calculo de pagos por periodo
 - `/locations` mapa/listado de eventos de geolocalizacion de fichajes
 - `/work-locations` gestion de centros de trabajo
@@ -145,7 +147,7 @@ clockly-platform/
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-docker compose up -d postgres
+docker compose up -d postgres redis
 cd backend_v2
 copy .env.example .env
 alembic upgrade head
@@ -195,6 +197,8 @@ URLs locales:
 - Planes activos: Free, Pro y Business.
 - Los limites de empleados, exportaciones, geolocalizacion, filtros avanzados
   e informes se validan en backend.
+- Cierre de caja es una superficie premium defendible para restaurantes,
+  comercios y negocios fisicos: control diario, descuadres, firma y export.
 - `/upgrade` inicia `POST /billing/checkout` para suscripcion Stripe.
 - `/settings` abre `POST /billing/portal` para gestion de facturacion.
 - `POST /billing/webhook` sincroniza `customer.subscription.created`,
@@ -232,8 +236,33 @@ URLs locales:
   metricas, exportaciones y salarios estimados.
 - No puede modificar configuracion de local/empresa, billing, planes,
   integraciones, owner, roles superiores ni ajustes sensibles.
+- `manager` actua como encargado operativo: puede crear y consultar cierres de
+  caja, pero no puede exportar, ver analitica avanzada ni editar historico.
+- `owner` y `admin` tienen control completo de cierres de caja, incluido
+  historico editable, analitica y exportaciones CSV/XLSX.
 - La seguridad se aplica en backend por permisos; el frontend solo oculta rutas
   no permitidas.
+
+## Cierre de caja
+
+- Pantalla activa: `/cash-closures`.
+- Endpoints: `/cash-closures`, `/cash-closures/stats`,
+  `/cash-closures/charts`, `/cash-closures/prefill` y
+  `/cash-closures/export`.
+- Cada cierre pertenece a una empresa y, opcionalmente, a un local.
+- Registra turno, usuario firmante, totales globales y desglose por cajones de
+  efectivo/datafonos.
+- El backend calcula `balance`, `has_incidence` e `incidence_amount` desde
+  `theoretical_total` y `real_total`.
+- Si el balance no es cero, el comentario de incidencia es obligatorio.
+- Al crear, el cierre queda firmado (`signature_name`, `signed_at`) y bloqueado
+  (`locked_at`). Solo owner/admin pueden editar el historico.
+- El endpoint `prefill` deja preparado el contrato para autocompletar importes
+  teoricos desde POS/tickets/ventas cuando exista integracion de ventas.
+- La analitica incluye ingresos por dia/semana/mes, teorico vs real, mix
+  efectivo/tarjeta, incidencias por empleado y evolucion de descuadres.
+- Exporta CSV y XLSX con fecha, turno, usuario, totales, balance, incidencia y
+  detalle por cajon/datafono.
 
 ## Salarios estimados
 
@@ -294,12 +323,14 @@ Estado de bloqueadores de publicacion:
 - [x] Salarios estimados basados en fichajes.
 - [x] Exportaciones XLSX/PDF con formato de informe.
 - [x] Stripe Checkout, Billing Portal y webhooks de suscripcion.
+- [x] Cierre de caja multi-tenant con incidencias, firma, analitica y export.
 - [ ] Checklist legal listo antes de clientes reales.
 
 Staging real debe usar PostgreSQL gestionado, `alembic upgrade head`, SMTP real
-para invitaciones y reset de password, Redis para rate limit multi-worker,
-`CLOCKLY_ENV=production`, CORS y trusted hosts explicitos, backups con prueba de restore, logs de
-aplicacion y revision de `audit_logs`.
+o Resend real para invitaciones y reset de password, Redis para rate limit,
+`CLOCKLY_ENV=production`, CORS y trusted hosts explicitos, `SENTRY_DSN` si se
+usa error tracking, backups con prueba de restore, logs JSON de aplicacion y
+revision de `audit_logs`.
 
 E2E en CI: activar con `E2E_ENABLED=true` y configurar el secret
 `E2E_OWNER_PASSWORD`. Suites recomendadas para el siguiente cierre: invitacion
@@ -315,6 +346,31 @@ Checklist legal/operativo antes de clientes reales:
 - [ ] Condiciones del servicio.
 - [ ] Consentimiento o base legal para geolocalizacion segun el caso de uso.
 
+## Hardening Fase 1
+
+- Los tests backend usan PostgreSQL real. Por defecto levantan
+  `postgres:16-alpine` con Testcontainers, ejecutan `alembic upgrade head` y
+  truncan tablas entre tests. Para usar una base externa:
+  `CLOCKLY_TEST_DATABASE_URL=postgresql+psycopg://...`.
+- `User` y `Employee` usan soft-delete (`is_deleted`, `deleted_at`,
+  `deleted_by`). Las queries normales excluyen eliminados; `include_deleted`
+  queda para administracion/auditoria.
+- Rate limiting protege login, registro, reset de password, invitaciones y
+  kiosk. En produccion se exige Redis (`CLOCKLY_RATE_LIMIT_BACKEND=redis`).
+- Logs estructurados con `structlog`: `request_id`, usuario/empresa si se
+  puede inferir, path, metodo, status y duracion. Produccion debe usar
+  `CLOCKLY_LOG_FORMAT=json`.
+- Sentry se activa solo si `SENTRY_DSN` existe. Passwords, tokens y
+  coordenadas se redactan antes de salir.
+- Email transaccional soporta `noop`, SMTP y Resend
+  (`CLOCKLY_EMAIL_PROVIDER=resend`, `CLOCKLY_EMAIL_RESEND_API_KEY`).
+- GDPR minimo:
+  - `POST /gdpr/geolocation-consents`
+  - `GET /gdpr/geolocation-consents/me`
+  - `GET /gdpr/me/export`
+  - `GET /gdpr/users/{user_id}/export`
+  - `GET /gdpr/employees/{employee_id}/export`
+
 ## Legacy y limites actuales
 
 - El nombre `docs/contracts/api_v1.md` es historico; la API actual no usa
@@ -325,14 +381,15 @@ Checklist legal/operativo antes de clientes reales:
 - La identidad `superadmin` es de plataforma: no debe entrar en dashboards
   tenant. Mientras no exista consola interna, el frontend la envia a
   `/access-unavailable` y el backend no le concede permisos tenant.
-- Rate limiting usa memoria por defecto; se puede desactivar solo fuera de
-  produccion con `CLOCKLY_RATE_LIMIT_ENABLED=false`. En produccion multi-worker
-  se debe configurar Redis con `CLOCKLY_RATE_LIMIT_BACKEND=redis` y
-  `CLOCKLY_REDIS_URL`.
+- Rate limiting puede usar memoria solo para tests o desarrollo puntual; se
+  puede desactivar solo fuera de produccion con
+  `CLOCKLY_RATE_LIMIT_ENABLED=false`. En desarrollo compartido, staging y
+  produccion se debe configurar Redis con
+  `CLOCKLY_RATE_LIMIT_BACKEND=redis` y `CLOCKLY_REDIS_URL`.
 - `CLOCKLY_EMAIL_PROVIDER=noop` solo es fallback de desarrollo. En produccion
-  se rechaza y debe configurarse SMTP u otro adaptador soportado.
-- `AuditLog` registra login fallido, permisos denegados, invitaciones y cambios
-  sensibles de miembros.
+  se rechaza y debe configurarse SMTP o Resend.
+- `AuditLog` registra login fallido, permisos denegados, invitaciones, cierres
+  de caja y cambios sensibles de miembros.
 
 ## Validacion minima antes de cerrar cambios
 

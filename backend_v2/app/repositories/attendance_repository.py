@@ -3,7 +3,7 @@ from typing import NamedTuple
 from uuid import UUID
 
 from sqlalchemy import Select, func, literal, or_, select, union_all
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.attendance_session import AttendanceSession
 from app.models.employee import Employee
@@ -107,7 +107,7 @@ class AttendanceRepository:
         return list(
             self.db.scalars(
                 select(AttendanceSession)
-                .options(joinedload(AttendanceSession.employee))
+                .options(selectinload(AttendanceSession.employee))
                 .where(
                     AttendanceSession.company_id == self.company_id,
                     AttendanceSession.status == AttendanceStatus.OPEN,
@@ -123,7 +123,7 @@ class AttendanceRepository:
         return list(
             self.db.scalars(
                 select(AttendanceSession)
-                .options(joinedload(AttendanceSession.employee))
+                .options(selectinload(AttendanceSession.employee))
                 .where(
                     AttendanceSession.company_id == self.company_id,
                     AttendanceSession.status == AttendanceStatus.OPEN,
@@ -223,6 +223,7 @@ class AttendanceRepository:
                 select(func.count(Employee.id)).where(
                     Employee.company_id == self.company_id,
                     Employee.is_active.is_(True),
+                    Employee.is_deleted.is_(False),
                 )
             )
             or 0
@@ -246,6 +247,7 @@ class AttendanceRepository:
         ).where(
             Employee.company_id == self.company_id,
             Employee.is_active.is_(True),
+            Employee.is_deleted.is_(False),
         )
         rows = {row[0]: int(row[1]) for row in self.db.execute(union_all(open_q, active_q)).all()}
         return OverviewCounts(

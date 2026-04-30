@@ -9,10 +9,11 @@ export const employeeKeys = {
   detail: (id: string) => ["employees", id] as const,
 };
 
-export function useEmployees() {
+export function useEmployees(enabled = true) {
   return useQuery({
     queryKey: employeeKeys.all,
     queryFn: employeesService.list,
+    enabled,
     // Employee list changes infrequently. 5-minute cache avoids redundant
     // requests on tab focus, navigation, and concurrent component mounts.
     staleTime: 5 * 60 * 1000,

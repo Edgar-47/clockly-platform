@@ -13,17 +13,21 @@ class UserRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def get(self, user_id: UUID) -> User | None:
-        return self.db.get(User, user_id)
+    def get(self, user_id: UUID, *, include_deleted: bool = False) -> User | None:
+        stmt = select(User).where(User.id == user_id)
+        if not include_deleted:
+            stmt = stmt.where(User.is_deleted.is_(False))
+        return self.db.scalar(stmt)
 
-    def get_by_id_in_company(self, user_id: UUID, company_id: UUID) -> User | None:
+    def get_by_id_in_company(self, user_id: UUID, company_id: UUID, *, include_deleted: bool = False) -> User | None:
         """Return user regardless of is_active, scoped to company. Used for admin sync operations."""
-        return self.db.scalar(
-            select(User).where(
-                User.id == user_id,
-                User.company_id == company_id,
-            )
+        stmt = select(User).where(
+            User.id == user_id,
+            User.company_id == company_id,
         )
+        if not include_deleted:
+            stmt = stmt.where(User.is_deleted.is_(False))
+        return self.db.scalar(stmt)
 
     def get_active(self, user_id: UUID, company_id: UUID) -> User | None:
         return self.db.scalar(
@@ -31,29 +35,44 @@ class UserRepository:
                 User.id == user_id,
                 User.company_id == company_id,
                 User.is_active.is_(True),
+                User.is_deleted.is_(False),
             )
         )
 
-    def get_by_email(self, email: str) -> User | None:
-        return self.db.scalar(select(User).where(User.email == email.lower()))
+    def get_by_email(self, email: str, *, include_deleted: bool = False) -> User | None:
+        stmt = select(User).where(User.email == email.lower())
+        if not include_deleted:
+            stmt = stmt.where(User.is_deleted.is_(False))
+        return self.db.scalar(stmt)
 
     def list_by_company(
         self,
         company_id: UUID,
         *,
         include_inactive: bool = False,
+        include_deleted: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> list[User]:
         stmt = select(User).where(User.company_id == company_id)
+        if not include_deleted:
+            stmt = stmt.where(User.is_deleted.is_(False))
         if not include_inactive:
             stmt = stmt.where(User.is_active.is_(True))
         return list(self.db.scalars(
             stmt.order_by(User.created_at.desc()).offset(offset).limit(limit)
         ))
 
-    def count_by_company(self, company_id: UUID, *, include_inactive: bool = False) -> int:
+    def count_by_company(
+        self,
+        company_id: UUID,
+        *,
+        include_inactive: bool = False,
+        include_deleted: bool = False,
+    ) -> int:
         stmt = select(func.count(User.id)).where(User.company_id == company_id)
+        if not include_deleted:
+            stmt = stmt.where(User.is_deleted.is_(False))
         if not include_inactive:
             stmt = stmt.where(User.is_active.is_(True))
         return int(self.db.scalar(stmt) or 0)
@@ -64,11 +83,14 @@ class UserRepository:
         role: UserRole,
         *,
         include_inactive: bool = False,
+        include_deleted: bool = False,
     ) -> int:
         stmt = select(func.count(User.id)).where(
             User.company_id == company_id,
             User.role == role,
         )
+        if not include_deleted:
+            stmt = stmt.where(User.is_deleted.is_(False))
         if not include_inactive:
             stmt = stmt.where(User.is_active.is_(True))
         return int(self.db.scalar(stmt) or 0)

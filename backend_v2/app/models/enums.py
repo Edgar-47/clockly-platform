@@ -86,3 +86,54 @@ class LocationPermissionStatus(StrEnum):
     DENIED = "denied"
     UNAVAILABLE = "unavailable"
     UNKNOWN = "unknown"
+
+
+class ExpenseCategory(StrEnum):
+    FOOD = "food"
+    CLEANING = "cleaning"
+    SUPPLIES = "supplies"
+    REPAIR = "repair"
+    TRANSPORT = "transport"
+    OTHER = "other"
+
+
+class PaymentSource(StrEnum):
+    PERSONAL_MONEY = "personal_money"
+    COMPANY_ACCOUNT = "company_account"
+    COMPANY_CARD = "company_card"
+    TIPS_POOL = "tips_pool"
+    CASH_REGISTER = "cash_register"
+    OTHER = "other"
+
+
+class ExpenseStatus(StrEnum):
+    PENDING = "pending"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PAID = "paid"
+
+
+class ExpenseEventType(StrEnum):
+    CREATED = "created"
+    UPDATED = "updated"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PAID = "paid"
+    ATTACHMENT_UPLOADED = "attachment_uploaded"
+    NOTE_ADDED = "note_added"
+
+
+class LateArrivalStatus(StrEnum):
+    PENDING = "pending"
+    JUSTIFIED = "justified"
+    UNJUSTIFIED = "unjustified"
+    IGNORED = "ignored"
+
+
+class CashClosureShift(StrEnum):
+    MORNING = "morning"
+    AFTERNOON = "afternoon"
+    NIGHT = "night"
+    CUSTOM = "custom"

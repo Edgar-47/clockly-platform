@@ -1,3 +1,4 @@
+import uuid as _uuid
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -29,6 +30,8 @@ from app.repositories.company_repository import CompanyRepository
 from app.repositories.company_settings_repository import CompanySettingsRepository
 from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.attendance import AttendanceSessionAdminUpdate, AutoCloseOpenSessionsRequest, GeoPayload
+from app.models.late_arrival import LateArrival
+from app.models.enums import LateArrivalStatus
 from app.services.plans import PlanRequiredError, check_company_plan_feature, record_company_usage
 
 
@@ -121,6 +124,7 @@ class AttendanceService:
         )
         try:
             self.attendance.add(session)
+            self._maybe_record_late_arrival(session, employee=employee, clock_in_time=now)
             self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
@@ -480,3 +484,84 @@ class AttendanceService:
         if actor.role == UserRole.EMPLOYEE:
             return ClockOutSource.EMPLOYEE
         return ClockOutSource.ADMIN
+
+    def _maybe_record_late_arrival(
+        self,
+        session: AttendanceSession,
+        *,
+        employee,
+        clock_in_time: datetime,
+    ) -> LateArrival | None:
+        """Create a LateArrival record if the employee clocked in after the grace window.
+
+        Logic:
+        1. Company must have late_arrivals_enabled = True.
+        2. Employee must have an assigned schedule.
+        3. Today must be a working day in that schedule.
+        4. delay = clock_in (local time) - scheduled entry_time
+        5. delay_after_grace = delay - grace_period_minutes
+        6. If delay_after_grace > 0 → create record (idempotent via unique constraint).
+        """
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        settings = self.settings.get_or_create()
+        if not settings.late_arrivals_enabled:
+            return None
+
+        schedule = employee.schedule
+        if schedule is None or not schedule.is_active:
+            return None
+
+        # Convert UTC clock-in to company local time for comparison
+        try:
+            tz = ZoneInfo(self.company.timezone or "UTC")
+        except ZoneInfoNotFoundError:
+            tz = ZoneInfo("UTC")
+
+        local_clock_in = clock_in_time.astimezone(tz)
+        local_date = local_clock_in.date()
+        weekday = local_date.weekday()  # 0=Mon…6=Sun
+
+        day_flags = [
+            schedule.monday,
+            schedule.tuesday,
+            schedule.wednesday,
+            schedule.thursday,
+            schedule.friday,
+            schedule.saturday,
+            schedule.sunday,
+        ]
+        if not day_flags[weekday]:
+            return None
+
+        # Both times in minutes from midnight for arithmetic
+        scheduled_minutes = schedule.entry_time.hour * 60 + schedule.entry_time.minute
+        actual_minutes = local_clock_in.hour * 60 + local_clock_in.minute
+
+        delay_total = actual_minutes - scheduled_minutes
+        if delay_total <= 0:
+            return None  # on time or early
+
+        grace = settings.late_arrival_grace_minutes
+        delay_after_grace = delay_total - grace
+        if delay_after_grace <= 0:
+            return None  # within grace period
+
+        late = LateArrival(
+            id=_uuid.uuid4(),
+            company_id=self.company_id,
+            employee_id=employee.id,
+            attendance_session_id=session.id,
+            schedule_id=schedule.id,
+            date=local_date,
+            scheduled_start_time=schedule.entry_time,
+            actual_clock_in_time=local_clock_in.time().replace(second=0, microsecond=0),
+            delay_minutes_total=delay_total,
+            delay_minutes_after_grace=delay_after_grace,
+            grace_period_minutes=grace,
+            clock_in_method=session.method,
+            status=LateArrivalStatus.PENDING,
+        )
+        self.db.add(late)
+        self.db.flush()
+        return late
