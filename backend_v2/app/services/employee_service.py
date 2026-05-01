@@ -56,6 +56,10 @@ class EmployeeService:
             if self.employees.get_by_dni(payload.dni) is not None:
                 logger.warning("[EmployeeService] Duplicate DNI '%s' (company=%s)", payload.dni, self.company_id)
                 raise ConflictError("An employee with this DNI already exists in this company.")
+        if payload.email:
+            if self.employees.get_by_email(payload.email, include_inactive=True) is not None:
+                logger.warning("[EmployeeService] Duplicate employee email '%s' (company=%s)", payload.email, self.company_id)
+                raise ConflictError("An employee with this email already exists in this company.")
 
         linked_user: User | None = None
         if payload.email and payload.password:
@@ -117,6 +121,16 @@ class EmployeeService:
                 logger.warning("[EmployeeService] Duplicate DNI '%s' on update (employee=%s)", new_dni, employee_id)
                 raise ConflictError("An employee with this DNI already exists in this company.")
 
+        new_email = updates.get("email")
+        if new_email and new_email != employee.email:
+            existing_employee = self.employees.get_by_email(new_email, include_inactive=True)
+            if existing_employee is not None and existing_employee.id != employee_id:
+                logger.warning("[EmployeeService] Duplicate employee email '%s' on update (employee=%s)", new_email, employee_id)
+                raise ConflictError("An employee with this email already exists in this company.")
+            existing_user = self.users.get_by_email(new_email)
+            if existing_user is not None and existing_user.id != employee.user_id:
+                raise ConflictError("A user with this email already exists.")
+
         # Validate schedule_id belongs to the same company before assigning.
         if "schedule_id" in updates and updates["schedule_id"] is not None:
             schedule = ScheduleRepository(self.db, company_id=self.company_id).get(updates["schedule_id"])
@@ -142,6 +156,14 @@ class EmployeeService:
             linked_user.password_hash = hash_password(new_password)
             self.db.add(linked_user)
             logger.info("[EmployeeService] Password updated for user_id=%s (employee=%s)", employee.user_id, employee_id)
+
+        if new_email and employee.user_id is not None and new_email != employee.email:
+            linked_user = self.users.get_by_id_in_company(employee.user_id, self.company_id)
+            if linked_user is None:
+                raise NotFoundError("Linked user account not found.")
+            linked_user.email = new_email
+            self.db.add(linked_user)
+            logger.info("[EmployeeService] Email synced for user_id=%s (employee=%s)", employee.user_id, employee_id)
 
         # Apply remaining scalar fields.
         new_is_active = updates.get("is_active")

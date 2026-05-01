@@ -62,6 +62,7 @@ Response:
     "last_login_at": null,
     "created_at": "2026-04-23T09:00:00Z"
   },
+  "employee": null,
   "company": {
     "id": "uuid",
     "name": "ClockLy Demo",
@@ -80,6 +81,8 @@ Response:
     "is_active_subscription": true,
     "is_beta_user": false,
     "stripe_subscription_status": "active",
+    "stripe_current_period_end": "2026-05-23T09:00:00Z",
+    "stripe_cancel_at_period_end": false,
     "created_by": "uuid"
   },
   "permissions": [
@@ -127,8 +130,10 @@ HttpOnly cookie and rotates the session.
 
 ### GET `/auth/me`
 
-Returns the authenticated user, active company context, plan-derived company
-capabilities, and permission list.
+Returns the authenticated user, optional active employee context, active company
+context, plan-derived company capabilities, billing period flags, and permission
+list. If a linked employee profile exists but is inactive or soft-deleted, the
+session is rejected with `401` even when the cookie/token is otherwise valid.
 
 ### POST `/auth/logout`
 
@@ -329,6 +334,11 @@ events:
 Subscription create/update maps Stripe Price IDs back to `PlanType` and syncs
 plan-derived tenant capabilities. Subscription deletion moves the tenant back
 to Free and marks the subscription inactive.
+
+Webhook processing is idempotent by Stripe event ID. Duplicate processed events
+return success without mutating the tenant again. Subscription events also store
+their Stripe creation time and subscription object ID so an older out-of-order
+event cannot reopen or downgrade a newer final state.
 
 ## Settings
 
@@ -690,6 +700,7 @@ Visible in the current web UI when the company plan allows it:
 
 - `GET /exports/attendance?format=xlsx`
 - `GET /exports/attendance?format=excel`
+- `GET /exports/attendance?format=csv`
 - `GET /exports/attendance?format=pdf`
 - `GET /exports/salary-calculation?format=xlsx&employee_id=&from=&to=`
 - `GET /exports/salary-calculation?format=pdf&employee_id=&from=&to=`
@@ -702,7 +713,7 @@ Contract notes:
 - Requires `has_exports`.
 - Filtered exports also require `has_advanced_filters`.
 - Response is a file download with `Content-Disposition`.
-- XLSX/PDF attendance exports include employee, DNI/ID, entry/exit dates and
+- CSV/XLSX/PDF attendance exports include employee, DNI/ID, entry/exit dates and
   times, `hh:mm` duration, status, clock-out source, automatic clock-out
   incidents, notes, company name, report range, and tenant timezone.
 - Salary exports include hours, days, shifts, incident count, profile line
@@ -777,9 +788,11 @@ Work-location endpoints:
 - `DELETE /locations/{location_id}`
 
 Creating locations requires `has_multi_location`.
-Attendance-location map endpoints require `has_geolocation`. Clock-in/out never
-blocks solely because location permission is denied; denied/unavailable status
-is stored with the attendance session.
+Attendance-location map endpoints require `has_geolocation`. Clock-in/out with
+coordinates also requires `has_geolocation`; free-plan requests with latitude or
+longitude are rejected by the backend. Clock-in/out never blocks solely because
+location permission is denied when no coordinates are sent; denied/unavailable
+status is stored with the attendance session.
 
 Known MVP limitation: `work_location_id` filtering is present in the
 attendance-location query contract but is not linked to sessions yet; geofence

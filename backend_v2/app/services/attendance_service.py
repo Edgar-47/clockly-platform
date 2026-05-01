@@ -330,10 +330,7 @@ class AttendanceService:
                 action="blocked",
                 actor_user_id=actor.id,
             )
-            return GeoPayload(
-                location_source=geo.location_source,
-                location_permission_status=geo.location_permission_status,
-            )
+            raise
         record_company_usage(
             self.db,
             company_id=self.company_id,
@@ -473,8 +470,10 @@ class AttendanceService:
     ) -> None:
         if method not in {AttendanceMethod.KIOSK, AttendanceMethod.PIN} and not pin:
             return
-        if actor.role == UserRole.EMPLOYEE and employee.user_id == actor.id:
-            return
+        if actor.role == UserRole.EMPLOYEE:
+            raise PermissionDenied("Kiosk requires an authenticated admin session.")
+        if actor.role not in {UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER}:
+            raise PermissionDenied("Kiosk access requires an authenticated admin session.")
         if not pin:
             raise PermissionDenied("Introduce tu PIN de 4 digitos.")
         if not employee.pin_hash or not verify_password(pin, employee.pin_hash):

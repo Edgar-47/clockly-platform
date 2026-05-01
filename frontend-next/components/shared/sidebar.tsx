@@ -7,7 +7,6 @@ import {
   Banknote,
   Building2,
   Clock,
-  FileSpreadsheet,
   Landmark,
   LayoutDashboard,
   LogOut,

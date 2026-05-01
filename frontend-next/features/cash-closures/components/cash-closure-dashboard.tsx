@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Banknote, BarChart3, CreditCard, TrendingUp } from "lucide-react";
+import { AlertTriangle, Banknote, BarChart3, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CashClosureChartsResponse, CashClosureStats } from "@/types/cash-closure";

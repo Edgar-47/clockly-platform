@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, Calculator, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -151,27 +151,30 @@ function LineEditor({
   );
 }
 
-export function CashClosureForm({
-  initialClosure,
-  locations,
-  currentUserName,
-  loading,
-  submitLabel = "Cerrar caja",
-  onSubmit,
-}: {
+type CashClosureFormProps = {
   initialClosure?: CashClosure | null;
   locations: WorkLocation[];
   currentUserName: string;
   loading?: boolean;
   submitLabel?: string;
   onSubmit: (payload: CashClosureCreateRequest) => void;
-}) {
-  const [state, setState] = useState(buildState(initialClosure ?? undefined));
-  const prefill = usePrefillCashClosure();
+};
 
-  useEffect(() => {
-    setState(buildState(initialClosure ?? undefined));
-  }, [initialClosure?.id]);
+export function CashClosureForm(props: CashClosureFormProps) {
+  const formKey = props.initialClosure?.id ?? "new";
+  return <CashClosureFormInner key={formKey} {...props} />;
+}
+
+function CashClosureFormInner({
+  initialClosure,
+  locations,
+  currentUserName,
+  loading,
+  submitLabel = "Cerrar caja",
+  onSubmit,
+}: CashClosureFormProps) {
+  const [state, setState] = useState(() => buildState(initialClosure ?? undefined));
+  const prefill = usePrefillCashClosure();
 
   const totals = useMemo(() => {
     const cashReal = state.cashDrawers.reduce((sum, line) => sum + amount(line.amount), 0);

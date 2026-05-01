@@ -27,6 +27,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.password_reset_token import PasswordResetToken
 from app.models.schedule import Schedule
 from app.models.salary import SalaryCalculation, SalaryProfile
+from app.models.stripe_webhook_event import StripeWebhookEvent
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.user_invitation import UserInvitation
@@ -61,6 +62,7 @@ __all__ = [
     "SalaryCalculation",
     "SalaryProfile",
     "SalaryType",
+    "StripeWebhookEvent",
     "Ticket",
     "TicketStatus",
     "User",

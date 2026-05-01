@@ -141,7 +141,7 @@ export const attendanceService = {
       .then((r) => r.items.map(normalizeSession));
   },
 
-  downloadExport: (format: "excel" | "pdf", filters: AttendanceHistoryFilters = {}) => {
+  downloadExport: (format: "csv" | "excel" | "xlsx" | "pdf", filters: AttendanceHistoryFilters = {}) => {
     const params = new URLSearchParams({ format });
     if (filters.date_from) params.set("date_from", `${filters.date_from}T00:00:00`);
     if (filters.date_to) params.set("date_to", `${filters.date_to}T23:59:59`);

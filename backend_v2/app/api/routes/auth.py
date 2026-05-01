@@ -110,6 +110,7 @@ def refresh(
 def me(ctx: TenantContext = Depends(get_current_context)) -> MeResponse:
     return MeResponse(
         user=ctx.user,
+        employee=ctx.employee,
         company=_company_context(ctx.company),
         permissions=ctx.permissions,
     )
@@ -170,6 +171,7 @@ def _token_response(tokens: AuthTokens) -> TokenResponse:
         refresh_token=tokens.refresh_token,
         expires_in=tokens.expires_in,
         user=tokens.user,
+        employee=tokens.user.employee,
         company=_company_context(company),
         permissions=permissions_for_role(tokens.user.role),
     )
@@ -195,6 +197,8 @@ def _company_context(company) -> CompanyContext:
         is_active_subscription=company.is_active_subscription,
         is_beta_user=company.is_beta_user,
         stripe_subscription_status=company.stripe_subscription_status,
+        stripe_current_period_end=company.stripe_current_period_end,
+        stripe_cancel_at_period_end=company.stripe_cancel_at_period_end,
         created_by=company.created_by,
     )
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { CalendarDays, CheckCircle2, Circle, Clock, History, LogOut, MapPin, TicketCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -14,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/shared/logo";
 import { formatDateTime, formatSeconds } from "@/lib/format";
 import { employeesService } from "@/services/employees.service";
-import type { AttendanceStatus } from "@/types/attendance";
 import type { TicketCreateRequest, TicketStatus } from "@/types/ticket";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {

@@ -40,6 +40,7 @@ export function AttendanceMap({
   const mapRef = useRef<LeafletMap | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const initialCenterRef = useRef(initialCenter);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -56,7 +57,7 @@ export function AttendanceMap({
         shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
-      const center: [number, number] = initialCenter ?? [40.416775, -3.70379];
+      const center: [number, number] = initialCenterRef.current ?? [40.416775, -3.70379];
 
       const map = L.map(containerRef.current!, {
         center,

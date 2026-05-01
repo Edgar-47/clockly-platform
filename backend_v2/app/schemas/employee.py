@@ -36,6 +36,11 @@ class EmployeeCreate(BaseModel):
             raise ValueError("PIN must contain digits only.")
         return value
 
+    @field_validator("email", mode="after")
+    @classmethod
+    def normalize_email(cls, value: str | None) -> str | None:
+        return value.lower() if value else value
+
     @model_validator(mode="after")
     def password_requires_email(self) -> "EmployeeCreate":
         if self.password and not self.email:

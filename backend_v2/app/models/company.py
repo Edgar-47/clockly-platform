@@ -55,6 +55,8 @@ class Company(TimestampMixin, Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     stripe_subscription_status: Mapped[str | None] = mapped_column(String(80))
+    stripe_current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stripe_cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL", use_alter=True),

@@ -8,6 +8,8 @@ const AUTH_PATHS = {
   refresh: "/auth/refresh",
 } as const;
 
+export const SESSION_EXPIRED_EVENT = "clockly:session-expired";
+
 let refreshPromise: Promise<boolean> | null = null;
 
 class HttpError extends Error {
@@ -73,14 +75,21 @@ async function refreshSession(): Promise<boolean> {
     const refreshed = await refreshPromise;
     if (!refreshed) {
       await clearServerSession();
+      notifySessionExpired();
     }
     return refreshed;
   } catch {
     await clearServerSession();
+    notifySessionExpired();
     return false;
   } finally {
     refreshPromise = null;
   }
+}
+
+function notifySessionExpired(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
 }
 
 async function request<T>(

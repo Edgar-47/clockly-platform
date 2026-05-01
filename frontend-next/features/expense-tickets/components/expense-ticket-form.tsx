@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import Image from "next/image";
+import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Paperclip, X } from "lucide-react";
@@ -47,15 +48,15 @@ export function ExpenseTicketForm({
   loading?: boolean;
   onFileSelect?: (file: File | null) => void;
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const {
     register,
     handleSubmit,
+    control,
     reset,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
@@ -67,7 +68,7 @@ export function ExpenseTicketForm({
     },
   });
 
-  const requiresReimbursement = watch("requires_reimbursement");
+  const requiresReimbursement = useWatch({ control, name: "requires_reimbursement" });
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -86,7 +87,7 @@ export function ExpenseTicketForm({
     setSelectedFile(null);
     setPreview(null);
     onFileSelect?.(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setFileInputKey((value) => value + 1);
   }
 
   return (
@@ -220,7 +221,9 @@ export function ExpenseTicketForm({
         {selectedFile ? (
           <div className="flex items-center gap-2 rounded-md border border-border bg-surface-muted p-2.5">
             {preview && (
-              <img src={preview} alt="preview" className="h-10 w-10 rounded object-cover flex-shrink-0" />
+              <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded">
+                <Image src={preview} alt="preview" fill sizes="40px" unoptimized className="object-cover" />
+              </span>
             )}
             {!preview && <Paperclip className="h-4 w-4 text-ink-muted flex-shrink-0" />}
             <span className="flex-1 truncate text-[12px] text-ink">{selectedFile.name}</span>
@@ -229,17 +232,17 @@ export function ExpenseTicketForm({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-border p-4 text-[13px] text-ink-muted transition-colors hover:border-primary hover:text-primary"
+          <label
+            htmlFor="expense-ticket-file"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-border p-4 text-[13px] text-ink-muted transition-colors hover:border-primary hover:text-primary"
           >
             <Paperclip className="h-4 w-4" />
             Seleccionar archivo (JPG, PNG, PDF · max 5 MB)
-          </button>
+          </label>
         )}
         <input
-          ref={fileInputRef}
+          key={fileInputKey}
+          id="expense-ticket-file"
           type="file"
           accept="image/jpeg,image/png,image/webp,application/pdf"
           className="hidden"

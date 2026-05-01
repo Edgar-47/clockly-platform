@@ -51,4 +51,6 @@ class CompanyPlanContext(BaseModel):
     is_active_subscription: bool
     is_beta_user: bool
     stripe_subscription_status: str | None
+    stripe_current_period_end: datetime | None
+    stripe_cancel_at_period_end: bool
     created_by: UUID | None

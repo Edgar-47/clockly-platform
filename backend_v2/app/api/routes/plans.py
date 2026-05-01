@@ -32,5 +32,7 @@ def current_plan(ctx: TenantContext = Depends(get_current_context)) -> CompanyPl
         is_active_subscription=ctx.company.is_active_subscription,
         is_beta_user=ctx.company.is_beta_user,
         stripe_subscription_status=ctx.company.stripe_subscription_status,
+        stripe_current_period_end=ctx.company.stripe_current_period_end,
+        stripe_cancel_at_period_end=ctx.company.stripe_cancel_at_period_end,
         created_by=ctx.company.created_by,
     )

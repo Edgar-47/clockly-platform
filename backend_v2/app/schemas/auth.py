@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import PlanType, UserRole
+from app.schemas.employee import EmployeeRead
 
 
 class LoginRequest(BaseModel):
@@ -44,6 +45,8 @@ class CompanyContext(BaseModel):
     is_active_subscription: bool
     is_beta_user: bool
     stripe_subscription_status: str | None
+    stripe_current_period_end: datetime | None
+    stripe_cancel_at_period_end: bool
     created_by: UUID | None
 
 
@@ -66,12 +69,14 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: UserRead
+    employee: EmployeeRead | None = None
     company: CompanyContext
     permissions: list[str]
 
 
 class MeResponse(BaseModel):
     user: UserRead
+    employee: EmployeeRead | None = None
     company: CompanyContext
     permissions: list[str]
 

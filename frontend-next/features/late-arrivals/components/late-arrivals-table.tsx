@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, EyeOff, XCircle } from "lucide-react";
+import { CheckCircle2, EyeOff, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LateArrivalStatusBadge } from "./late-arrival-status-badge";
@@ -29,7 +29,6 @@ interface Props {
 
 export function LateArrivalsTable({
   records,
-  total,
   loading,
   canManage,
   onStatusChange,

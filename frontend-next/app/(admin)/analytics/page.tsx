@@ -265,7 +265,7 @@ export default function AnalyticsPage() {
             <CardHeader className="flex-row items-center justify-between pb-4">
               <CardTitle>Alertas detectadas</CardTitle>
               {hasReports && anomalyList.length > 0 && (
-                <Badge variant="destructive">{anomalyList.length} alertas</Badge>
+                <Badge variant="danger">{anomalyList.length} alertas</Badge>
               )}
             </CardHeader>
             <CardContent>

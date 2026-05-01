@@ -60,7 +60,7 @@ def test_email_service_renders_required_templates():
     )
 
     assert len(provider.messages) == 4
-    assert "Invitacion" in provider.messages[0].subject
+    assert "Invitaci" in provider.messages[0].subject
     assert "Restablece" in provider.messages[1].subject
     assert "Bienvenido" in provider.messages[2].subject
     assert "seguridad" in provider.messages[3].subject.lower()

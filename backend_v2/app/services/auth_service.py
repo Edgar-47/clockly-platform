@@ -26,6 +26,7 @@ from app.models.password_reset_token import PasswordResetToken
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.repositories.company_repository import CompanyRepository
+from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.password_reset_repository import PasswordResetRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import RegisterCompanyRequest
@@ -121,7 +122,7 @@ class AuthService:
         ip_address: str | None = None,
     ) -> AuthTokens:
         user = self.users.get_by_email(identifier.lower())
-        if user is None or not user.is_active or not verify_password(password, user.password_hash):
+        if user is None or not user.is_active or user.is_deleted or not verify_password(password, user.password_hash):
             AuditLogService(self.db).safe_record(
                 "auth.login_failed",
                 company_id=user.company_id if user else None,
@@ -136,6 +137,7 @@ class AuthService:
         company = self.companies.get(user.company_id)
         if company is None:
             raise AuthenticationError("Company is not active.")
+        self._assert_user_can_authenticate(user)
         self.users.mark_login(user)
         return self._issue_tokens(user, user_agent=user_agent, ip_address=ip_address)
 
@@ -152,6 +154,7 @@ class AuthService:
         user = self.users.get_active(old_token.user_id, old_token.company_id)
         if user is None:
             raise AuthenticationError("User is not active.")
+        self._assert_user_can_authenticate(user)
         tokens = self._issue_tokens(user, user_agent=user_agent, ip_address=ip_address)
         replacement = self.users.get_refresh_token(hash_token(tokens.refresh_token))
         self.users.revoke_refresh_token(
@@ -279,6 +282,17 @@ class AuthService:
 
     def permissions(self, user: User) -> list[str]:
         return permissions_for_role(user.role)
+
+    def _assert_user_can_authenticate(self, user: User) -> None:
+        employee = EmployeeRepository(self.db, company_id=user.company_id).get_by_user_id(
+            user.id,
+            include_inactive=True,
+            include_deleted=True,
+        )
+        if employee is not None:
+            if not employee.is_active or employee.is_deleted:
+                raise AuthenticationError("Employee profile is not active.")
+            return
 
 
 def _slugify_company_name(name: str) -> str:

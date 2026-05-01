@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.errors import ConflictError, NotFoundError
 from app.db.session import get_db
-from app.dependencies.auth import TenantContext, require_permission
+from app.dependencies.auth import TenantContext, require_superadmin
 from app.models.affiliate import Affiliate, AffiliateReferral
 
 router = APIRouter(prefix="/affiliates", tags=["affiliates"])
@@ -70,10 +70,9 @@ class AffiliateStatusUpdate(BaseModel):
 @router.get("", response_model=list[AffiliateRead])
 def list_affiliates(
     active_only: bool = Query(default=False),
-    ctx: TenantContext = Depends(require_permission("users:manage")),
+    ctx: TenantContext = Depends(require_superadmin()),
     db: Session = Depends(get_db),
 ) -> list[AffiliateRead]:
-    _require_superadmin(ctx)
     stmt = select(Affiliate).options(joinedload(Affiliate.referrals))
     if active_only:
         stmt = stmt.where(Affiliate.is_active.is_(True))
@@ -84,10 +83,9 @@ def list_affiliates(
 @router.post("", response_model=AffiliateRead)
 def create_affiliate(
     payload: AffiliateCreate,
-    ctx: TenantContext = Depends(require_permission("users:manage")),
+    ctx: TenantContext = Depends(require_superadmin()),
     db: Session = Depends(get_db),
 ) -> AffiliateRead:
-    _require_superadmin(ctx)
     existing = db.scalar(
         select(Affiliate).where(Affiliate.partner_email == str(payload.partner_email))
     )
@@ -109,10 +107,9 @@ def create_affiliate(
 def update_affiliate_status(
     affiliate_id: UUID,
     payload: AffiliateStatusUpdate,
-    ctx: TenantContext = Depends(require_permission("users:manage")),
+    ctx: TenantContext = Depends(require_superadmin()),
     db: Session = Depends(get_db),
 ) -> AffiliateRead:
-    _require_superadmin(ctx)
     affiliate = _get_affiliate(db, affiliate_id)
     affiliate.is_active = payload.is_active
     db.add(affiliate)
@@ -124,10 +121,9 @@ def update_affiliate_status(
 @router.get("/{affiliate_id}/referrals", response_model=list[AffiliateReferralRead])
 def list_referrals(
     affiliate_id: UUID,
-    ctx: TenantContext = Depends(require_permission("users:manage")),
+    ctx: TenantContext = Depends(require_superadmin()),
     db: Session = Depends(get_db),
 ) -> list[AffiliateReferralRead]:
-    _require_superadmin(ctx)
     _get_affiliate(db, affiliate_id)
     referrals = list(
         db.scalars(
@@ -169,11 +165,6 @@ def check_referral_code(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _require_superadmin(ctx: TenantContext) -> None:
-    if ctx.user.role.value != "superadmin":
-        raise NotFoundError("Not found.")
 
 
 def _get_affiliate(db: Session, affiliate_id: UUID) -> Affiliate:

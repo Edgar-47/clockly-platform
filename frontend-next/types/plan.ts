@@ -33,5 +33,7 @@ export interface CompanyPlanContext extends PlanFeatures {
   is_active_subscription: boolean;
   is_beta_user: boolean;
   stripe_subscription_status: string | null;
+  stripe_current_period_end: string | null;
+  stripe_cancel_at_period_end: boolean;
   created_by: string | null;
 }

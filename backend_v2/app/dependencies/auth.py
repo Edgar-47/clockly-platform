@@ -10,9 +10,11 @@ from app.core.errors import AuthenticationError, PermissionDenied
 from app.core.security import TokenDecodeError, decode_access_token
 from app.db.session import get_db
 from app.models.company import Company
+from app.models.employee import Employee
 from app.models.enums import UserRole
 from app.models.user import User
 from app.repositories.company_repository import CompanyRepository
+from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.user_repository import UserRepository
 from app.services.permissions import is_admin_role, permissions_for_role, role_has_permission
 from app.services.audit_log import AuditLogService
@@ -25,6 +27,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 class TenantContext:
     user: User
     company: Company
+    employee: Employee | None = None
 
     @property
     def company_id(self):
@@ -62,7 +65,8 @@ def get_current_context(
     company = CompanyRepository(db).get(company_id)
     if user is None or company is None:
         raise AuthenticationError("User or company is not active.")
-    return TenantContext(user=user, company=company)
+    employee = _active_employee_context(db, user)
+    return TenantContext(user=user, company=company, employee=employee)
 
 
 def require_permission(permission: str):
@@ -134,3 +138,16 @@ def _access_token_from_request(
     if credentials is not None and credentials.scheme.lower() == "bearer":
         return credentials.credentials
     return request.cookies.get(ACCESS_COOKIE_NAME)
+
+
+def _active_employee_context(db: Session, user: User) -> Employee | None:
+    employee = EmployeeRepository(db, company_id=user.company_id).get_by_user_id(
+        user.id,
+        include_inactive=True,
+        include_deleted=True,
+    )
+    if employee is not None:
+        if not employee.is_active or employee.is_deleted:
+            raise AuthenticationError("Employee profile is not active.")
+        return employee
+    return None

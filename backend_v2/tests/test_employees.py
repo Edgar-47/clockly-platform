@@ -63,6 +63,25 @@ class TestCreateEmployee:
         )
         assert resp.status_code == 409
 
+    def test_create_employee_duplicate_email_without_login_rejected(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        db.commit()
+
+        first = client.post(
+            "/employees",
+            headers=auth_headers(admin),
+            json={"first_name": "Ana", "last_name": "Garcia", "email": "dup-employee@test.com"},
+        )
+        assert first.status_code == 201
+
+        resp = client.post(
+            "/employees",
+            headers=auth_headers(admin),
+            json={"first_name": "Otro", "last_name": "User", "email": "DUP-EMPLOYEE@test.com"},
+        )
+        assert resp.status_code == 409
+
     def test_create_employee_with_pin(self, client, db):
         company = make_company(db)
         admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
@@ -147,6 +166,23 @@ class TestUpdateEmployee:
         assert resp.json()["hired_on"] == "2026-04-15"
         db.refresh(emp)
         assert emp.hired_on == date(2026, 4, 15)
+
+    def test_update_employee_duplicate_email_rejected(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        other = make_employee(db, company=company)
+        emp.email = "one@test.com"
+        other.email = "two@test.com"
+        db.add_all([emp, other])
+        db.commit()
+
+        resp = client.patch(
+            f"/employees/{emp.id}",
+            headers=auth_headers(admin),
+            json={"email": other.email.upper()},
+        )
+        assert resp.status_code == 409
 
     def test_deactivate_employee(self, client, db):
         company = make_company(db)

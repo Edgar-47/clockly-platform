@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.models.company import Company
+from app.models.stripe_webhook_event import StripeWebhookEvent
 from app.models.enums import PlanType
 from app.repositories.company_repository import CompanyRepository
 from app.services.plans import apply_plan_to_company
@@ -73,16 +77,54 @@ class BillingService:
             raise ConflictError("Invalid Stripe webhook payload.") from exc
 
     def handle_event(self, event) -> None:
-        event_type = event["type"]
-        data = event["data"]["object"]
+        event_id = str(event.get("id") or "")
+        if not event_id:
+            raise ConflictError("Stripe webhook event is missing an id.")
 
-        if event_type == "checkout.session.completed":
-            self._handle_checkout_completed(data)
-        elif event_type in {"customer.subscription.created", "customer.subscription.updated"}:
-            self._handle_subscription_upsert(data)
-        elif event_type == "customer.subscription.deleted":
-            self._handle_subscription_deleted(data)
-        self.db.commit()
+        event_type = str(event["type"])
+        data = event["data"]["object"]
+        event_created_at = _stripe_timestamp(event.get("created"))
+        record = self._begin_event(
+            event_id=event_id,
+            event_type=event_type,
+            object_id=self._object_id(event_type, data),
+            stripe_created_at=event_created_at,
+        )
+        if record is None:
+            self.db.commit()
+            return
+
+        try:
+            if event_type == "checkout.session.completed":
+                self._handle_checkout_completed(data)
+            elif event_type in {"customer.subscription.created", "customer.subscription.updated"}:
+                if not self._is_stale_subscription_event(data, event_created_at):
+                    self._handle_subscription_upsert(data)
+            elif event_type == "customer.subscription.deleted":
+                if not self._is_stale_subscription_event(data, event_created_at):
+                    self._handle_subscription_deleted(data)
+            record.status = "processed"
+            record.processed_at = datetime.now(UTC)
+            record.error = None
+            self.db.add(record)
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            failed = self._get_event_record(event_id)
+            if failed is not None:
+                failed.status = "failed"
+            else:
+                failed = StripeWebhookEvent(
+                    stripe_event_id=event_id,
+                    event_type=event_type,
+                    object_id=self._object_id(event_type, data),
+                    stripe_created_at=event_created_at,
+                    status="failed",
+                )
+            failed.error = str(exc)[:2000]
+            self.db.add(failed)
+            self.db.commit()
+            raise
 
     def _handle_checkout_completed(self, session) -> None:
         company_id = session.get("client_reference_id") or session.get("metadata", {}).get("company_id")
@@ -98,6 +140,8 @@ class BillingService:
         company.stripe_customer_id = subscription.get("customer") or company.stripe_customer_id
         company.stripe_subscription_id = subscription.get("id") or company.stripe_subscription_id
         company.stripe_subscription_status = subscription.get("status")
+        company.stripe_current_period_end = _stripe_timestamp(subscription.get("current_period_end"))
+        company.stripe_cancel_at_period_end = bool(subscription.get("cancel_at_period_end") or False)
         company.is_active_subscription = subscription.get("status") in ACTIVE_SUBSCRIPTION_STATUSES
 
         plan_type = self._plan_from_subscription(subscription)
@@ -109,6 +153,8 @@ class BillingService:
         company = self._company_for_subscription(subscription)
         company.stripe_subscription_id = subscription.get("id") or company.stripe_subscription_id
         company.stripe_subscription_status = subscription.get("status") or "canceled"
+        company.stripe_current_period_end = _stripe_timestamp(subscription.get("current_period_end"))
+        company.stripe_cancel_at_period_end = bool(subscription.get("cancel_at_period_end") or False)
         company.is_active_subscription = False
         apply_plan_to_company(company, PlanType.FREE)
         self.db.add(company)
@@ -173,3 +219,86 @@ class BillingService:
         stripe.api_key = settings.stripe_secret_key
         stripe.api_version = STRIPE_API_VERSION
         return stripe
+
+    def _begin_event(
+        self,
+        *,
+        event_id: str,
+        event_type: str,
+        object_id: str | None,
+        stripe_created_at: datetime | None,
+    ) -> StripeWebhookEvent | None:
+        existing = self._get_event_record(event_id)
+        if existing is not None and existing.status == "processed":
+            return None
+        if existing is not None:
+            existing.status = "processing"
+            existing.error = None
+            existing.event_type = event_type
+            existing.object_id = object_id
+            existing.stripe_created_at = stripe_created_at
+            self.db.add(existing)
+            self.db.flush()
+            return existing
+
+        record = StripeWebhookEvent(
+            stripe_event_id=event_id,
+            event_type=event_type,
+            object_id=object_id,
+            stripe_created_at=stripe_created_at,
+            status="processing",
+        )
+        try:
+            self.db.add(record)
+            self.db.flush()
+        except IntegrityError:
+            self.db.rollback()
+            existing = self._get_event_record(event_id)
+            if existing is not None and existing.status == "processed":
+                return None
+            raise
+        return record
+
+    def _get_event_record(self, event_id: str) -> StripeWebhookEvent | None:
+        return self.db.scalar(
+            select(StripeWebhookEvent).where(StripeWebhookEvent.stripe_event_id == event_id)
+        )
+
+    def _is_stale_subscription_event(self, subscription, event_created_at: datetime | None) -> bool:
+        subscription_id = subscription.get("id")
+        if not subscription_id or event_created_at is None:
+            return False
+        newer = self.db.scalar(
+            select(StripeWebhookEvent.id)
+            .where(
+                StripeWebhookEvent.object_id == subscription_id,
+                StripeWebhookEvent.status == "processed",
+                StripeWebhookEvent.event_type.in_(
+                    (
+                        "customer.subscription.created",
+                        "customer.subscription.updated",
+                        "customer.subscription.deleted",
+                    )
+                ),
+                StripeWebhookEvent.stripe_created_at.is_not(None),
+                StripeWebhookEvent.stripe_created_at > event_created_at,
+            )
+            .limit(1)
+        )
+        return newer is not None
+
+    def _object_id(self, event_type: str, data) -> str | None:
+        if event_type.startswith("customer.subscription."):
+            return data.get("id")
+        if event_type == "checkout.session.completed":
+            return data.get("subscription") or data.get("id")
+        return data.get("id")
+
+
+def _stripe_timestamp(value) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        return datetime.fromtimestamp(int(value), tz=UTC)
+    except (TypeError, ValueError, OSError):
+        return None

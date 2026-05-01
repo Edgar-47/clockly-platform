@@ -60,3 +60,15 @@ def test_soft_delete_user_excludes_normal_user_queries(client, db):
     assert deleted_response.status_code == 200
     emails = [item["email"] for item in deleted_response.json()["items"]]
     assert "manager@test.com" in emails
+
+
+def test_inactive_linked_employee_invalidates_existing_user_session(client, db):
+    company = make_company(db)
+    employee_user = make_user(db, company=company, email="employee@test.com", role=UserRole.EMPLOYEE)
+    employee = make_employee(db, company=company, user=employee_user)
+    employee.is_active = False
+    db.add(employee)
+    db.commit()
+
+    response = client.get("/auth/me", headers=auth_headers(employee_user))
+    assert response.status_code == 401

@@ -6,12 +6,10 @@ import type { LateArrivalChartsResponse, LateArrivalEmployeeRank } from "@/types
 
 function BarChart({
   data,
-  valueKey,
   maxValue,
   colorClass = "bg-primary",
 }: {
   data: { label: string; value: number }[];
-  valueKey?: string;
   maxValue: number;
   colorClass?: string;
 }) {

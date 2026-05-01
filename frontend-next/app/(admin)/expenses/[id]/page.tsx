@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Download, Paperclip, Trash2 } from "lucide-react";
@@ -29,7 +30,6 @@ import {
 } from "@/hooks/use-expense-tickets";
 import { useMe } from "@/hooks/use-auth";
 import { expenseTicketsService } from "@/services/expense-tickets.service";
-import { CATEGORY_LABELS, PAYMENT_SOURCE_LABELS, STATUS_LABELS } from "@/types/expense-ticket";
 import { useState } from "react";
 
 function formatDate(str: string): string {
@@ -298,10 +298,13 @@ export default function ExpenseDetailPage() {
             {ticket.attachment_url ? (
               <div className="space-y-3">
                 {ticket.attachment_mime_type?.startsWith("image/") && (
-                  <img
+                  <Image
                     src={`/api/expense-tickets/${ticket.id}/attachment`}
                     alt="Adjunto"
-                    className="max-h-64 w-auto rounded-md border border-border object-contain"
+                    width={640}
+                    height={360}
+                    unoptimized
+                    className="h-auto max-h-64 w-auto rounded-md border border-border object-contain"
                   />
                 )}
                 <div className="flex items-center gap-3">

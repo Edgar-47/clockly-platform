@@ -123,6 +123,39 @@ class TestClockIn:
         )
         assert resp.status_code == 403
 
+    def test_employee_cannot_use_kiosk_method_without_admin_session(self, client, db):
+        company = make_company(db)
+        user = make_user(db, company=company, email="emp@test.com", role=UserRole.EMPLOYEE)
+        make_employee(db, company=company, user=user, pin="1234")
+        db.commit()
+
+        resp = client.post(
+            "/attendance/clock-in",
+            headers=auth_headers(user),
+            json={"method": "kiosk", "pin": "1234"},
+        )
+        assert resp.status_code == 403
+
+    def test_free_plan_rejects_geolocation_payload(self, client, db):
+        company = make_company(db, plan="free")
+        user = make_user(db, company=company, email="emp@test.com", role=UserRole.EMPLOYEE)
+        make_employee(db, company=company, user=user)
+        db.commit()
+
+        resp = client.post(
+            "/attendance/clock-in",
+            headers=auth_headers(user),
+            json={
+                "method": "web",
+                "latitude": 40.4168,
+                "longitude": -3.7038,
+                "accuracy_meters": 25,
+                "location_source": "browser",
+                "location_permission_status": "granted",
+            },
+        )
+        assert resp.status_code == 403
+
 
 class TestClockOut:
     def test_admin_clocks_out_employee(self, client, db):

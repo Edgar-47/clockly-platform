@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import calendar
+import csv as csv_module
 from datetime import UTC, date, datetime, time
 from io import BytesIO
+from io import StringIO
 from typing import Literal
 from uuid import UUID
 
@@ -83,7 +85,7 @@ SALARY_TYPE_LABELS = {
 
 @router.get("/attendance")
 def export_attendance(
-    export_format: Literal["excel", "xlsx", "pdf"] = Query(default="xlsx", alias="format"),
+    export_format: Literal["csv", "excel", "xlsx", "pdf"] = Query(default="xlsx", alias="format"),
     employee_id: UUID | None = Query(default=None),
     status: AttendanceStatus | None = Query(default=AttendanceStatus.CLOSED),
     clock_out_source: ClockOutSource | None = Query(default=None),
@@ -107,7 +109,11 @@ def export_attendance(
     filename_base = f"clockly-fichajes-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
     range_label = _range_label(date_from, date_to, ctx.company.timezone)
 
-    if export_format == "pdf":
+    if export_format == "csv":
+        content = _build_csv(rows)
+        media_type = "text/csv; charset=utf-8"
+        filename = f"{filename_base}.csv"
+    elif export_format == "pdf":
         content = _build_pdf(
             company_name=ctx.company.name,
             timezone=ctx.company.timezone,
@@ -537,6 +543,21 @@ def _build_xlsx(*, company_name: str, timezone: str, range_label: str, rows: lis
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()
+
+
+def _build_csv(rows: list[dict[str, object]]) -> bytes:
+    buffer = StringIO()
+    writer = csv_module.DictWriter(
+        buffer,
+        fieldnames=HEADERS,
+        delimiter=",",
+        extrasaction="ignore",
+        lineterminator="\r\n",
+    )
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({header: _display_value(row.get(header, "")) for header in HEADERS})
+    return ("\ufeff" + buffer.getvalue()).encode("utf-8")
 
 
 def _build_pdf(*, company_name: str, timezone: str, range_label: str, rows: list[dict[str, str]]) -> bytes:

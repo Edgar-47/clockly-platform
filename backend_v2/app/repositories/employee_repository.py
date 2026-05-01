@@ -58,15 +58,22 @@ class EmployeeRepository:
             )
         )
 
-    def get_by_user_id(self, user_id: UUID) -> Employee | None:
-        return self.db.scalar(
-            select(Employee).where(
-                Employee.user_id == user_id,
-                Employee.company_id == self.company_id,
-                Employee.is_active.is_(True),
-                Employee.is_deleted.is_(False),
-            )
+    def get_by_user_id(
+        self,
+        user_id: UUID,
+        *,
+        include_inactive: bool = False,
+        include_deleted: bool = False,
+    ) -> Employee | None:
+        statement = select(Employee).where(
+            Employee.user_id == user_id,
+            Employee.company_id == self.company_id,
         )
+        if not include_inactive:
+            statement = statement.where(Employee.is_active.is_(True))
+        if not include_deleted:
+            statement = statement.where(Employee.is_deleted.is_(False))
+        return self.db.scalar(statement)
 
     def get_by_email(
         self,

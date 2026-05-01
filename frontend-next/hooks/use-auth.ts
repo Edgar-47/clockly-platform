@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { HttpError } from "@/lib/api-client";
+import { HttpError, SESSION_EXPIRED_EVENT } from "@/lib/api-client";
 import { authService } from "@/services/auth.service";
 import { ADMIN_ROLES, isAdminRole } from "@/types/auth";
 import type { LoginRequest, RegisterCompanyRequest, UserRole } from "@/types/auth";
@@ -15,6 +15,8 @@ export const authKeys = {
 };
 
 export function useSession() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
   const query = useQuery({
     queryKey: authKeys.me,
     queryFn: authService.me,
@@ -31,6 +33,18 @@ export function useSession() {
         : error?.status === 401
           ? "unauthenticated"
           : "error";
+
+  useEffect(() => {
+    function handleSessionExpired() {
+      queryClient.removeQueries({ queryKey: authKeys.me });
+      const next = window.location.pathname;
+      const suffix = next && next !== "/login" ? `?next=${encodeURIComponent(next)}` : "";
+      router.replace(`/login${suffix}`);
+    }
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, [queryClient, router]);
 
   return {
     ...query,

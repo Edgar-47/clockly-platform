@@ -101,10 +101,14 @@ Recommended E2E coverage before public staging:
 
 ## Onboarding
 
-- [ ] Current owner/company creation path is `backend_v2/seed.py` or manual
-  provisioning.
-- [ ] Treat self-service company signup, owner creation, and first setup as a
-  product blocker before open public acquisition.
+- [ ] Verify public company signup through `/register-company` and
+  `POST /auth/register-company` creates the company, owner user, default
+  settings, and HttpOnly session cookies.
+- [ ] Verify the authenticated `/onboarding` wizard can update company context,
+  create the first employee, configure kiosk PIN, and handle invitations through
+  backend endpoints.
+- [ ] Keep `backend_v2/seed.py` limited to controlled local/demo data; do not
+  use it as the production tenant provisioning path.
 
 ## Legal and Operations
 
