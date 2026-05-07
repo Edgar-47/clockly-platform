@@ -30,12 +30,16 @@ os.environ.setdefault("CLOCKLY_LOG_FORMAT", "json")
 
 from app.core.config import get_settings
 from app.core.rate_limit import (
+    export_limiter,
+    gdpr_export_limiter,
+    gdpr_limiter,
     invitation_limiter,
     kiosk_limiter,
     login_limiter,
     password_reset_limiter,
     refresh_limiter,
     registration_limiter,
+    upload_limiter,
 )
 from app.core.security import create_access_token, hash_password, hash_pin
 from app.db.base import Base
@@ -126,6 +130,10 @@ def reset_rate_limiters():
         refresh_limiter,
         kiosk_limiter,
         invitation_limiter,
+        export_limiter,
+        gdpr_limiter,
+        gdpr_export_limiter,
+        upload_limiter,
     ):
         limiter._buckets.clear()
     yield

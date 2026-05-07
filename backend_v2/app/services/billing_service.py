@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
+from app.core.url_builder import trusted_frontend_redirect_url
 from app.models.company import Company
 from app.models.stripe_webhook_event import StripeWebhookEvent
 from app.models.enums import PlanType
@@ -18,6 +19,7 @@ from app.services.plans import apply_plan_to_company
 
 STRIPE_API_VERSION = "2026-02-25.clover"
 ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing"}
+STRIPE_WEBHOOK_MAX_BYTES = 256 * 1024
 
 
 class BillingService:
@@ -60,14 +62,17 @@ class BillingService:
         if not company.stripe_customer_id:
             raise ConflictError("Company does not have a Stripe customer yet.")
         stripe = self._stripe()
+        settings = get_settings()
         session = stripe.billing_portal.Session.create(
             customer=company.stripe_customer_id,
-            return_url=return_url or get_settings().billing_success_url,
+            return_url=trusted_frontend_redirect_url(return_url, fallback=settings.billing_success_url),
         )
         return session.url
 
     def construct_webhook_event(self, *, payload: bytes, signature: str | None):
         settings = get_settings()
+        if len(payload) > STRIPE_WEBHOOK_MAX_BYTES:
+            raise ConflictError("Stripe webhook payload is too large.")
         if not settings.stripe_webhook_secret:
             raise ConflictError("Stripe webhook secret is not configured.")
         stripe = self._stripe()
@@ -162,26 +167,33 @@ class BillingService:
     def _company_for_subscription(self, subscription) -> Company:
         metadata = subscription.get("metadata", {}) or {}
         company_id = metadata.get("company_id")
-        if company_id:
-            return self._company(UUID(str(company_id)))
-
         subscription_id = subscription.get("id")
         if subscription_id:
             company = self.companies.get_by_stripe_subscription_id(subscription_id)
             if company is not None:
+                self._assert_metadata_company_matches(company, company_id)
                 return company
 
         customer_id = subscription.get("customer")
         if customer_id:
             company = self.companies.get_by_stripe_customer_id(customer_id)
             if company is not None:
+                self._assert_metadata_company_matches(company, company_id)
                 return company
+        if company_id:
+            try:
+                return self._company(UUID(str(company_id)))
+            except ValueError as exc:
+                raise ConflictError("Invalid Stripe company metadata.") from exc
         raise NotFoundError("Company for Stripe subscription not found.")
 
     def _plan_from_subscription(self, subscription) -> PlanType | None:
         metadata_plan = (subscription.get("metadata", {}) or {}).get("plan_type")
         if metadata_plan:
-            return PlanType(metadata_plan)
+            try:
+                return PlanType(metadata_plan)
+            except ValueError:
+                pass
 
         items = subscription.get("items", {}).get("data", [])
         price_id = items[0].get("price", {}).get("id") if items else None
@@ -293,6 +305,10 @@ class BillingService:
         if event_type == "checkout.session.completed":
             return data.get("subscription") or data.get("id")
         return data.get("id")
+
+    def _assert_metadata_company_matches(self, company: Company, metadata_company_id: str | None) -> None:
+        if metadata_company_id and str(company.id) != str(metadata_company_id):
+            raise ConflictError("Stripe subscription metadata does not match the stored company.")
 
 
 def _stripe_timestamp(value) -> datetime | None:

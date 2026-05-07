@@ -9,12 +9,13 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 import structlog
 
 from app.api.router import api_router
-from app.core.auth_cookies import ACCESS_COOKIE_NAME
+from app.core.auth_cookies import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import bind_request_context, clear_request_context, configure_logging
 from app.core.security import TokenDecodeError, decode_access_token
 from app.core.sentry import configure_sentry, set_sentry_request_context
+from app.core.url_builder import is_trusted_frontend_origin
 
 
 settings = get_settings()
@@ -42,6 +43,21 @@ if settings.cors_allowed_origins:
         allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-ID"],
         expose_headers=["Content-Disposition", "X-Request-ID", "Retry-After", "X-RateLimit-Limit"],
     )
+
+
+@app.middleware("http")
+async def enforce_cookie_csrf_origin(request: Request, call_next):
+    if _requires_csrf_origin_check(request) and not _has_trusted_origin(request):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": {
+                    "code": "forbidden",
+                    "message": "Cross-site request origin is not allowed.",
+                }
+            },
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -124,8 +140,8 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     for e in exc.errors():
         err: dict = {}
         for k, v in e.items():
-            if k == "url":
-                continue  # strip Pydantic docs URL from responses
+            if k in {"url", "input"}:
+                continue  # strip Pydantic docs URL and user-supplied sensitive input
             if k == "ctx":
                 err[k] = {ck: str(cv) for ck, cv in v.items()}
             else:
@@ -167,6 +183,28 @@ def _access_token_from_request(request: Request) -> str | None:
     if authorization and authorization.lower().startswith("bearer "):
         return authorization.split(" ", 1)[1].strip()
     return request.cookies.get(ACCESS_COOKIE_NAME)
+
+
+def _requires_csrf_origin_check(request: Request) -> bool:
+    if settings.environment.lower() != "production":
+        return False
+    if request.method.upper() not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return False
+    if request.url.path == "/billing/webhook":
+        return False
+    if request.headers.get("authorization"):
+        return False
+    return bool(request.cookies.get(ACCESS_COOKIE_NAME) or request.cookies.get(REFRESH_COOKIE_NAME))
+
+
+def _has_trusted_origin(request: Request) -> bool:
+    origin = request.headers.get("origin")
+    if origin:
+        return is_trusted_frontend_origin(origin)
+    referer = request.headers.get("referer")
+    if referer:
+        return is_trusted_frontend_origin(referer)
+    return False
 
 
 def _as_str(value: object) -> str | None:

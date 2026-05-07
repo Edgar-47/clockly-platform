@@ -1,7 +1,11 @@
 """Auth endpoint tests: login, refresh, logout, token security."""
 
+from sqlalchemy import select
+
 from tests.conftest import auth_headers, make_company, make_user
+from app.core.auth_cookies import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.models.enums import UserRole
+from app.models.refresh_token import RefreshToken
 
 
 class TestLogin:
@@ -13,8 +17,12 @@ class TestLogin:
         resp = client.post("/auth/login", json={"email": "owner@test.com", "password": "my-secure-pass-1"})
         assert resp.status_code == 200
         data = resp.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
+        assert "access_token" not in data
+        assert "refresh_token" not in data
+        assert resp.cookies.get(ACCESS_COOKIE_NAME)
+        assert resp.cookies.get(REFRESH_COOKIE_NAME)
+        set_cookie = "\n".join(resp.headers.get_list("set-cookie"))
+        assert "HttpOnly" in set_cookie
         assert data["company"]["id"] is not None
         assert data["user"]["role"] == "owner"
 
@@ -99,13 +107,17 @@ class TestRefresh:
 
         login = client.post("/auth/login", json={"email": "user@test.com", "password": "pass-test-abc"})
         assert login.status_code == 200
-        old_refresh = login.json()["refresh_token"]
+        old_refresh = login.cookies.get(REFRESH_COOKIE_NAME)
+        assert old_refresh
 
         refresh = client.post("/auth/refresh", json={"refresh_token": old_refresh})
         assert refresh.status_code == 200
         new_data = refresh.json()
-        assert "access_token" in new_data
-        assert new_data["refresh_token"] != old_refresh  # token rotation
+        assert "access_token" not in new_data
+        assert "refresh_token" not in new_data
+        new_refresh = refresh.cookies.get(REFRESH_COOKIE_NAME)
+        assert new_refresh
+        assert new_refresh != old_refresh  # token rotation
 
     def test_refresh_with_invalid_token(self, client, db):
         # Must be >= 32 chars to pass schema validation; then fails in service
@@ -119,10 +131,13 @@ class TestRefresh:
         db.commit()
 
         login = client.post("/auth/login", json={"email": "user@test.com", "password": "pass-test-xyz"})
-        old_refresh = login.json()["refresh_token"]
+        old_refresh = login.cookies.get(REFRESH_COOKIE_NAME)
+        assert old_refresh
 
         client.post("/auth/refresh", json={"refresh_token": old_refresh})
 
         # Using the old token again should fail
         retry = client.post("/auth/refresh", json={"refresh_token": old_refresh})
         assert retry.status_code == 401
+        active_tokens = db.scalars(select(RefreshToken).where(RefreshToken.revoked_at.is_(None))).all()
+        assert active_tokens == []

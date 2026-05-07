@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError, PermissionDenied
+from app.core.rate_limit import export_limiter
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.models.enums import LateArrivalStatus, UserRole
@@ -32,6 +33,7 @@ from app.services.xlsx_report import (
     metric_number,
     prepare_worksheet,
     require_xlsx_kit,
+    safe_spreadsheet_value,
     set_column_widths,
     set_number_format,
     style_table_body,
@@ -181,6 +183,7 @@ def export_late_arrivals(
 ) -> Response:
     from datetime import date as date_type
 
+    _rate_limit_export(ctx)
     date_from_parsed = date_type.fromisoformat(date_from) if date_from else None
     date_to_parsed = date_type.fromisoformat(date_to) if date_to else None
 
@@ -195,7 +198,7 @@ def export_late_arrivals(
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "private, no-store"},
     )
 
 
@@ -338,10 +341,10 @@ def _build_xlsx(*, company_name: str, records) -> bytes:
             _label(rec.clock_in_method, _METHOD_LABELS),
         ]
         for col, value in enumerate(values, start=1):
-            ws.cell(row=row_idx, column=col, value=value)
+            ws.cell(row=row_idx, column=col, value=safe_spreadsheet_value(value))
 
     if not records:
-        ws.cell(row=data_start_row, column=1, value="Sin retrasos")
+        ws.cell(row=data_start_row, column=1, value=safe_spreadsheet_value("Sin retrasos"))
 
     last_row = header_row + max(len(records), 1)
     style_table_body(
@@ -372,3 +375,7 @@ def _build_xlsx(*, company_name: str, records) -> bytes:
     output = BytesIO()
     wb.save(output)
     return output.getvalue()
+
+
+def _rate_limit_export(ctx: TenantContext) -> None:
+    export_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")

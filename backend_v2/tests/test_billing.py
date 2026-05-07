@@ -2,6 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
+from app.core.errors import ConflictError
+from app.core.url_builder import trusted_frontend_redirect_url
 from app.models.enums import PlanType
 from app.models.stripe_webhook_event import StripeWebhookEvent
 from app.services.billing_service import BillingService
@@ -112,3 +114,40 @@ def test_stripe_subscription_out_of_order_event_does_not_reopen_plan(db):
     db.refresh(company)
     assert company.plan_type == PlanType.FREE
     assert company.is_active_subscription is False
+
+
+def test_billing_portal_return_url_rejects_untrusted_origin():
+    fallback = "http://localhost:3000/settings?billing=success"
+
+    assert trusted_frontend_redirect_url("/settings/billing", fallback=fallback) == "http://localhost:3000/settings/billing"
+
+    try:
+        trusted_frontend_redirect_url("https://evil.example/phish", fallback=fallback)
+    except ConflictError:
+        pass
+    else:
+        raise AssertionError("untrusted return_url was accepted")
+
+
+def test_stripe_subscription_metadata_mismatch_does_not_cross_tenant_update(db):
+    company = make_company(db, plan="free")
+    other_company = make_company(db, plan="free", name="Other Co", slug="other-co")
+    company.stripe_subscription_id = "sub_test"
+    company.stripe_customer_id = "cus_test"
+    db.add_all([company, other_company])
+    db.commit()
+
+    service = BillingService(db)
+    event = _subscription_event(event_id="evt_mismatch", created=2000, company_id=other_company.id)
+
+    try:
+        service.handle_event(event)
+    except ConflictError:
+        pass
+    else:
+        raise AssertionError("mismatched Stripe company metadata was accepted")
+
+    db.refresh(company)
+    db.refresh(other_company)
+    assert company.plan_type == PlanType.FREE
+    assert other_company.plan_type == PlanType.FREE

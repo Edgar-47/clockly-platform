@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
-from app.core.rate_limit import client_ip
+from app.core.rate_limit import client_ip, gdpr_export_limiter, gdpr_limiter
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, get_current_context, require_permission
 from app.schemas.gdpr import GeoConsentCreate, GeoConsentListResponse, GeoConsentRead
@@ -17,27 +17,36 @@ router = APIRouter(prefix="/gdpr", tags=["gdpr"])
 
 @router.get("/me/export")
 def export_my_data(
+    response: Response,
     ctx: TenantContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> dict:
+    _rate_limit_gdpr_export(ctx)
+    response.headers["Cache-Control"] = "private, no-store"
     return GDPRService(db, company_id=ctx.company_id).export_for_current_user(actor=ctx.user)
 
 
 @router.get("/users/{user_id}/export")
 def export_user_data(
     user_id: UUID,
+    response: Response,
     ctx: TenantContext = Depends(require_permission("gdpr:export")),
     db: Session = Depends(get_db),
 ) -> dict:
+    _rate_limit_gdpr_export(ctx)
+    response.headers["Cache-Control"] = "private, no-store"
     return GDPRService(db, company_id=ctx.company_id).export_user(user_id, actor=ctx.user)
 
 
 @router.get("/employees/{employee_id}/export")
 def export_employee_data(
     employee_id: UUID,
+    response: Response,
     ctx: TenantContext = Depends(require_permission("gdpr:export")),
     db: Session = Depends(get_db),
 ) -> dict:
+    _rate_limit_gdpr_export(ctx)
+    response.headers["Cache-Control"] = "private, no-store"
     return GDPRService(db, company_id=ctx.company_id).export_employee(employee_id, actor=ctx.user)
 
 
@@ -48,6 +57,7 @@ def record_geolocation_consent(
     ctx: TenantContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> GeoConsentRead:
+    _rate_limit_gdpr(ctx)
     return GDPRService(db, company_id=ctx.company_id).record_geo_consent(
         payload,
         actor=ctx.user,
@@ -61,6 +71,7 @@ def list_my_geolocation_consents(
     ctx: TenantContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> GeoConsentListResponse:
+    _rate_limit_gdpr(ctx)
     items = GDPRService(db, company_id=ctx.company_id).list_geo_consents_for_user(ctx.user.id, actor=ctx.user)
     return GeoConsentListResponse(items=items, total=len(items))
 
@@ -71,5 +82,15 @@ def list_user_geolocation_consents(
     ctx: TenantContext = Depends(require_permission("gdpr:export")),
     db: Session = Depends(get_db),
 ) -> GeoConsentListResponse:
+    _rate_limit_gdpr(ctx)
     items = GDPRService(db, company_id=ctx.company_id).list_geo_consents_for_user(user_id, actor=ctx.user)
     return GeoConsentListResponse(items=items, total=len(items))
+
+
+def _rate_limit_gdpr(ctx: TenantContext) -> None:
+    gdpr_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")
+
+
+def _rate_limit_gdpr_export(ctx: TenantContext) -> None:
+    _rate_limit_gdpr(ctx)
+    gdpr_export_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")

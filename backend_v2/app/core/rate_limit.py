@@ -132,10 +132,23 @@ kiosk_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=60, store=_
 # Invitation endpoints are public enough to deserve their own budget.
 invitation_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=300, store=_store, key_prefix="invitation")
 
+# Authenticated file exports are heavier and contain tenant data; scope checks by user/company.
+export_limiter = SlidingWindowLimiter(max_requests=20, window_seconds=300, store=_store, key_prefix="exports")
+
+# GDPR read/write endpoints are legitimate but sensitive enough to slow enumeration.
+gdpr_limiter = SlidingWindowLimiter(max_requests=30, window_seconds=300, store=_store, key_prefix="gdpr")
+
+# Personal-data exports should be rare, so they get a stricter budget.
+gdpr_export_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=600, store=_store, key_prefix="gdpr-export")
+
+# Authenticated uploads/imports can carry sensitive tenant data and are expensive to parse.
+upload_limiter = SlidingWindowLimiter(max_requests=30, window_seconds=300, store=_store, key_prefix="uploads")
+
 
 def client_ip(request: Request) -> str:
     """Extract client IP, respecting X-Forwarded-For when behind a trusted proxy."""
+    settings = get_settings()
     xff = request.headers.get("x-forwarded-for")
-    if xff:
+    if settings.trust_proxy_headers and xff:
         return xff.split(",")[0].strip()
     return request.client.host if request.client else "unknown"

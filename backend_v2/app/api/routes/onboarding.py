@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.dependencies.email import get_email_service
+from app.core.url_builder import build_frontend_url
 from app.schemas.employee import EmployeeRead
 from app.schemas.invitation import InvitationCreate, InvitationCreateResponse, InvitationRead
 from app.schemas.onboarding import (
@@ -133,8 +134,7 @@ def complete(
 
 
 def _acceptance_url(request: Request, token: str) -> str:
-    base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
-    return f"{base}/accept-invitation/{token}"
+    return build_frontend_url(f"/accept-invitation/{token}")
 
 
 def _limit_invitation_create(request: Request, actor_email: str) -> None:

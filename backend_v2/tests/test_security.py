@@ -8,6 +8,7 @@ import uuid
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.enums import UserRole
+from app.services.xlsx_report import safe_spreadsheet_value
 from tests.conftest import auth_headers, make_company, make_user
 
 
@@ -27,6 +28,13 @@ def test_different_passwords_produce_different_hashes():
 
 
 # ─── Missing / invalid auth ───────────────────────────────────────────────────
+
+def test_spreadsheet_export_values_are_formula_safe():
+    assert safe_spreadsheet_value('=HYPERLINK("https://evil.test")').startswith("'=")
+    assert safe_spreadsheet_value(" +SUM(1,1)").startswith("' ")
+    assert safe_spreadsheet_value("@cmd").startswith("'@")
+    assert safe_spreadsheet_value("Normal value") == "Normal value"
+
 
 def test_no_auth_header_returns_401(client, db):
     db.commit()

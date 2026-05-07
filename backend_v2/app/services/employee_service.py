@@ -46,7 +46,7 @@ class EmployeeService:
         return items, total
 
     def create_employee(self, payload: EmployeeCreate, *, actor_user_id: UUID | None = None) -> Employee:
-        logger.info("[EmployeeService] Creating employee '%s %s' (company=%s)", payload.first_name, payload.last_name, self.company_id)
+        logger.info("[EmployeeService] Creating employee (company=%s)", self.company_id)
 
         if payload.is_active:
             check_employee_limit(self.db, self.company_id, actor_user_id=actor_user_id)
@@ -54,18 +54,18 @@ class EmployeeService:
         # Pre-flight: DNI uniqueness within the company — gives a specific error before hitting the DB constraint.
         if payload.dni:
             if self.employees.get_by_dni(payload.dni) is not None:
-                logger.warning("[EmployeeService] Duplicate DNI '%s' (company=%s)", payload.dni, self.company_id)
+                logger.warning("[EmployeeService] Duplicate DNI on create (company=%s)", self.company_id)
                 raise ConflictError("An employee with this DNI already exists in this company.")
         if payload.email:
             if self.employees.get_by_email(payload.email, include_inactive=True) is not None:
-                logger.warning("[EmployeeService] Duplicate employee email '%s' (company=%s)", payload.email, self.company_id)
+                logger.warning("[EmployeeService] Duplicate employee email on create (company=%s)", self.company_id)
                 raise ConflictError("An employee with this email already exists in this company.")
 
         linked_user: User | None = None
         if payload.email and payload.password:
             # Validated by schema: password always comes with email.
             if self.users.get_by_email(payload.email) is not None:
-                logger.warning("[EmployeeService] Email '%s' already registered as a user.", payload.email)
+                logger.warning("[EmployeeService] Employee email already registered as a user.")
                 raise ConflictError("A user with this email already exists.")
             linked_user = User(
                 company_id=self.company_id,
@@ -96,7 +96,7 @@ class EmployeeService:
             self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
-            logger.error("[EmployeeService] IntegrityError on create: %s", exc.orig)
+            logger.error("[EmployeeService] IntegrityError on create.")
             _raise_from_integrity(exc)
 
         logger.info("[EmployeeService] Employee created: id=%s user_id=%s", employee.id, employee.user_id)
@@ -118,14 +118,14 @@ class EmployeeService:
         if new_dni and new_dni != employee.dni:
             existing = self.employees.get_by_dni(new_dni)
             if existing is not None and existing.id != employee_id:
-                logger.warning("[EmployeeService] Duplicate DNI '%s' on update (employee=%s)", new_dni, employee_id)
+                logger.warning("[EmployeeService] Duplicate DNI on update (employee=%s)", employee_id)
                 raise ConflictError("An employee with this DNI already exists in this company.")
 
         new_email = updates.get("email")
         if new_email and new_email != employee.email:
             existing_employee = self.employees.get_by_email(new_email, include_inactive=True)
             if existing_employee is not None and existing_employee.id != employee_id:
-                logger.warning("[EmployeeService] Duplicate employee email '%s' on update (employee=%s)", new_email, employee_id)
+                logger.warning("[EmployeeService] Duplicate employee email on update (employee=%s)", employee_id)
                 raise ConflictError("An employee with this email already exists in this company.")
             existing_user = self.users.get_by_email(new_email)
             if existing_user is not None and existing_user.id != employee.user_id:
@@ -189,7 +189,7 @@ class EmployeeService:
             self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
-            logger.error("[EmployeeService] IntegrityError on update: %s", exc.orig)
+            logger.error("[EmployeeService] IntegrityError on update.")
             _raise_from_integrity(exc)
 
         logger.info("[EmployeeService] Employee updated: id=%s", employee_id)

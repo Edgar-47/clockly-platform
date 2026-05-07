@@ -189,6 +189,24 @@ class TestAdminAccess:
         )
         assert resp.status_code == 403
 
+    def test_admin_cannot_deactivate_other_admin(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        peer = make_user(db, company=company, email="peer-admin@test.com", role=UserRole.ADMIN)
+        db.commit()
+
+        resp = client.patch(f"/users/{peer.id}/deactivate", headers=auth_headers(admin))
+        assert resp.status_code == 403
+
+    def test_admin_cannot_delete_other_admin(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        peer = make_user(db, company=company, email="peer-admin@test.com", role=UserRole.ADMIN)
+        db.commit()
+
+        resp = client.delete(f"/users/{peer.id}", headers=auth_headers(admin))
+        assert resp.status_code == 403
+
     def test_admin_cannot_change_own_role(self, client, db):
         company = make_company(db)
         admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)

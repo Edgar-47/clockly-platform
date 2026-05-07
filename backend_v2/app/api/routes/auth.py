@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.auth_cookies import REFRESH_COOKIE_NAME, clear_auth_cookies, set_auth_cookies
 from app.core.errors import AuthenticationError
 from app.core.rate_limit import client_ip, login_limiter, password_reset_limiter, refresh_limiter, registration_limiter
+from app.core.url_builder import build_frontend_url
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, get_current_context
 from app.dependencies.email import get_email_service
@@ -167,8 +168,6 @@ def reset_password(
 def _token_response(tokens: AuthTokens) -> TokenResponse:
     company = tokens.user.company
     return TokenResponse(
-        access_token=tokens.access_token,
-        refresh_token=tokens.refresh_token,
         expires_in=tokens.expires_in,
         user=tokens.user,
         employee=tokens.user.employee,
@@ -204,13 +203,11 @@ def _company_context(company) -> CompanyContext:
 
 
 def _reset_url_template(request: Request) -> str:
-    base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
-    return f"{base}/reset-password/{{token}}"
+    return build_frontend_url("/reset-password/{token}")
 
 
 def _login_url(request: Request) -> str:
-    base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
-    return f"{base}/login"
+    return build_frontend_url("/login")
 
 
 def _limit_request(limiter, request: Request, *values: str | None) -> None:

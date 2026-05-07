@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
 from app.core.rate_limit import client_ip, invitation_limiter
+from app.core.url_builder import build_frontend_url
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.dependencies.email import get_email_service
@@ -130,8 +131,7 @@ def _assert_current_business(ctx: TenantContext, business_id: UUID) -> None:
 
 
 def _acceptance_url(request: Request, token: str) -> str:
-    base = (request.headers.get("origin") or str(request.base_url)).rstrip("/")
-    return f"{base}/accept-invitation/{token}"
+    return build_frontend_url(f"/accept-invitation/{token}")
 
 
 def _limit_invitation_create(request: Request, actor_email: str) -> None:

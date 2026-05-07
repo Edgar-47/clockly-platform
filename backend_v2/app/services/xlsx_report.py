@@ -19,6 +19,7 @@ DATE_FORMAT = "yyyy-mm-dd"
 TIME_FORMAT = "hh:mm"
 MONEY_FORMAT = '#,##0.00'
 NUMBER_FORMAT = '#,##0.00'
+FORMULA_PREFIXES = ("=", "+", "-", "@")
 
 
 @dataclass(frozen=True)
@@ -84,17 +85,17 @@ def write_report_title(
     sheet.merge_cells(f"A2:{last_letter}2")
     sheet.merge_cells(f"A3:{last_letter}3")
 
-    sheet["A1"] = title
+    sheet["A1"] = safe_spreadsheet_value(title)
     sheet["A1"].fill = kit.PatternFill("solid", fgColor=NAVY)
     sheet["A1"].font = kit.Font(bold=True, size=16, color=WHITE)
     sheet["A1"].alignment = kit.Alignment(vertical="center")
 
-    sheet["A2"] = company_name
+    sheet["A2"] = safe_spreadsheet_value(company_name)
     sheet["A2"].font = kit.Font(bold=True, size=12, color=NAVY)
     sheet["A2"].alignment = kit.Alignment(vertical="center")
 
     detail_text = " | ".join([*details, f"Generado: {generated_at}"])
-    sheet["A3"] = detail_text
+    sheet["A3"] = safe_spreadsheet_value(detail_text)
     sheet["A3"].font = kit.Font(size=10, color=SLATE)
     sheet["A3"].alignment = kit.Alignment(vertical="center", wrap_text=True)
 
@@ -135,11 +136,11 @@ def write_kpi_cards(
                 cell.fill = kit.PatternFill("solid", fgColor=SURFACE)
                 cell.border = border
 
-        label_cell = sheet.cell(row=start_row, column=start_col, value=label)
+        label_cell = sheet.cell(row=start_row, column=start_col, value=safe_spreadsheet_value(label))
         label_cell.font = kit.Font(bold=True, size=9, color=SLATE)
         label_cell.alignment = kit.Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-        value_cell = sheet.cell(row=start_row + 1, column=start_col, value=value)
+        value_cell = sheet.cell(row=start_row + 1, column=start_col, value=safe_spreadsheet_value(value))
         value_cell.font = kit.Font(bold=True, size=14, color=NAVY)
         value_cell.alignment = kit.Alignment(horizontal="center", vertical="center", wrap_text=True)
 
@@ -150,7 +151,7 @@ def write_kpi_cards(
 
 def write_table_header(sheet: Any, kit: XlsxKit, *, header_row: int, headers: Sequence[str]) -> None:
     for column, header in enumerate(headers, start=1):
-        cell = sheet.cell(row=header_row, column=column, value=header)
+        cell = sheet.cell(row=header_row, column=column, value=safe_spreadsheet_value(header))
         cell.font = kit.Font(bold=True, color=WHITE)
         cell.fill = kit.PatternFill("solid", fgColor=BLUE)
         cell.alignment = kit.Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -242,3 +243,14 @@ def apply_status_style(cell: Any, kit: XlsxKit) -> None:
 def metric_number(value: float, *, decimals: int = 2) -> str:
     formatted = f"{value:,.{decimals}f}"
     return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def safe_spreadsheet_value(value: Any) -> Any:
+    """Neutralize spreadsheet formula injection for user-controlled text."""
+    if not isinstance(value, str):
+        return value
+    clean = value.replace("\x00", "")
+    stripped = clean.lstrip()
+    if clean[:1] in {"\t", "\r", "\n"} or stripped.startswith(FORMULA_PREFIXES):
+        return f"'{clean}"
+    return clean

@@ -149,7 +149,20 @@ class AuthService:
         ip_address: str | None = None,
     ) -> AuthTokens:
         old_token = self.users.get_refresh_token(hash_token(refresh_token_value))
-        if old_token is None or not old_token.is_active:
+        if old_token is None:
+            raise AuthenticationError("Invalid refresh token.")
+        if not old_token.is_active:
+            if old_token.revoked_at is not None:
+                self.users.revoke_active_refresh_tokens_for_user(old_token.user_id)
+                AuditLogService(self.db).safe_record(
+                    "auth.refresh_reuse_detected",
+                    company_id=old_token.company_id,
+                    actor_user_id=old_token.user_id,
+                    resource_type="refresh_token",
+                    resource_id=str(old_token.id),
+                    metadata={"replaced_by_token_id": str(old_token.replaced_by_token_id) if old_token.replaced_by_token_id else None},
+                )
+                self.db.commit()
             raise AuthenticationError("Invalid refresh token.")
         user = self.users.get_active(old_token.user_id, old_token.company_id)
         if user is None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import calendar
 import csv as csv_module
+import html
 from datetime import UTC, date, datetime, time
 from io import BytesIO
 from io import StringIO
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 
 from app.core.errors import ConflictError
+from app.core.rate_limit import export_limiter
 from app.core.timezones import to_tenant_timezone
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
@@ -35,6 +37,7 @@ from app.services.xlsx_report import (
     metric_number,
     prepare_worksheet,
     require_xlsx_kit,
+    safe_spreadsheet_value,
     set_column_widths,
     set_number_format,
     style_table_body,
@@ -94,6 +97,7 @@ def export_attendance(
     ctx: TenantContext = Depends(require_permission("exports:read")),
     db: Session = Depends(get_db),
 ) -> Response:
+    _rate_limit_export(ctx)
     check_plan_feature(db, ctx.company_id, "has_exports", actor_user_id=ctx.user.id)
     if employee_id is not None or date_from is not None or date_to is not None:
         check_plan_feature(db, ctx.company_id, "has_advanced_filters", actor_user_id=ctx.user.id)
@@ -136,7 +140,7 @@ def export_attendance(
     return Response(
         content=content,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "private, no-store"},
     )
 
 
@@ -172,6 +176,7 @@ def export_itss_registro(
     Incluye: empresa, CIF, empleado, DNI, fecha, hora entrada/salida, horas trabajadas.
     Ordenado por empleado y fecha, con totales mensuales por empleado.
     """
+    _rate_limit_export(ctx)
     check_plan_feature(db, ctx.company_id, "has_exports", actor_user_id=ctx.user.id)
 
     period_start = datetime(year, month, 1, tzinfo=UTC)
@@ -216,7 +221,7 @@ def export_itss_registro(
     return Response(
         content=content,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "private, no-store"},
     )
 
 
@@ -301,9 +306,9 @@ def _build_itss_xlsx(
     if rows:
         for row_index, row in enumerate(rows, start=data_start_row):
             for col_index, header in enumerate(_ITSS_HEADERS, start=1):
-                sheet.cell(row=row_index, column=col_index, value=row[header])
+                sheet.cell(row=row_index, column=col_index, value=safe_spreadsheet_value(row[header]))
     else:
-        sheet.cell(row=data_start_row, column=1, value="Sin registros en este periodo")
+        sheet.cell(row=data_start_row, column=1, value=safe_spreadsheet_value("Sin registros en este periodo"))
 
     last_row = header_row + max(len(rows), 1)
     style_table_body(
@@ -362,11 +367,14 @@ def _build_itss_pdf(
         title=f"Libro Registro - {company_name}",
     )
     styles = getSampleStyleSheet()
-    cif_str = f" | CIF: {cif}" if cif else ""
+    safe_company_name = html.escape(company_name)
+    safe_cif = html.escape(cif) if cif else ""
+    safe_month_label = html.escape(month_label)
+    cif_str = f" | CIF: {safe_cif}" if safe_cif else ""
     story = [
         Paragraph("<b>Libro Registro de Jornada</b>", styles["Title"]),
-        Paragraph(f"<b>{company_name}</b>{cif_str}", styles["Heading2"]),
-        Paragraph(f"Periodo: {month_label} | Art. 34.9 ET — Real Decreto-ley 8/2019", styles["Normal"]),
+        Paragraph(f"<b>{safe_company_name}</b>{cif_str}", styles["Heading2"]),
+        Paragraph(f"Periodo: {safe_month_label} | Art. 34.9 ET — Real Decreto-ley 8/2019", styles["Normal"]),
         Spacer(1, 14),
     ]
 
@@ -407,6 +415,7 @@ def export_salary_calculation(
     ctx: TenantContext = Depends(require_permission("salary:read")),
     db: Session = Depends(get_db),
 ) -> Response:
+    _rate_limit_export(ctx)
     check_plan_feature(db, ctx.company_id, "has_exports", actor_user_id=ctx.user.id)
     calculation = SalaryService(db, company_id=ctx.company_id).calculate(
         employee_id=employee_id,
@@ -425,7 +434,7 @@ def export_salary_calculation(
     return Response(
         content=content,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "private, no-store"},
     )
 
 
@@ -515,9 +524,9 @@ def _build_xlsx(*, company_name: str, timezone: str, range_label: str, rows: lis
     if rows:
         for row_index, row in enumerate(rows, start=data_start_row):
             for column, header in enumerate(HEADERS, start=1):
-                sheet.cell(row=row_index, column=column, value=row[header])
+                sheet.cell(row=row_index, column=column, value=safe_spreadsheet_value(row[header]))
     else:
-        sheet.cell(row=data_start_row, column=1, value="Sin registros")
+        sheet.cell(row=data_start_row, column=1, value=safe_spreadsheet_value("Sin registros"))
 
     last_row = header_row + max(len(rows), 1)
     style_table_body(
@@ -556,7 +565,7 @@ def _build_csv(rows: list[dict[str, object]]) -> bytes:
     )
     writer.writeheader()
     for row in rows:
-        writer.writerow({header: _display_value(row.get(header, "")) for header in HEADERS})
+        writer.writerow({header: safe_spreadsheet_value(_display_value(row.get(header, ""))) for header in HEADERS})
     return ("\ufeff" + buffer.getvalue()).encode("utf-8")
 
 
@@ -580,10 +589,13 @@ def _build_pdf(*, company_name: str, timezone: str, range_label: str, rows: list
         title=f"Fichajes - {company_name}",
     )
     styles = getSampleStyleSheet()
+    safe_company_name = html.escape(company_name)
+    safe_range_label = html.escape(range_label)
+    safe_timezone = html.escape(timezone)
     story = [
         Paragraph("<b>ClockLy</b>", styles["Title"]),
-        Paragraph(f"<b>{company_name}</b>", styles["Heading2"]),
-        Paragraph(f"Informe de fichajes | Rango: {range_label} | Zona horaria: {timezone}", styles["Normal"]),
+        Paragraph(f"<b>{safe_company_name}</b>", styles["Heading2"]),
+        Paragraph(f"Informe de fichajes | Rango: {safe_range_label} | Zona horaria: {safe_timezone}", styles["Normal"]),
         Spacer(1, 14),
     ]
 
@@ -672,7 +684,7 @@ def _build_salary_xlsx(*, company_name: str, calculation) -> bytes:
                 float(line.gross_estimated_amount),
             ]
             for column, value in enumerate(values, start=1):
-                cell = sheet.cell(row=row_index, column=column, value=value)
+                cell = sheet.cell(row=row_index, column=column, value=safe_spreadsheet_value(value))
                 if column in {4, 9}:
                     cell.number_format = f'{MONEY_FORMAT} "{line.currency}"'
     else:
@@ -731,6 +743,7 @@ def export_payroll(
 
     Por empleado: horas normales, horas extra (>8h/día), retrasos, sesiones.
     """
+    _rate_limit_export(ctx)
     check_plan_feature(db, ctx.company_id, "has_exports", actor_user_id=ctx.user.id)
 
     period_start = datetime(year, month, 1, tzinfo=UTC)
@@ -748,7 +761,7 @@ def export_payroll(
         return Response(
             content=content_bytes,
             media_type=media_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "private, no-store"},
         )
 
     content_bytes = _build_payroll_xlsx(
@@ -761,7 +774,10 @@ def export_payroll(
     return Response(
         content=content_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename_base}.xlsx"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename_base}.xlsx"',
+            "Cache-Control": "private, no-store",
+        },
     )
 
 
@@ -812,7 +828,8 @@ def _build_payroll_rows(
         row.id: {"name": f"{row.first_name} {row.last_name}".strip(), "dni": row.dni or ""}
         for row in db.execute(
             select(Employee.id, Employee.first_name, Employee.last_name, Employee.dni).where(
-                Employee.id.in_(emp_ids)
+                Employee.id.in_(emp_ids),
+                Employee.company_id == company_id,
             )
         ).fetchall()
     }
@@ -912,7 +929,7 @@ def _build_payroll_csv(*, rows: list[dict[str, object]], target: str) -> bytes:
     )
     writer.writeheader()
     for row in rows:
-        writer.writerow({h: row.get(field_map[h], "") for h in headers})
+        writer.writerow({h: safe_spreadsheet_value(row.get(field_map[h], "")) for h in headers})
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
@@ -971,7 +988,7 @@ def _build_payroll_xlsx(
     if rows:
         for row_index, row in enumerate(rows, start=data_start_row):
             for col_index, src_key in enumerate(source_keys[: len(headers)], start=1):
-                sheet.cell(row=row_index, column=col_index, value=row.get(src_key, ""))
+                sheet.cell(row=row_index, column=col_index, value=safe_spreadsheet_value(row.get(src_key, "")))
     else:
         sheet.cell(row=data_start_row, column=1, value="Sin registros en este periodo")
 
@@ -1017,11 +1034,13 @@ def _build_salary_pdf(*, company_name: str, calculation) -> bytes:
         title=f"Salarios estimados - {company_name}",
     )
     styles = getSampleStyleSheet()
+    safe_company_name = html.escape(company_name)
+    safe_warning = html.escape(str(calculation.warning))
     story = [
         Paragraph("<b>ClockLy - Salarios estimados</b>", styles["Title"]),
-        Paragraph(f"<b>{company_name}</b>", styles["Heading2"]),
+        Paragraph(f"<b>{safe_company_name}</b>", styles["Heading2"]),
         Paragraph(
-            f"Periodo: {calculation.period_start} a {calculation.period_end} | {calculation.warning}",
+            f"Periodo: {calculation.period_start} a {calculation.period_end} | {safe_warning}",
             styles["Normal"],
         ),
         Spacer(1, 14),
@@ -1059,3 +1078,7 @@ def _build_salary_pdf(*, company_name: str, calculation) -> bytes:
     story.append(table)
     doc.build(story)
     return output.getvalue()
+
+
+def _rate_limit_export(ctx: TenantContext) -> None:
+    export_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")

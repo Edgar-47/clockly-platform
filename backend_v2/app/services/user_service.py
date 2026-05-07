@@ -49,9 +49,16 @@ def _assert_can_assign_role(actor_role: UserRole, target_role: UserRole) -> None
 def _assert_can_manage_user(actor: User, target: User) -> None:
     if actor.id == target.id:
         raise PermissionDenied("You cannot modify your own role or activation status.")
+    if actor.role == UserRole.SUPERADMIN:
+        return
     if target.role in _PROTECTED_ROLES and actor.role != UserRole.SUPERADMIN:
         raise PermissionDenied(
             "Owner and superadmin accounts cannot be modified via this endpoint."
+        )
+    allowed_targets = _MAX_ASSIGNABLE.get(actor.role, set())
+    if target.role not in allowed_targets:
+        raise PermissionDenied(
+            f"Your role ({actor.role.value}) cannot modify '{target.role.value}' users."
         )
 
 

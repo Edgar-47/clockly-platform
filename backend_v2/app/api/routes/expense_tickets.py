@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
@@ -11,11 +12,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, UploadFile, status
 from fastapi.responses import FileResponse, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, PermissionDenied
+from app.core.rate_limit import export_limiter, upload_limiter
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
+from app.models.company_location import CompanyLocation
 from app.models.enums import (
     ExpenseCategory,
     ExpenseEventType,
@@ -44,6 +48,7 @@ from app.services.xlsx_report import (
     metric_number,
     prepare_worksheet,
     require_xlsx_kit,
+    safe_spreadsheet_value,
     set_column_widths,
     set_number_format,
     style_table_body,
@@ -56,6 +61,7 @@ router = APIRouter(prefix="/expense-tickets", tags=["expense-tickets"])
 
 _ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 _MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+_FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._ -]+")
 
 _UPLOAD_DIR = Path(__file__).parent.parent.parent.parent / "uploads" / "expense_tickets"
 
@@ -179,6 +185,7 @@ def export_expense_tickets(
     ctx: TenantContext = Depends(require_permission("expense_tickets:export")),
     db: Session = Depends(get_db),
 ) -> Response:
+    _rate_limit_export(ctx)
     tickets = ExpenseTicketRepository(db, company_id=ctx.company_id).list_for_export(
         employee_id=employee_id,
         status=expense_status,
@@ -191,7 +198,7 @@ def export_expense_tickets(
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "private, no-store"},
     )
 
 
@@ -216,6 +223,7 @@ def create_expense_ticket(
     db: Session = Depends(get_db),
 ) -> ExpenseTicketRead:
     employee_repo = EmployeeRepository(db, company_id=ctx.company_id)
+    _assert_location_scope(db, ctx.company_id, payload.location_id)
 
     if ctx.user.role == UserRole.EMPLOYEE:
         own = employee_repo.get_by_user_id(ctx.user.id)
@@ -270,8 +278,12 @@ def update_expense_ticket(
     if ticket.status == ExpenseStatus.PAID and "expense_tickets:approve" not in ctx.permissions:
         raise PermissionDenied("No puedes editar un gasto ya pagado.")
 
+    update_data = payload.model_dump(exclude_unset=True)
+    if "location_id" in update_data:
+        _assert_location_scope(db, ctx.company_id, payload.location_id)
+
     changed = False
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    for field, value in update_data.items():
         if getattr(ticket, field) != value:
             setattr(ticket, field, value)
             changed = True
@@ -407,6 +419,7 @@ async def upload_attachment(
     ctx: TenantContext = Depends(require_permission("expense_tickets:write")),
     db: Session = Depends(get_db),
 ) -> ExpenseTicketRead:
+    _rate_limit_upload(ctx)
     ticket = _get_and_scope(ticket_id, db, ctx)
 
     if ticket.status == ExpenseStatus.PAID and "expense_tickets:approve" not in ctx.permissions:
@@ -419,9 +432,11 @@ async def upload_attachment(
             f"Tipo de archivo no permitido. Usa JPG, PNG, WEBP o PDF. (recibido: {content_type})"
         )
 
-    raw = await file.read()
+    raw = await file.read(_MAX_UPLOAD_BYTES + 1)
     if len(raw) > _MAX_UPLOAD_BYTES:
         raise ConflictError("El archivo supera el límite de 5 MB.")
+    if not raw:
+        raise ConflictError("El archivo adjunto está vacío.")
 
     # Validate magic bytes to prevent MIME spoofing.
     _assert_magic(raw, content_type)
@@ -433,12 +448,12 @@ async def upload_attachment(
 
     # Delete old attachment from disk if present.
     if ticket.attachment_url:
-        old_path = _UPLOAD_DIR / Path(ticket.attachment_url).name
+        old_path = _attachment_path(ticket.attachment_url)
         if old_path.exists():
             old_path.unlink(missing_ok=True)
 
     ticket.attachment_url = f"/uploads/expense_tickets/{filename_stored}"
-    ticket.attachment_file_name = file.filename or filename_stored
+    ticket.attachment_file_name = _safe_original_filename(file.filename, fallback=filename_stored, extension=ext)
     ticket.attachment_mime_type = content_type
     ticket.attachment_size = len(raw)
 
@@ -447,7 +462,7 @@ async def upload_attachment(
         ticket_id=ticket.id,
         user_id=ctx.user.id,
         event_type=ExpenseEventType.ATTACHMENT_UPLOADED,
-        new_value=file.filename,
+        new_value=ticket.attachment_file_name,
     )
     db.add(ticket)
     db.commit()
@@ -467,14 +482,19 @@ def download_attachment(
     if not ticket.attachment_url:
         raise NotFoundError("Este gasto no tiene archivo adjunto.")
 
-    file_path = _UPLOAD_DIR / Path(ticket.attachment_url).name
+    file_path = _attachment_path(ticket.attachment_url)
     if not file_path.exists():
         raise NotFoundError("Archivo no encontrado en el servidor.")
 
     return FileResponse(
         path=str(file_path),
         media_type=ticket.attachment_mime_type or "application/octet-stream",
-        filename=ticket.attachment_file_name or file_path.name,
+        filename=_safe_original_filename(
+            ticket.attachment_file_name,
+            fallback=file_path.name,
+            extension=_ext_for_mime(ticket.attachment_mime_type or ""),
+        ),
+        headers={"Cache-Control": "private, no-store"},
     )
 
 
@@ -502,15 +522,62 @@ def _get_and_scope_no_employee_filter(ticket_id: UUID, db: Session, ctx: TenantC
     return ticket
 
 
+def _assert_location_scope(db: Session, company_id: UUID, location_id: UUID | None) -> None:
+    if location_id is None:
+        return
+    exists = db.scalar(
+        select(CompanyLocation.id).where(
+            CompanyLocation.id == location_id,
+            CompanyLocation.company_id == company_id,
+            CompanyLocation.is_active.is_(True),
+        )
+    )
+    if exists is None:
+        raise NotFoundError("Local no encontrado.")
+
+
+def _rate_limit_export(ctx: TenantContext) -> None:
+    export_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")
+
+
+def _rate_limit_upload(ctx: TenantContext) -> None:
+    upload_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")
+
+
+def _safe_original_filename(filename: str | None, *, fallback: str, extension: str | None = None) -> str:
+    name = Path(filename or "").name.strip().replace("\x00", "")
+    name = name.replace("\r", "").replace("\n", "")
+    name = _FILENAME_SAFE_RE.sub("_", name)
+    name = name.strip(" .")
+    if not name:
+        name = fallback
+    if extension:
+        stem = Path(name).stem or Path(fallback).stem or "attachment"
+        name = f"{stem}{extension}"
+    if len(name) > 180 and extension:
+        return f"{Path(name).stem[: 180 - len(extension)]}{extension}"
+    return name[:180]
+
+
+def _attachment_path(attachment_url: str) -> Path:
+    filename = Path(attachment_url).name
+    if not filename:
+        raise NotFoundError("Archivo no encontrado en el servidor.")
+    base = _upload_dir().resolve()
+    path = (base / filename).resolve()
+    if base not in path.parents and path != base:
+        raise ConflictError("Ruta de adjunto no permitida.")
+    return path
+
+
 def _assert_magic(raw: bytes, content_type: str) -> None:
-    signatures: dict[str, list[bytes]] = {
-        "image/jpeg": [b"\xff\xd8\xff"],
-        "image/png": [b"\x89PNG\r\n\x1a\n"],
-        "image/webp": [b"RIFF"],
-        "application/pdf": [b"%PDF"],
-    }
-    expected = signatures.get(content_type, [])
-    if expected and not any(raw.startswith(sig) for sig in expected):
+    is_valid = {
+        "image/jpeg": raw.startswith(b"\xff\xd8\xff"),
+        "image/png": raw.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/webp": len(raw) >= 12 and raw.startswith(b"RIFF") and raw[8:12] == b"WEBP",
+        "application/pdf": raw.startswith(b"%PDF-"),
+    }.get(content_type, False)
+    if not is_valid:
         raise ConflictError("El contenido del archivo no coincide con su tipo declarado.")
 
 
@@ -675,10 +742,10 @@ def _build_expense_xlsx(*, company_name: str, tickets: list[ExpenseTicket]) -> b
             ticket.attachment_file_name or "",
         ]
         for col, value in enumerate(values, start=1):
-            ws.cell(row=row_idx, column=col, value=value)
+            ws.cell(row=row_idx, column=col, value=safe_spreadsheet_value(value))
 
     if not tickets:
-        ws.cell(row=data_start_row, column=1, value="Sin gastos")
+        ws.cell(row=data_start_row, column=1, value=safe_spreadsheet_value("Sin gastos"))
 
     last_row = header_row + max(len(tickets), 1)
     style_table_body(
@@ -714,7 +781,7 @@ def _build_expense_xlsx(*, company_name: str, tickets: list[ExpenseTicket]) -> b
 
     total_row = last_row + 2
     ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=8)
-    ws.cell(row=total_row, column=1, value="Total general")
+    ws.cell(row=total_row, column=1, value=safe_spreadsheet_value("Total general"))
     ws.cell(row=total_row, column=9, value=float(total_amount))
     ws.cell(row=total_row, column=12, value=float(reimbursement_amount))
     for column in (1, 9, 12):

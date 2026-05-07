@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
+from app.core.rate_limit import export_limiter
 from app.core.timezones import tenant_zone
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
@@ -41,6 +42,7 @@ from app.services.xlsx_report import (
     add_excel_table,
     prepare_worksheet,
     require_xlsx_kit,
+    safe_spreadsheet_value,
     set_column_widths,
     style_table_body,
     write_kpi_cards,
@@ -199,6 +201,7 @@ def export_cash_closures(
     ctx: TenantContext = Depends(require_permission("cash_closures:export")),
     db: Session = Depends(get_db),
 ) -> Response:
+    _rate_limit_export(ctx)
     closures = _reporting_closures(
         db,
         ctx,
@@ -215,14 +218,20 @@ def export_cash_closures(
         return Response(
             content=content,
             media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="clockly-cierres-caja-{timestamp}.csv"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="clockly-cierres-caja-{timestamp}.csv"',
+                "Cache-Control": "private, no-store",
+            },
         )
 
     content = _build_xlsx(company_name=ctx.company.name, closures=closures)
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="clockly-cierres-caja-{timestamp}.xlsx"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="clockly-cierres-caja-{timestamp}.xlsx"',
+            "Cache-Control": "private, no-store",
+        },
     )
 
 
@@ -641,19 +650,19 @@ def _build_csv(closures: list[CashClosure]) -> str:
     for closure in closures:
         writer.writerow(
             [
-                closure.date.isoformat(),
-                _shift_label(closure),
-                closure.closed_by.full_name if closure.closed_by else closure.signature_name,
-                closure.location.name if closure.location else "",
-                str(_money(closure.theoretical_total)),
-                str(_money(closure.real_total)),
-                str(_money(closure.balance)),
-                "Si" if closure.has_incidence else "No",
-                closure.incidence_comment or "",
-                _line_detail(closure.cash_drawers),
-                _line_detail(closure.card_terminals),
-                closure.signature_name,
-                closure.signed_at.isoformat(),
+                safe_spreadsheet_value(closure.date.isoformat()),
+                safe_spreadsheet_value(_shift_label(closure)),
+                safe_spreadsheet_value(closure.closed_by.full_name if closure.closed_by else closure.signature_name),
+                safe_spreadsheet_value(closure.location.name if closure.location else ""),
+                safe_spreadsheet_value(str(_money(closure.theoretical_total))),
+                safe_spreadsheet_value(str(_money(closure.real_total))),
+                safe_spreadsheet_value(str(_money(closure.balance))),
+                safe_spreadsheet_value("Si" if closure.has_incidence else "No"),
+                safe_spreadsheet_value(closure.incidence_comment or ""),
+                safe_spreadsheet_value(_line_detail(closure.cash_drawers)),
+                safe_spreadsheet_value(_line_detail(closure.card_terminals)),
+                safe_spreadsheet_value(closure.signature_name),
+                safe_spreadsheet_value(closure.signed_at.isoformat()),
             ]
         )
     return output.getvalue()
@@ -721,10 +730,10 @@ def _build_xlsx(*, company_name: str, closures: list[CashClosure]) -> bytes:
             closure.signed_at.replace(tzinfo=None) if closure.signed_at else None,
         ]
         for col, value in enumerate(values, start=1):
-            ws.cell(row=row_idx, column=col, value=value)
+            ws.cell(row=row_idx, column=col, value=safe_spreadsheet_value(value))
 
     if not closures:
-        ws.cell(row=data_start_row, column=1, value="Sin cierres")
+        ws.cell(row=data_start_row, column=1, value=safe_spreadsheet_value("Sin cierres"))
 
     last_row = header_row + max(len(closures), 1)
     style_table_body(
@@ -760,6 +769,10 @@ def _sum(values) -> Decimal:
     for value in values:
         total += _money(value)
     return _money(total)
+
+
+def _rate_limit_export(ctx: TenantContext) -> None:
+    export_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")
 
 
 def _money(value) -> Decimal:

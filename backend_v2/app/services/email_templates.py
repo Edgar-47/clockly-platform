@@ -5,6 +5,7 @@ The HTML uses inline CSS for maximum email client compatibility.
 """
 from __future__ import annotations
 
+import html
 from datetime import datetime
 
 from app.models.enums import UserRole
@@ -29,12 +30,13 @@ _ROLE_LABELS: dict[str, str] = {
 
 def _base_html(*, title: str, content: str) -> str:
     """Wrap content in the standard ClockLy email shell."""
+    safe_title = html.escape(title)
     return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title}</title>
+  <title>{safe_title}</title>
 </head>
 <body style="margin:0;padding:0;background:{_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:{_BG};padding:40px 20px;">
@@ -68,7 +70,7 @@ def _base_html(*, title: str, content: str) -> str:
 
 
 def _h1(text: str) -> str:
-    return f'<h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:{_DARK};letter-spacing:-0.4px;">{text}</h1>'
+    return f'<h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:{_DARK};letter-spacing:-0.4px;">{html.escape(text)}</h1>'
 
 
 def _p(text: str) -> str:
@@ -76,11 +78,13 @@ def _p(text: str) -> str:
 
 
 def _cta(label: str, url: str) -> str:
+    safe_label = html.escape(label)
+    safe_url = html.escape(url, quote=True)
     return f"""
 <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
   <tr>
     <td style="border-radius:8px;background:{_PRIMARY};">
-      <a href="{url}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:{_WHITE};text-decoration:none;border-radius:8px;">{label}</a>
+      <a href="{safe_url}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:{_WHITE};text-decoration:none;border-radius:8px;">{safe_label}</a>
     </td>
   </tr>
 </table>"""
@@ -91,14 +95,16 @@ def _divider() -> str:
 
 
 def _badge(text: str, color: str = _PRIMARY) -> str:
-    return f'<span style="display:inline-block;background:{color}1A;color:{color};font-size:12px;font-weight:600;padding:3px 10px;border-radius:100px;">{text}</span>'
+    return f'<span style="display:inline-block;background:{color}1A;color:{color};font-size:12px;font-weight:600;padding:3px 10px;border-radius:100px;">{html.escape(text)}</span>'
 
 
-def _info_row(label: str, value: str) -> str:
+def _info_row(label: str, value: str, *, value_is_html: bool = False) -> str:
+    safe_label = html.escape(label)
+    safe_value = value if value_is_html else html.escape(value)
     return f"""
 <tr>
-  <td style="padding:8px 0;font-size:13px;color:{_MUTED};width:140px;vertical-align:top;">{label}</td>
-  <td style="padding:8px 0;font-size:13px;color:{_DARK};font-weight:500;">{value}</td>
+  <td style="padding:8px 0;font-size:13px;color:{_MUTED};width:140px;vertical-align:top;">{safe_label}</td>
+  <td style="padding:8px 0;font-size:13px;color:{_DARK};font-weight:500;">{safe_value}</td>
 </tr>"""
 
 
@@ -114,6 +120,8 @@ def invitation_email(
     expires_at: datetime,
 ) -> tuple[str, str, str]:
     role_label = _ROLE_LABELS.get(role.value, role.value)
+    safe_company_name = html.escape(company_name)
+    safe_invited_by_name = html.escape(invited_by_name)
     subject = f"Invitación para unirte a {company_name} en ClockLy"
     text_body = (
         f"{invited_by_name} te ha invitado a {company_name} como {role_label}.\n\n"
@@ -122,10 +130,10 @@ def invitation_email(
     )
     content = (
         _h1("Te han invitado a ClockLy")
-        + _p(f"<strong>{invited_by_name}</strong> te invita a unirte a <strong>{company_name}</strong>.")
+        + _p(f"<strong>{safe_invited_by_name}</strong> te invita a unirte a <strong>{safe_company_name}</strong>.")
         + f'<table cellpadding="0" cellspacing="0" style="margin:16px 0;border:1px solid {_BORDER};border-radius:8px;width:100%;">'
         + _info_row("Empresa", company_name)
-        + _info_row("Tu rol", f"{_badge(role_label)}")
+        + _info_row("Tu rol", f"{_badge(role_label)}", value_is_html=True)
         + _info_row("Invitado por", invited_by_name)
         + _info_row("Caduca", expires_at.strftime("%d/%m/%Y %H:%M"))
         + "</table>"
@@ -144,6 +152,7 @@ def password_reset_email(
     expires_at: datetime,
 ) -> tuple[str, str, str]:
     subject = "Restablece tu contraseña de ClockLy"
+    safe_full_name = html.escape(full_name)
     text_body = (
         f"Hola {full_name},\n\n"
         "Hemos recibido una solicitud para restablecer tu contraseña de ClockLy.\n"
@@ -153,7 +162,7 @@ def password_reset_email(
     )
     content = (
         _h1("Restablecer contraseña")
-        + _p(f"Hola <strong>{full_name}</strong>,")
+        + _p(f"Hola <strong>{safe_full_name}</strong>,")
         + _p("Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en ClockLy. Si no fuiste tú, ignora este email.")
         + _cta("Restablecer contraseña", reset_url)
         + _divider()
@@ -170,6 +179,7 @@ def company_welcome_email(
     login_url: str,
 ) -> tuple[str, str, str]:
     subject = f"¡Bienvenido a ClockLy! Tu empresa {company_name} ya está activa"
+    safe_company_name = html.escape(company_name)
     text_body = (
         f"Hola {full_name},\n\n"
         f"Tu empresa {company_name} ya está creada en ClockLy.\n"
@@ -187,7 +197,7 @@ def company_welcome_email(
     )
     content = (
         _h1(f"¡Bienvenido, {full_name}!")
-        + _p(f"Tu empresa <strong>{company_name}</strong> ya está activa en ClockLy. Solo te quedan unos minutos para tenerlo todo listo.")
+        + _p(f"Tu empresa <strong>{safe_company_name}</strong> ya está activa en ClockLy. Solo te quedan unos minutos para tenerlo todo listo.")
         + f'<ul style="margin:0 0 20px;padding:0 0 0 20px;">{checklist}</ul>'
         + _cta("Completar onboarding", login_url)
         + _divider()
@@ -204,6 +214,8 @@ def sensitive_change_email(
     occurred_at: datetime,
 ) -> tuple[str, str, str]:
     subject = "Aviso de seguridad de ClockLy"
+    safe_full_name = html.escape(full_name)
+    safe_change_name = html.escape(change_name)
     text_body = (
         f"Hola {full_name},\n\n"
         f"Se ha registrado un cambio sensible en tu cuenta: {change_name}.\n"
@@ -212,10 +224,10 @@ def sensitive_change_email(
     )
     content = (
         _h1("Aviso de seguridad")
-        + _p(f"Hola <strong>{full_name}</strong>,")
+        + _p(f"Hola <strong>{safe_full_name}</strong>,")
         + _p(f"Se ha detectado una acción sensible en tu cuenta de ClockLy:")
         + f'<div style="background:{_BG};border:1px solid {_BORDER};border-radius:8px;padding:16px;margin:16px 0;">'
-        + f'<p style="margin:0;font-size:15px;font-weight:600;color:{_DARK};">{change_name}</p>'
+        + f'<p style="margin:0;font-size:15px;font-weight:600;color:{_DARK};">{safe_change_name}</p>'
         + f'<p style="margin:4px 0 0;font-size:13px;color:{_MUTED};">{occurred_at.strftime("%d/%m/%Y a las %H:%M")}</p>'
         + "</div>"
         + _p("Si reconoces esta acción, no hay nada más que hacer. Si <strong>no</strong> reconoces esta acción, contacta de inmediato con el administrador de tu empresa.")
@@ -234,6 +246,9 @@ def weekly_summary_email(
     dashboard_url: str,
 ) -> tuple[str, str, str]:
     subject = f"Resumen semanal de horas — {week_label}"
+    safe_full_name = html.escape(full_name)
+    safe_company_name = html.escape(company_name)
+    safe_week_label = html.escape(week_label)
     hours_int = int(total_hours)
     minutes_int = int((total_hours - hours_int) * 60)
     hours_label = f"{hours_int}h {minutes_int:02d}m"
@@ -246,7 +261,7 @@ def weekly_summary_email(
     )
     content = (
         _h1(f"Tu semana en ClockLy")
-        + _p(f"Hola <strong>{full_name}</strong>, aquí tienes el resumen de <strong>{week_label}</strong> en {company_name}:")
+        + _p(f"Hola <strong>{safe_full_name}</strong>, aquí tienes el resumen de <strong>{safe_week_label}</strong> en {safe_company_name}:")
         + f'<table cellpadding="0" cellspacing="0" style="width:100%;margin:20px 0;">'
         + f'<tr>'
         + f'<td style="background:{_PRIMARY}0D;border:1px solid {_PRIMARY}33;border-radius:8px;padding:16px 20px;text-align:center;width:50%;">'
@@ -273,6 +288,8 @@ def missed_clockout_email(
     dashboard_url: str,
 ) -> tuple[str, str, str]:
     subject = f"Fichaje sin salida registrada — {company_name}"
+    safe_full_name = html.escape(full_name)
+    safe_company_name = html.escape(company_name)
     text_body = (
         f"Hola {full_name},\n\n"
         f"Tienes un fichaje sin salida desde el {clock_in_at.strftime('%d/%m/%Y a las %H:%M')} en {company_name}.\n"
@@ -281,8 +298,8 @@ def missed_clockout_email(
     )
     content = (
         _h1("Fichaje sin salida")
-        + _p(f"Hola <strong>{full_name}</strong>,")
-        + _p(f"Detectamos que tienes un fichaje de <strong>entrada</strong> sin salida registrada en <strong>{company_name}</strong>.")
+        + _p(f"Hola <strong>{safe_full_name}</strong>,")
+        + _p(f"Detectamos que tienes un fichaje de <strong>entrada</strong> sin salida registrada en <strong>{safe_company_name}</strong>.")
         + f'<div style="background:#FEF9C3;border:1px solid #FDE047;border-radius:8px;padding:16px 20px;margin:16px 0;">'
         + f'<p style="margin:0;font-size:14px;color:#713F12;">Entrada: <strong>{clock_in_at.strftime("%d/%m/%Y a las %H:%M")}</strong></p>'
         + f'<p style="margin:6px 0 0;font-size:13px;color:#92400E;">Salida: no registrada</p>'

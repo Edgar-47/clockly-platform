@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
+import { connection } from "next/server";
 import "./globals.css";
 import { Providers } from "@/components/shared/providers";
+import { ServiceWorkerRegistration } from "@/components/shared/service-worker-registration";
 
 export const metadata: Metadata = {
   title: {
@@ -24,24 +25,14 @@ export const viewport: Viewport = {
   themeColor: "#2563EB",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  await connection();
+
   return (
     <html lang="es" suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
-        <Script
-          id="sw-register"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function() {});
-                });
-              }
-            `,
-          }}
-        />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

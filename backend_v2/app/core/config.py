@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", validation_alias="CLOCKLY_JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=15, validation_alias="CLOCKLY_ACCESS_TOKEN_MINUTES")
     refresh_token_expire_days: int = Field(default=30, validation_alias="CLOCKLY_REFRESH_TOKEN_DAYS")
+    frontend_base_url: str = Field(default="http://localhost:3000", validation_alias="CLOCKLY_FRONTEND_BASE_URL")
     cors_allowed_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
@@ -51,6 +52,7 @@ class Settings(BaseSettings):
     rate_limit_backend: str = Field(default="memory", validation_alias="CLOCKLY_RATE_LIMIT_BACKEND")
     redis_url: str | None = Field(default=None, validation_alias=AliasChoices("REDIS_URL", "CLOCKLY_REDIS_URL"))
     rate_limit_key_prefix: str = Field(default="clockly:rate-limit", validation_alias="CLOCKLY_RATE_LIMIT_KEY_PREFIX")
+    trust_proxy_headers: bool = Field(default=False, validation_alias="CLOCKLY_TRUST_PROXY_HEADERS")
     email_provider: str = Field(default="noop", validation_alias="CLOCKLY_EMAIL_PROVIDER")
     email_from: str | None = Field(default=None, validation_alias="CLOCKLY_EMAIL_FROM")
     email_smtp_host: str | None = Field(default=None, validation_alias="CLOCKLY_EMAIL_SMTP_HOST")
@@ -98,8 +100,20 @@ class Settings(BaseSettings):
     def normalize_lowercase_setting(cls, value: str) -> str:
         return value.strip().lower()
 
+    @field_validator("jwt_algorithm")
+    @classmethod
+    def normalize_jwt_algorithm(cls, value: str) -> str:
+        return value.strip().upper()
+
+    @field_validator("frontend_base_url", "billing_success_url", "billing_cancel_url")
+    @classmethod
+    def normalize_url(cls, value: str) -> str:
+        return value.strip().rstrip("/")
+
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
+        if self.jwt_algorithm not in {"HS256", "HS384", "HS512"}:
+            raise ValueError("CLOCKLY_JWT_ALGORITHM must be HS256, HS384, or HS512.")
         if self.rate_limit_backend not in {"memory", "redis"}:
             raise ValueError("CLOCKLY_RATE_LIMIT_BACKEND must be 'memory' or 'redis'.")
         if self.log_format not in {"console", "json"}:
@@ -113,8 +127,11 @@ class Settings(BaseSettings):
         if self.email_provider == "resend" and not self.email_resend_api_key:
             raise ValueError("CLOCKLY_EMAIL_RESEND_API_KEY must be set when CLOCKLY_EMAIL_PROVIDER=resend.")
         if self.environment.lower() == "production":
-            if self.secret_key in {"", "change-me-in-production"}:
-                raise ValueError("CLOCKLY_SECRET_KEY must be set in production.")
+            if self.secret_key in {"", "change-me-in-production"} or len(self.secret_key) < 32:
+                raise ValueError("CLOCKLY_SECRET_KEY must be a production secret with at least 32 characters.")
+            _require_https("CLOCKLY_FRONTEND_BASE_URL", self.frontend_base_url)
+            _require_https("CLOCKLY_BILLING_SUCCESS_URL", self.billing_success_url)
+            _require_https("CLOCKLY_BILLING_CANCEL_URL", self.billing_cancel_url)
             if "*" in self.cors_allowed_origins:
                 raise ValueError("CLOCKLY_CORS_ALLOWED_ORIGINS cannot contain '*' in production.")
             if not self.trusted_hosts or "*" in self.trusted_hosts:
@@ -132,6 +149,11 @@ class Settings(BaseSettings):
             if not self.stripe_webhook_secret:
                 raise ValueError("STRIPE_WEBHOOK_SECRET must be set in production.")
         return self
+
+
+def _require_https(name: str, value: str) -> None:
+    if not value.lower().startswith("https://"):
+        raise ValueError(f"{name} must use https:// in production.")
 
 
 @lru_cache

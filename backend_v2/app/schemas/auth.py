@@ -64,9 +64,12 @@ class UserRead(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+    """Authenticated browser session context.
+
+    Access and refresh tokens are delivered only through HttpOnly cookies.
+    They are intentionally not serialized into JSON responses.
+    """
+
     expires_in: int
     user: UserRead
     employee: EmployeeRead | None = None

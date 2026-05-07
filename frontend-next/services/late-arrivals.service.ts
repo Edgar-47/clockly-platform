@@ -49,21 +49,12 @@ export const lateArrivalsService = {
     date_to?: string
   }) => {
     const qs = buildParams(filters as Record<string, unknown>)
-    const response = await fetch(`/api${BASE}/export?${qs}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}`,
-      },
-    })
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      throw new Error(err.detail ?? "Error al exportar retrasos.")
-    }
-    const blob = await response.blob()
+    const { blob, filename } = await api.download(`${BASE}/export?${qs}`)
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     const now = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)
     a.href = url
-    a.download = `clockly-retrasos-${now}.xlsx`
+    a.download = filename ?? `clockly-retrasos-${now}.xlsx`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

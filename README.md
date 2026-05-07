@@ -174,7 +174,8 @@ URLs locales:
 
 ## Auth y sesion
 
-- `POST /auth/login` devuelve payload de sesion y fija cookies HttpOnly.
+- `POST /auth/login` devuelve payload de sesion sin tokens en JSON y fija
+  cookies HttpOnly.
 - `POST /auth/register-company` crea el tenant, el owner, la configuracion
   base de onboarding y fija cookies HttpOnly.
 - `POST /auth/request-password-reset` siempre responde igual y envia email si
@@ -189,6 +190,9 @@ URLs locales:
   vuelve a `/login`.
 - El backend acepta `Authorization: Bearer <token>` o la cookie
   `clockly_access`.
+- En produccion, las mutaciones autenticadas por cookie requieren `Origin` o
+  `Referer` confiable para reducir CSRF; Stripe webhook queda autenticado por
+  firma.
 - `superadmin` no se considera rol admin tenant; queda reservado para consola
   interna futura.
 
@@ -207,6 +211,19 @@ URLs locales:
 - Variables necesarias para cobrar: `STRIPE_SECRET_KEY`,
   `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_BUSINESS`,
   `CLOCKLY_BILLING_SUCCESS_URL` y `CLOCKLY_BILLING_CANCEL_URL`.
+- `POST /billing/portal` solo acepta `return_url` relativo o del frontend
+  confiable configurado en `CLOCKLY_FRONTEND_BASE_URL`.
+
+## Hardening de produccion
+
+- Configura `CLOCKLY_FRONTEND_BASE_URL` con HTTPS real.
+- Usa `CLOCKLY_RATE_LIMIT_BACKEND=redis` y `CLOCKLY_REDIS_URL`; produccion
+  rechaza rate limiting en memoria o desactivado.
+- Define `CLOCKLY_TRUSTED_HOSTS` y `CLOCKLY_CORS_ALLOWED_ORIGINS` sin comodines.
+- Mantén `CLOCKLY_TRUST_PROXY_HEADERS=false` salvo que el proxy de borde
+  sobrescriba `X-Forwarded-For` de forma confiable.
+- Las exportaciones CSV/XLSX neutralizan formulas y se devuelven con
+  `Cache-Control: private, no-store`.
 
 ## Fichajes y cumplimiento
 

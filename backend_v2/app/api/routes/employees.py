@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import AppError, NotFoundError, ValidationError
+from app.core.rate_limit import upload_limiter
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.repositories.employee_repository import EmployeeRepository
@@ -26,10 +28,12 @@ from app.services.employee_service import EmployeeService
 
 
 router = APIRouter(prefix="/employees", tags=["employees"])
+logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _CSV_REQUIRED = {"nombre", "apellidos"}
 _CSV_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+_CSV_ALLOWED_MIME_TYPES = {"text/csv", "application/csv", "application/vnd.ms-excel", "text/plain", ""}
 
 
 @router.get("", response_model=EmployeeListResponse)
@@ -137,6 +141,8 @@ async def preview_csv_import(
     ctx: TenantContext = Depends(require_permission("employees:write")),
 ) -> CsvImportResult:
     """Parse CSV and return validation results without persisting anything."""
+    _rate_limit_upload(ctx)
+    _validate_csv_upload(file)
     content = await file.read(_CSV_MAX_BYTES + 1)
     if len(content) > _CSV_MAX_BYTES:
         raise ValidationError("CSV file exceeds 2 MB limit.")
@@ -157,6 +163,8 @@ async def import_csv_employees(
     Rows with validation errors are skipped; valid rows are created.
     Returns a summary of imported rows, skipped rows, and per-row errors.
     """
+    _rate_limit_upload(ctx)
+    _validate_csv_upload(file)
     content = await file.read(_CSV_MAX_BYTES + 1)
     if len(content) > _CSV_MAX_BYTES:
         raise ValidationError("CSV file exceeds 2 MB limit.")
@@ -184,11 +192,28 @@ async def import_csv_employees(
                 actor_user_id=ctx.user.id,
             )
             imported += 1
-        except Exception as exc:
+        except AppError as exc:
             skipped += 1
-            errors.append(CsvRowError(row=row_num, field="general", message=str(exc)))
+            errors.append(CsvRowError(row=row_num, field="general", message=exc.detail.message))
+        except Exception:
+            logger.exception("Unexpected employee CSV import error at row %s.", row_num)
+            skipped += 1
+            errors.append(CsvRowError(row=row_num, field="general", message="No se pudo importar la fila."))
 
     return CsvImportResult(imported=imported, skipped=skipped, errors=errors, preview=[])
+
+
+def _rate_limit_upload(ctx: TenantContext) -> None:
+    upload_limiter.check(f"company:{ctx.company_id}:user:{ctx.user.id}")
+
+
+def _validate_csv_upload(file: UploadFile) -> None:
+    content_type = (file.content_type or "").lower().split(";")[0].strip()
+    filename = (file.filename or "").strip().lower()
+    if content_type not in _CSV_ALLOWED_MIME_TYPES:
+        raise ValidationError("Unsupported CSV content type.")
+    if filename and not filename.endswith(".csv"):
+        raise ValidationError("CSV filename must end with .csv.")
 
 
 def _parse_csv(content: bytes, *, dry_run: bool) -> CsvImportResult:
@@ -238,7 +263,7 @@ def _parse_csv(content: bytes, *, dry_run: bool) -> CsvImportResult:
         if not apellidos:
             row_errors.append(CsvRowError(row=row_num, field="apellidos", message="Los apellidos son obligatorios."))
         if email and not _EMAIL_RE.match(email):
-            row_errors.append(CsvRowError(row=row_num, field="email", message=f"Email inválido: {email}"))
+            row_errors.append(CsvRowError(row=row_num, field="email", message="Email inválido."))
         if pin and (len(pin) != 4 or not pin.isdigit()):
             row_errors.append(CsvRowError(row=row_num, field="pin", message="El PIN debe tener exactamente 4 dígitos."))
 

@@ -55,9 +55,6 @@ export interface CompanyContext extends PlanFeatures {
 }
 
 export interface AuthPayload {
-  access_token: string;
-  refresh_token: string;
-  token_type: "bearer";
   expires_in: number;
   user: AuthUser;
   employee: AuthEmployee | null;

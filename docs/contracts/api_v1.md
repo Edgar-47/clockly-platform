@@ -15,12 +15,14 @@ Base URL local: `http://127.0.0.1:8010`
 
 ### Session strategy
 
-- `POST /auth/login` returns a token payload and sets:
+- `POST /auth/login` returns a session payload without raw token fields and sets:
   - `clockly_access`
   - `clockly_refresh`
 - `GET /auth/me` is the authoritative current-user endpoint.
 - `POST /auth/refresh` may use the refresh cookie or an explicit
-  `refresh_token` in the request body.
+  `refresh_token` in the request body. Refresh tokens rotate on every use.
+  Reuse of an already-revoked refresh token revokes the user's remaining active
+  refresh tokens and returns `401`.
 - `POST /auth/logout` revokes the refresh token when present and clears both
   cookies.
 - Protected backend endpoints accept:
@@ -48,9 +50,6 @@ Response:
 
 ```json
 {
-  "access_token": "...",
-  "refresh_token": "...",
-  "token_type": "bearer",
   "expires_in": 28800,
   "user": {
     "id": "uuid",
@@ -113,6 +112,10 @@ Creates `Company`, owner `User`, plan-derived company fields, and
 `company_settings` for onboarding. The response is the same session payload as
 login and sets `clockly_access` and `clockly_refresh`.
 
+Login, register and refresh responses do not include `access_token` or
+`refresh_token` in JSON. Web clients must use backend-issued HttpOnly cookies
+and hydrate with `GET /auth/me`.
+
 Duplicate owner email or duplicate company slug returns `409`.
 
 ### POST `/auth/refresh`
@@ -127,6 +130,11 @@ Optional request body:
 
 Normal flow in the web app: the backend reads the refresh token from the
 HttpOnly cookie and rotates the session.
+
+In production, unsafe cookie-authenticated requests (`POST`, `PUT`, `PATCH`,
+`DELETE`) must include a trusted `Origin` or `Referer` matching
+`CLOCKLY_FRONTEND_BASE_URL` or configured CORS origins. The Stripe webhook is
+excluded because it authenticates with Stripe signatures.
 
 ### GET `/auth/me`
 
@@ -321,7 +329,8 @@ Response:
 ```
 
 `POST /billing/portal` creates a Stripe Customer Portal session for the active
-tenant customer.
+tenant customer. Optional `return_url` values are accepted only when they are
+root-relative or share a trusted frontend origin; open redirects are rejected.
 
 The webhook accepts Stripe events and updates tenant billing state. Supported
 events:
@@ -330,6 +339,15 @@ events:
 - `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
+
+Webhook security rules:
+
+- Stripe signature verification is mandatory.
+- Payloads over 256 KiB are rejected before verification.
+- Events are idempotent by Stripe event id.
+- Subscription updates prefer stored Stripe subscription/customer mappings over
+  client-controlled metadata. If metadata `company_id` conflicts with the
+  stored tenant mapping, the event is rejected and marked failed.
 
 Subscription create/update maps Stripe Price IDs back to `PlanType` and syncs
 plan-derived tenant capabilities. Subscription deletion moves the tenant back
@@ -702,8 +720,12 @@ Visible in the current web UI when the company plan allows it:
 - `GET /exports/attendance?format=excel`
 - `GET /exports/attendance?format=csv`
 - `GET /exports/attendance?format=pdf`
+- `GET /exports/itss-registro?year=&month=&format=xlsx`
+- `GET /exports/itss-registro?year=&month=&format=pdf`
 - `GET /exports/salary-calculation?format=xlsx&employee_id=&from=&to=`
 - `GET /exports/salary-calculation?format=pdf&employee_id=&from=&to=`
+- `GET /exports/payroll?year=&month=&format=xlsx&target=generic`
+- `GET /exports/payroll?year=&month=&format=csv&target=a3`
 - `GET /cash-closures/export?format=xlsx`
 - `GET /cash-closures/export?format=csv`
 
@@ -712,7 +734,14 @@ Contract notes:
 - Requires `exports:read`.
 - Requires `has_exports`.
 - Filtered exports also require `has_advanced_filters`.
-- Response is a file download with `Content-Disposition`.
+- Response is a file download with `Content-Disposition` and
+  `Cache-Control: private, no-store`.
+- Spreadsheet and CSV string cells are neutralized against formula injection.
+- Export endpoints are rate limited per authenticated company/user:
+  20 requests per 5 minutes. This budget covers `/exports/*` and sensitive
+  module exports such as expense tickets, late arrivals and cash closures.
+  Exceeding the budget returns `429` with
+  `Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Window`.
 - CSV/XLSX/PDF attendance exports include employee, DNI/ID, entry/exit dates and
   times, `hh:mm` duration, status, clock-out source, automatic clock-out
   incidents, notes, company name, report range, and tenant timezone.
@@ -818,11 +847,17 @@ Rules:
   attendance sessions, tickets, geolocation fields stored on attendance
   sessions, and geolocation consent logs.
 - Export format is JSON now and includes metadata for future ZIP/CSV/PDF.
+- Export responses set `Cache-Control: private, no-store`.
 - Consent logs persist backend-side with `user_id`, `company_id`,
   `consent_type`, `consent_version`, `accepted_at`, optional `revoked_at`,
   source, IP, user-agent and optional metadata.
 - The consent endpoint records acceptance; it does not rely on frontend-only
   state.
+- `/gdpr/*` endpoints are rate limited per authenticated company/user:
+  30 requests per 5 minutes for general consent endpoints. JSON personal-data
+  export endpoints are also limited to 10 exports per 10 minutes. Exceeding the
+  budget returns `429` with `Retry-After`, `X-RateLimit-Limit`, and
+  `X-RateLimit-Window`.
 
 ## Schedules
 
@@ -854,6 +889,14 @@ no tenant permissions.
 - Backend and frontend add production security headers: HSTS, CSP,
   `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and
   `Permissions-Policy`.
+- The frontend CSP is generated in `frontend-next/middleware.ts` with a
+  per-request nonce.
+  Production `script-src` uses `'self'`, the nonce and `'strict-dynamic'`;
+  it does not allow `'unsafe-inline'` or `'unsafe-eval'`.
+- Frontend `style-src` still allows `'unsafe-inline'` because current Leaflet
+  markers/popups and small chart components use controlled inline styles. This
+  is a remaining hardening target, but script execution is no longer broadly
+  opened by CSP.
 - Rate limiting defaults to in-process memory for local/dev. Multi-worker
   production must use `CLOCKLY_RATE_LIMIT_BACKEND=redis` and
   `CLOCKLY_REDIS_URL`. `CLOCKLY_RATE_LIMIT_ENABLED=false` is rejected in
