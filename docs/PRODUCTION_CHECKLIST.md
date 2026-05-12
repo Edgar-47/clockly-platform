@@ -16,6 +16,12 @@ Complete before serving real traffic.
 | `CLOCKLY_RATE_LIMIT_BACKEND` | recommended | `memory` by default; use `redis` for multi-worker production. |
 | `CLOCKLY_REDIS_URL` | when Redis backend | Required when `CLOCKLY_RATE_LIMIT_BACKEND=redis`. |
 | `CLOCKLY_RATE_LIMIT_KEY_PREFIX` | optional | Defaults to `clockly:rate-limit`. |
+| `CLOCKLY_STORAGE_BACKEND=r2` | yes | Production requires Cloudflare R2 for private attachments. |
+| `CLOCKLY_S3_BUCKET` | yes | Private R2 bucket name. |
+| `CLOCKLY_S3_ENDPOINT_URL` | yes | R2 S3-compatible endpoint URL. |
+| `CLOCKLY_S3_ACCESS_KEY_ID` | yes | R2 access key ID. Do not expose to frontend. |
+| `CLOCKLY_S3_SECRET_ACCESS_KEY` | yes | R2 secret key. Do not log or commit. |
+| `CLOCKLY_S3_REGION` | yes | Use `auto` for Cloudflare R2 unless a deployment needs another value. |
 | `CLOCKLY_EMAIL_PROVIDER` | recommended | `noop` by default; use `smtp` when transactional email is ready. |
 | `CLOCKLY_EMAIL_FROM` | when email enabled | Sender address for transactional email. |
 | `CLOCKLY_EMAIL_SMTP_HOST` | when SMTP | SMTP host when `CLOCKLY_EMAIL_PROVIDER=smtp`. |
@@ -44,6 +50,8 @@ Complete before serving real traffic.
   - `Referrer-Policy`
   - `Permissions-Policy`
 - [ ] Use Redis rate limiting or an equivalent edge/proxy limiter for multiple workers.
+- [ ] Use a private Cloudflare R2 bucket for attachments and confirm the bucket
+  has no public access policy.
 - [ ] Set transactional email provider or accept `noop` with the operational
   fallback that invitations return an `acceptance_url`.
 - [ ] Monitor `audit_logs` for failed login, permission denial, invitation, and member-management events.

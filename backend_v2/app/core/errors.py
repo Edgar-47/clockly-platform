@@ -43,6 +43,11 @@ class ConflictError(AppError):
     code = "conflict"
 
 
+class ServiceUnavailableError(AppError):
+    status_code = 503
+    code = "service_unavailable"
+
+
 class RateLimitError(AppError):
     status_code = 429
     code = "rate_limit_exceeded"

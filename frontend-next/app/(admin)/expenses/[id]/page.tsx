@@ -295,7 +295,7 @@ export default function ExpenseDetailPage() {
             <CardTitle className="text-[14px]">Archivo adjunto</CardTitle>
           </CardHeader>
           <CardContent>
-            {ticket.attachment_url ? (
+            {ticket.attachment_key ? (
               <div className="space-y-3">
                 {ticket.attachment_mime_type?.startsWith("image/") && (
                   <Image

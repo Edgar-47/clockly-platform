@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from io import BytesIO
 
 from app.models.enums import ExpenseCategory, ExpenseStatus, PaymentSource, UserRole
 from app.models.expense_ticket import ExpenseTicket
+from app.services.storage import StoredObject, StorageNotFoundError, get_storage_backend
 from tests.conftest import auth_headers, make_company, make_employee, make_user
 
 
@@ -475,3 +477,143 @@ class TestExpenseValidation:
             },
         )
         assert resp.status_code == 422
+
+
+class TestExpenseAttachments:
+    def test_upload_attachment_stores_private_object_key_and_replaces_old_object(self, client, db):
+        storage = _override_storage(client)
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _make_expense(db, company=company, employee=emp, user=admin)
+        ticket.attachment_key = "companies/old/expense-tickets/2026/05/old.pdf"
+        storage.objects[ticket.attachment_key] = (b"%PDF-old", "application/pdf")
+        db.commit()
+
+        resp = client.post(
+            f"/expense-tickets/{ticket.id}/attachment",
+            headers=auth_headers(admin),
+            files={"file": ("../Mi ticket!!.png", b"\x89PNG\r\n\x1a\nimage-bytes", "image/png")},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["attachment_key"].startswith(f"companies/{company.id}/expense-tickets/")
+        assert data["attachment_key"].endswith("_mi-ticket.png")
+        assert data["attachment_file_name"] == "Mi ticket_.png"
+        assert data["attachment_mime_type"] == "image/png"
+        assert data["attachment_size"] == len(b"\x89PNG\r\n\x1a\nimage-bytes")
+        assert "attachment_url" not in data
+        assert data["attachment_key"] in storage.objects
+        assert "companies/old/expense-tickets/2026/05/old.pdf" not in storage.objects
+
+    def test_download_attachment_streams_after_authorization(self, client, db):
+        storage = _override_storage(client)
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _make_expense(db, company=company, employee=emp, user=admin)
+        ticket.attachment_key = f"companies/{company.id}/expense-tickets/2026/05/receipt.pdf"
+        ticket.attachment_file_name = "receipt.pdf"
+        ticket.attachment_mime_type = "application/pdf"
+        ticket.attachment_size = len(b"%PDF-private")
+        storage.objects[ticket.attachment_key] = (b"%PDF-private", "application/pdf")
+        db.commit()
+
+        resp = client.get(f"/expense-tickets/{ticket.id}/attachment", headers=auth_headers(admin))
+
+        assert resp.status_code == 200
+        assert resp.content == b"%PDF-private"
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert "receipt.pdf" in resp.headers["content-disposition"]
+        assert resp.headers["cache-control"] == "private, no-store"
+
+    def test_download_attachment_rejects_employee_from_same_tenant_without_scope(self, client, db):
+        storage = _override_storage(client)
+        company = make_company(db)
+        user_a = make_user(db, company=company, email="a@test.com", role=UserRole.EMPLOYEE)
+        user_b = make_user(db, company=company, email="b@test.com", role=UserRole.EMPLOYEE)
+        emp_a = make_employee(db, company=company, user=user_a)
+        emp_b = make_employee(db, company=company, user=user_b)
+        ticket = _make_expense(db, company=company, employee=emp_b, user=user_b)
+        ticket.attachment_key = f"companies/{company.id}/expense-tickets/2026/05/secret.pdf"
+        ticket.attachment_file_name = "secret.pdf"
+        ticket.attachment_mime_type = "application/pdf"
+        storage.objects[ticket.attachment_key] = (b"%PDF-secret", "application/pdf")
+        db.commit()
+
+        assert emp_a.id != emp_b.id
+        resp = client.get(f"/expense-tickets/{ticket.id}/attachment", headers=auth_headers(user_a))
+
+        assert resp.status_code == 403
+
+    def test_delete_attachment_clears_metadata_and_deletes_object(self, client, db):
+        storage = _override_storage(client)
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _make_expense(db, company=company, employee=emp, user=admin)
+        key = f"companies/{company.id}/expense-tickets/2026/05/receipt.pdf"
+        ticket.attachment_key = key
+        ticket.attachment_file_name = "receipt.pdf"
+        ticket.attachment_mime_type = "application/pdf"
+        ticket.attachment_size = 12
+        storage.objects[key] = (b"%PDF-private", "application/pdf")
+        db.commit()
+
+        resp = client.delete(f"/expense-tickets/{ticket.id}/attachment", headers=auth_headers(admin))
+
+        assert resp.status_code == 204
+        assert key not in storage.objects
+        db.refresh(ticket)
+        assert ticket.attachment_key is None
+        assert ticket.attachment_file_name is None
+
+    def test_upload_attachment_rejects_mime_spoofing(self, client, db):
+        _override_storage(client)
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _make_expense(db, company=company, employee=emp, user=admin)
+        db.commit()
+
+        resp = client.post(
+            f"/expense-tickets/{ticket.id}/attachment",
+            headers=auth_headers(admin),
+            files={"file": ("fake.png", b"not-a-png", "image/png")},
+        )
+
+        assert resp.status_code == 409
+
+
+def _override_storage(client) -> "FakeStorage":
+    from app.main import app
+
+    storage = FakeStorage()
+    app.dependency_overrides[get_storage_backend] = lambda: storage
+    return storage
+
+
+class FakeStorage:
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.objects: dict[str, tuple[bytes, str | None]] = {}
+
+    def upload_file(self, key, content, *, content_type=None, metadata=None):
+        self.objects[key] = (content, content_type)
+
+    def download_file(self, key):
+        if key not in self.objects:
+            raise StorageNotFoundError("missing")
+        content, content_type = self.objects[key]
+        return StoredObject(body=BytesIO(content), content_type=content_type, content_length=len(content))
+
+    def delete_file(self, key):
+        self.objects.pop(key, None)
+
+    def exists(self, key):
+        return key in self.objects
+
+    def generate_private_access(self, key, *, expires_in_seconds=300):
+        return f"https://private.example/{key}?expires={expires_in_seconds}"

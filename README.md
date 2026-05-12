@@ -172,6 +172,35 @@ URLs locales:
 - backend: `http://127.0.0.1:8010`
 - docs FastAPI: `http://127.0.0.1:8010/docs`
 
+## Almacenamiento privado
+
+Los adjuntos privados se guardan mediante una capa `StorageBackend` en
+`backend_v2/app/services/storage.py`. En desarrollo usa
+`CLOCKLY_STORAGE_BACKEND=local` y escribe object keys bajo
+`backend_v2/uploads/private`; en produccion la configuracion valida exige
+Cloudflare R2 con `CLOCKLY_STORAGE_BACKEND=r2`.
+
+Variables R2 necesarias en produccion:
+
+```env
+CLOCKLY_STORAGE_BACKEND=r2
+CLOCKLY_S3_BUCKET=clockly-private
+CLOCKLY_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
+CLOCKLY_S3_ACCESS_KEY_ID=...
+CLOCKLY_S3_SECRET_ACCESS_KEY=...
+CLOCKLY_S3_REGION=auto
+```
+
+El bucket debe ser privado. El frontend nunca recibe credenciales ni URLs
+publicas de R2: subidas, borrados y descargas pasan por FastAPI, que comprueba
+sesion, tenant y permisos antes de hacer streaming del archivo al cliente. En
+base de datos se persiste `attachment_key`, con formato
+`companies/{company_id}/expense-tickets/{yyyy}/{mm}/{uuid}_{safe_name}.ext`.
+La migracion `20260512_0019` renombra `attachment_url` a `attachment_key` y
+convierte referencias locales historicas en `legacy/expense-tickets/{filename}`;
+si hubiera adjuntos reales existentes, hay que subir esos objetos al bucket R2
+con esa misma key antes de cortar produccion.
+
 ## Auth y sesion
 
 - `POST /auth/login` devuelve payload de sesion sin tokens en JSON y fija
@@ -219,6 +248,8 @@ URLs locales:
 - Configura `CLOCKLY_FRONTEND_BASE_URL` con HTTPS real.
 - Usa `CLOCKLY_RATE_LIMIT_BACKEND=redis` y `CLOCKLY_REDIS_URL`; produccion
   rechaza rate limiting en memoria o desactivado.
+- Usa `CLOCKLY_STORAGE_BACKEND=r2` con un bucket privado de Cloudflare R2 para
+  adjuntos; produccion rechaza el backend local.
 - Define `CLOCKLY_TRUSTED_HOSTS` y `CLOCKLY_CORS_ALLOWED_ORIGINS` sin comodines.
 - Mantén `CLOCKLY_TRUST_PROXY_HEADERS=false` salvo que el proxy de borde
   sobrescriba `X-Forwarded-For` de forma confiable.

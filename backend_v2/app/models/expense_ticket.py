@@ -91,7 +91,7 @@ class ExpenseTicket(TimestampMixin, Base):
     )
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    attachment_url: Mapped[str | None] = mapped_column(String(500))
+    attachment_key: Mapped[str | None] = mapped_column(String(500))
     attachment_file_name: Mapped[str | None] = mapped_column(String(255))
     attachment_mime_type: Mapped[str | None] = mapped_column(String(100))
     attachment_size: Mapped[int | None] = mapped_column(Integer)

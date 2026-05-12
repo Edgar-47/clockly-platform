@@ -9,6 +9,8 @@ from app.models.company_location import CompanyLocation
 from app.models.company_settings import CompanySettings
 from app.models.company_usage_log import CompanyUsageLog
 from app.models.employee import Employee
+from app.models.expense_ticket import ExpenseTicket
+from app.models.expense_ticket_event import ExpenseTicketEvent
 from app.models.geo_consent_log import GeoConsentLog
 from app.models.enums import (
     AttendanceIncidentType,
@@ -52,6 +54,8 @@ __all__ = [
     "CompanySettings",
     "CompanyUsageLog",
     "Employee",
+    "ExpenseTicket",
+    "ExpenseTicketEvent",
     "GeoConsentLog",
     "InvitationStatus",
     "IncidentStatus",

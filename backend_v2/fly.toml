@@ -1,0 +1,78 @@
+# Fly.io configuration for ClockLy backend (FastAPI).
+# Deploy from the backend_v2/ directory:
+#   cd backend_v2 && fly deploy --app clockly-api
+#
+# Sensitive values are NOT stored here — inject them with:
+#   fly secrets set KEY=VALUE --app clockly-api
+
+app    = "clockly-api"
+primary_region = "mad"   # Madrid — closest to Spain / eu-west-2 Neon region
+
+[build]
+  dockerfile = "Dockerfile"
+
+# ── Non-sensitive runtime configuration ──────────────────────────────────────
+[env]
+  CLOCKLY_ENV                   = "production"
+  CLOCKLY_LOG_FORMAT            = "json"
+  CLOCKLY_TRUST_PROXY_HEADERS   = "true"
+
+  # Storage
+  CLOCKLY_STORAGE_BACKEND = "r2"
+  CLOCKLY_S3_REGION       = "auto"
+  CLOCKLY_S3_BUCKET       = "clockly-prod-uploads"
+  # CLOCKLY_S3_ENDPOINT_URL is sensitive (contains account ID) → fly secret
+
+  # Rate limiting
+  CLOCKLY_RATE_LIMIT_ENABLED    = "true"
+  CLOCKLY_RATE_LIMIT_BACKEND    = "redis"
+  CLOCKLY_RATE_LIMIT_KEY_PREFIX = "clockly:rate-limit"
+
+  # Email
+  CLOCKLY_EMAIL_PROVIDER = "resend"
+  CLOCKLY_EMAIL_FROM     = "ClockLy <no-reply@notify.clockly.es>"
+
+  # Frontend integration
+  CLOCKLY_FRONTEND_BASE_URL     = "https://app.clockly.es"
+  CLOCKLY_CORS_ALLOWED_ORIGINS  = "https://app.clockly.es"
+  CLOCKLY_BILLING_SUCCESS_URL   = "https://app.clockly.es/settings?billing=success"
+  CLOCKLY_BILLING_CANCEL_URL    = "https://app.clockly.es/upgrade?billing=cancelled"
+
+  # Trusted hosts:
+  #   api.clockly.es         — public custom domain
+  #   clockly-api.fly.dev    — Fly-assigned domain (used in health checks)
+  #   clockly-api.internal   — Fly internal network (Next.js proxy)
+  # If you rename this app, update all three values.
+  CLOCKLY_TRUSTED_HOSTS = "api.clockly.es,clockly-api.fly.dev,clockly-api.internal"
+
+  # Auth tokens
+  CLOCKLY_ACCESS_TOKEN_MINUTES = "15"
+  CLOCKLY_REFRESH_TOKEN_DAYS   = "30"
+
+  # DB pool — safe defaults for Neon free/launch.
+  # Raise after switching to the Neon pooler endpoint.
+  CLOCKLY_DB_POOL_SIZE    = "5"
+  CLOCKLY_DB_MAX_OVERFLOW = "10"
+
+# ── HTTP service ──────────────────────────────────────────────────────────────
+[http_service]
+  internal_port       = 8000
+  force_https         = true
+  auto_stop_machines  = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes           = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "20s"
+    interval     = "30s"
+    method       = "GET"
+    path         = "/health"
+    protocol     = "http"
+    timeout      = "5s"
+
+# ── VM sizing ─────────────────────────────────────────────────────────────────
+[[vm]]
+  memory   = "512mb"
+  cpu_kind = "shared"
+  cpus     = 1

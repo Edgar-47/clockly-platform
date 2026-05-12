@@ -68,35 +68,21 @@ export const expenseTicketsService = {
   uploadAttachment: async (id: string, file: File): Promise<ExpenseTicket> => {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await fetch(`/api/expense-tickets/${id}/attachment`, {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err?.error?.message ?? "Error al subir el archivo.");
-    }
-    return response.json() as Promise<ExpenseTicket>;
+    return api.postForm<ExpenseTicket>(`${BASE}/${id}/attachment`, formData);
   },
 
   downloadAttachment: async (id: string): Promise<void> => {
-    const response = await fetch(`/api/expense-tickets/${id}/attachment`, {
-      method: "GET",
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error("No se pudo descargar el archivo.");
-    const blob = await response.blob();
-    const disposition = response.headers.get("Content-Disposition");
-    const match = disposition?.match(/filename="?([^";]+)"?/i);
-    const filename = match?.[1] ?? "adjunto";
+    const { blob, filename } = await api.download(`${BASE}/${id}/attachment`);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = filename;
+    a.download = filename ?? "adjunto";
     a.click();
     URL.revokeObjectURL(url);
   },
+
+  deleteAttachment: (id: string): Promise<void> =>
+    api.delete<void>(`${BASE}/${id}/attachment`),
 
   triggerExport: async (
     filters: Pick<

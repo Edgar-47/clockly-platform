@@ -712,6 +712,35 @@ Kiosk/PIN rules:
 - Kiosk attempts are rate limited and return `429` with a clear message when
   too many PIN attempts are made.
 
+## Expense ticket attachments
+
+Expense tickets can store one private attachment per ticket through the backend.
+The active persistence field is `attachment_key`; it is a private object key,
+not a filesystem path and not a public URL.
+
+- `POST /expense-tickets/{ticket_id}/attachment`
+- `GET /expense-tickets/{ticket_id}/attachment`
+- `DELETE /expense-tickets/{ticket_id}/attachment`
+
+Rules:
+
+- Uploads require `expense_tickets:write`; downloads require
+  `expense_tickets:read`.
+- Employee users are scoped to their own expense tickets. Tenant admins with
+  the relevant permissions can access tickets in their company only.
+- Allowed attachment types are JPEG, PNG, WEBP and PDF. The backend validates
+  declared MIME type and file magic bytes.
+- Maximum attachment size is 5 MiB.
+- Stored object keys follow
+  `companies/{company_id}/expense-tickets/{yyyy}/{mm}/{uuid}_{safe_name}.ext`.
+- Downloads are streamed by the backend after authorization and return
+  `Cache-Control: private, no-store`. The frontend never receives storage
+  credentials or public bucket URLs.
+- Migration `20260512_0019` renames historical `attachment_url` storage to
+  `attachment_key` and maps local `/uploads/expense_tickets/{filename}`
+  references to `legacy/expense-tickets/{filename}`. Existing production files,
+  if any, must be copied to R2 under those keys before relying on downloads.
+
 ## Exports
 
 Visible in the current web UI when the company plan allows it:
@@ -901,6 +930,9 @@ no tenant permissions.
   production must use `CLOCKLY_RATE_LIMIT_BACKEND=redis` and
   `CLOCKLY_REDIS_URL`. `CLOCKLY_RATE_LIMIT_ENABLED=false` is rejected in
   production.
+- Private attachment storage defaults to local filesystem only outside
+  production. Production requires `CLOCKLY_STORAGE_BACKEND=r2` with a private
+  Cloudflare R2 bucket configured through S3-compatible credentials.
 - Transactional email defaults to `CLOCKLY_EMAIL_PROVIDER=noop` only outside
   production. Production rejects `noop`; SMTP and Resend are concrete
   providers.

@@ -77,6 +77,29 @@ El superadmin actual conserva `company_id` por compatibilidad de esquema, pero
 no debe operar dentro del dashboard tenant. La consola interna futura debe
 separar esa identidad del tenancy normal.
 
+## Storage privado
+
+Los adjuntos privados usan `app/services/storage.py`:
+
+- local/dev: `CLOCKLY_STORAGE_BACKEND=local`, con object keys bajo
+  `uploads/private`.
+- produccion: `CLOCKLY_STORAGE_BACKEND=r2`, usando Cloudflare R2 por API
+  S3-compatible.
+
+Config R2 requerida:
+
+```env
+CLOCKLY_STORAGE_BACKEND=r2
+CLOCKLY_S3_BUCKET=clockly-private
+CLOCKLY_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
+CLOCKLY_S3_ACCESS_KEY_ID=...
+CLOCKLY_S3_SECRET_ACCESS_KEY=...
+CLOCKLY_S3_REGION=auto
+```
+
+El bucket debe ser privado. Las descargas de adjuntos se hacen por streaming
+desde el backend despues de validar permiso, tenant y scope de empleado.
+
 ## Validacion
 
 ```powershell

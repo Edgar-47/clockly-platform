@@ -5,17 +5,21 @@ import uuid
 import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import Literal
+from urllib.parse import quote
 from uuid import UUID
 
+from anyio import to_thread
 from fastapi import APIRouter, Depends, Query, UploadFile, status
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+import structlog
 
-from app.core.errors import ConflictError, NotFoundError, PermissionDenied
+from app.core.errors import ConflictError, NotFoundError, PermissionDenied, ServiceUnavailableError
 from app.core.rate_limit import export_limiter, upload_limiter
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
@@ -40,6 +44,7 @@ from app.schemas.expense_ticket import (
     ExpenseTicketSummary,
     ExpenseTicketUpdate,
 )
+from app.services.storage import StorageBackend, StorageBackendError, StorageNotFoundError, get_storage_backend
 from app.services.xlsx_report import (
     DATE_FORMAT,
     MONEY_FORMAT,
@@ -58,17 +63,11 @@ from app.services.xlsx_report import (
 )
 
 router = APIRouter(prefix="/expense-tickets", tags=["expense-tickets"])
+logger = structlog.get_logger(__name__)
 
 _ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 _MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 _FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._ -]+")
-
-_UPLOAD_DIR = Path(__file__).parent.parent.parent.parent / "uploads" / "expense_tickets"
-
-
-def _upload_dir() -> Path:
-    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    return _UPLOAD_DIR
 
 
 def _record_event(
@@ -418,6 +417,7 @@ async def upload_attachment(
     file: UploadFile,
     ctx: TenantContext = Depends(require_permission("expense_tickets:write")),
     db: Session = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage_backend),
 ) -> ExpenseTicketRead:
     _rate_limit_upload(ctx)
     ticket = _get_and_scope(ticket_id, db, ctx)
@@ -442,18 +442,35 @@ async def upload_attachment(
     _assert_magic(raw, content_type)
 
     ext = _ext_for_mime(content_type)
-    filename_stored = f"{uuid.uuid4()}{ext}"
-    dest = _upload_dir() / filename_stored
-    dest.write_bytes(raw)
+    object_key = _build_attachment_key(
+        company_id=ctx.company_id,
+        original_filename=file.filename,
+        content_type=content_type,
+    )
+    old_key = ticket.attachment_key
 
-    # Delete old attachment from disk if present.
-    if ticket.attachment_url:
-        old_path = _attachment_path(ticket.attachment_url)
-        if old_path.exists():
-            old_path.unlink(missing_ok=True)
+    try:
+        await to_thread.run_sync(
+            partial(
+                storage.upload_file,
+                object_key,
+                raw,
+                content_type=content_type,
+                metadata={"module": "expense_tickets"},
+            )
+        )
+    except StorageBackendError as exc:
+        logger.warning(
+            "expense_attachment.upload_failed",
+            backend=storage.name,
+            company_id=str(ctx.company_id),
+            ticket_id=str(ticket.id),
+            error_type=type(exc).__name__,
+        )
+        raise ServiceUnavailableError("No se pudo almacenar el archivo adjunto. Intentalo de nuevo.") from exc
 
-    ticket.attachment_url = f"/uploads/expense_tickets/{filename_stored}"
-    ticket.attachment_file_name = _safe_original_filename(file.filename, fallback=filename_stored, extension=ext)
+    ticket.attachment_key = object_key
+    ticket.attachment_file_name = _safe_original_filename(file.filename, fallback=f"attachment{ext}", extension=ext)
     ticket.attachment_mime_type = content_type
     ticket.attachment_size = len(raw)
 
@@ -465,37 +482,98 @@ async def upload_attachment(
         new_value=ticket.attachment_file_name,
     )
     db.add(ticket)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        await _delete_storage_object(storage, object_key, ctx=ctx, ticket=ticket)
+        raise
+
+    if old_key and old_key != object_key:
+        await _delete_storage_object(storage, old_key, ctx=ctx, ticket=ticket)
     return ticket
 
 
 # ── ATTACHMENT DOWNLOAD ───────────────────────────────────────────────────────
 
 @router.get("/{ticket_id}/attachment")
-def download_attachment(
+async def download_attachment(
     ticket_id: UUID,
     ctx: TenantContext = Depends(require_permission("expense_tickets:read")),
     db: Session = Depends(get_db),
-) -> FileResponse:
+    storage: StorageBackend = Depends(get_storage_backend),
+) -> StreamingResponse:
     ticket = _get_and_scope(ticket_id, db, ctx)
 
-    if not ticket.attachment_url:
+    if not ticket.attachment_key:
         raise NotFoundError("Este gasto no tiene archivo adjunto.")
 
-    file_path = _attachment_path(ticket.attachment_url)
-    if not file_path.exists():
-        raise NotFoundError("Archivo no encontrado en el servidor.")
+    try:
+        stored = await to_thread.run_sync(storage.download_file, ticket.attachment_key)
+    except StorageNotFoundError as exc:
+        raise NotFoundError("Archivo no encontrado en almacenamiento.") from exc
+    except StorageBackendError as exc:
+        logger.warning(
+            "expense_attachment.download_failed",
+            backend=storage.name,
+            company_id=str(ctx.company_id),
+            ticket_id=str(ticket.id),
+            error_type=type(exc).__name__,
+        )
+        raise ServiceUnavailableError("No se pudo recuperar el archivo adjunto. Intentalo de nuevo.") from exc
 
-    return FileResponse(
-        path=str(file_path),
-        media_type=ticket.attachment_mime_type or "application/octet-stream",
-        filename=_safe_original_filename(
-            ticket.attachment_file_name,
-            fallback=file_path.name,
-            extension=_ext_for_mime(ticket.attachment_mime_type or ""),
-        ),
-        headers={"Cache-Control": "private, no-store"},
+    filename = _safe_original_filename(
+        ticket.attachment_file_name,
+        fallback="adjunto",
+        extension=_ext_for_mime(ticket.attachment_mime_type or ""),
     )
+    headers = {
+        "Cache-Control": "private, no-store",
+        "Content-Disposition": _content_disposition(filename),
+    }
+    if stored.content_length is not None:
+        headers["Content-Length"] = str(stored.content_length)
+
+    return StreamingResponse(
+        stored.iter_chunks(),
+        media_type=ticket.attachment_mime_type or stored.content_type or "application/octet-stream",
+        headers=headers,
+    )
+
+
+@router.delete("/{ticket_id}/attachment", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_attachment(
+    ticket_id: UUID,
+    ctx: TenantContext = Depends(require_permission("expense_tickets:write")),
+    db: Session = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage_backend),
+) -> None:
+    ticket = _get_and_scope(ticket_id, db, ctx)
+
+    if ticket.status == ExpenseStatus.PAID and "expense_tickets:approve" not in ctx.permissions:
+        raise PermissionDenied("No puedes modificar un gasto ya pagado.")
+    old_key = ticket.attachment_key
+    if not old_key:
+        raise NotFoundError("Este gasto no tiene archivo adjunto.")
+
+    old_name = ticket.attachment_file_name
+    ticket.attachment_key = None
+    ticket.attachment_file_name = None
+    ticket.attachment_mime_type = None
+    ticket.attachment_size = None
+
+    _record_event(
+        db,
+        ticket_id=ticket.id,
+        user_id=ctx.user.id,
+        event_type=ExpenseEventType.UPDATED,
+        old_value=old_name,
+        new_value=None,
+        notes="Archivo adjunto eliminado",
+    )
+    db.add(ticket)
+    db.commit()
+
+    await _delete_storage_object(storage, old_key, ctx=ctx, ticket=ticket)
 
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -559,15 +637,44 @@ def _safe_original_filename(filename: str | None, *, fallback: str, extension: s
     return name[:180]
 
 
-def _attachment_path(attachment_url: str) -> Path:
-    filename = Path(attachment_url).name
-    if not filename:
-        raise NotFoundError("Archivo no encontrado en el servidor.")
-    base = _upload_dir().resolve()
-    path = (base / filename).resolve()
-    if base not in path.parents and path != base:
-        raise ConflictError("Ruta de adjunto no permitida.")
-    return path
+def _build_attachment_key(*, company_id: UUID, original_filename: str | None, content_type: str) -> str:
+    now = datetime.now(UTC)
+    ext = _ext_for_mime(content_type)
+    stem = _safe_object_key_stem(original_filename)
+    return f"companies/{company_id}/expense-tickets/{now:%Y/%m}/{uuid.uuid4()}_{stem}{ext}"
+
+
+def _safe_object_key_stem(filename: str | None) -> str:
+    stem = Path(_safe_original_filename(filename, fallback="attachment")).stem
+    stem = re.sub(r"[\s.]+", "-", stem.strip().lower())
+    stem = re.sub(r"[^a-z0-9_-]+", "_", stem)
+    stem = stem.strip("-_")
+    return (stem or "attachment")[:80]
+
+
+def _content_disposition(filename: str) -> str:
+    quoted = quote(filename)
+    safe = filename.replace('"', "_")
+    return f'attachment; filename="{safe}"; filename*=UTF-8\'\'{quoted}'
+
+
+async def _delete_storage_object(
+    storage: StorageBackend,
+    key: str,
+    *,
+    ctx: TenantContext,
+    ticket: ExpenseTicket,
+) -> None:
+    try:
+        await to_thread.run_sync(storage.delete_file, key)
+    except StorageBackendError as exc:
+        logger.warning(
+            "expense_attachment.delete_failed",
+            backend=storage.name,
+            company_id=str(ctx.company_id),
+            ticket_id=str(ticket.id),
+            error_type=type(exc).__name__,
+        )
 
 
 def _assert_magic(raw: bytes, content_type: str) -> None:

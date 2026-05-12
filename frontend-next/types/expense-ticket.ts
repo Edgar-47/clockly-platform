@@ -43,7 +43,7 @@ export interface ExpenseTicket {
   rejected_at: string | null;
   paid_by_user_id: string | null;
   paid_at: string | null;
-  attachment_url: string | null;
+  attachment_key: string | null;
   attachment_file_name: string | null;
   attachment_mime_type: string | null;
   attachment_size: number | null;

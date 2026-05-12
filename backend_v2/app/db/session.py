@@ -10,19 +10,15 @@ settings = get_settings()
 
 engine = create_engine(
     settings.database_url,
-    # Keep connections alive across the pool lifespan and discard stale ones.
     pool_pre_ping=True,
     future=True,
-    # Tune these to your expected concurrent-user count.
-    # pool_size: persistent connections kept open at all times.
-    # max_overflow: temporary extra connections allowed under load.
-    # pool_recycle: discard connections older than 1h to avoid server-side timeouts.
-    # pool_timeout: raise after 10s if no connection is available (fail fast).
-    pool_size=20,
-    max_overflow=40,
-    pool_recycle=3600,
+    # Tune via CLOCKLY_DB_POOL_SIZE / CLOCKLY_DB_MAX_OVERFLOW.
+    # Default (5+10) is safe for Neon free/launch. Use the Neon pooler endpoint
+    # (ep-xxx-pooler.*.neon.tech) to allow higher values without hitting DB limits.
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_recycle=settings.db_pool_recycle,
     pool_timeout=10,
-    # Hard limit per statement: prevents runaway queries from blocking the pool.
     connect_args={"options": "-c statement_timeout=30000"},
 )
 
@@ -41,4 +37,3 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
-

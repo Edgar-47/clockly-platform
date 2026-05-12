@@ -260,7 +260,7 @@ export function ExpenseTicketsTable({
                               </DropdownMenuItem>
                             )}
 
-                            {t.attachment_url && (
+                            {t.attachment_key && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

@@ -1,3 +1,5 @@
+# Production dependencies only (no test/lint tooling).
+# Dev + test deps live in the root requirements.txt.
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.34,<1.0
 SQLAlchemy>=2.0,<3.0
@@ -15,7 +17,4 @@ openpyxl>=3.1,<4.0
 reportlab>=4.2,<5.0
 stripe>=11.6,<12.0
 boto3>=1.35,<2.0
-pytest>=8.3,<9.0
-testcontainers[postgres]>=4.9,<5.0
 httpx>=0.28,<1.0
-ruff>=0.9,<1.0

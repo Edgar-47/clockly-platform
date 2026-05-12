@@ -109,7 +109,7 @@ class ExpenseTicketRead(BaseModel):
     rejected_at: datetime | None
     paid_by_user_id: UUID | None
     paid_at: datetime | None
-    attachment_url: str | None
+    attachment_key: str | None
     attachment_file_name: str | None
     attachment_mime_type: str | None
     attachment_size: int | None

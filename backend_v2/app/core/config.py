@@ -75,6 +75,16 @@ class Settings(BaseSettings):
         default="http://localhost:3000/upgrade?billing=cancelled",
         validation_alias="CLOCKLY_BILLING_CANCEL_URL",
     )
+    db_pool_size: int = Field(default=5, validation_alias="CLOCKLY_DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=10, validation_alias="CLOCKLY_DB_MAX_OVERFLOW")
+    db_pool_recycle: int = Field(default=3600, validation_alias="CLOCKLY_DB_POOL_RECYCLE")
+    storage_backend: str = Field(default="local", validation_alias="CLOCKLY_STORAGE_BACKEND")
+    storage_local_root: str = Field(default="uploads/private", validation_alias="CLOCKLY_STORAGE_LOCAL_ROOT")
+    s3_bucket: str | None = Field(default=None, validation_alias="CLOCKLY_S3_BUCKET")
+    s3_endpoint_url: str | None = Field(default=None, validation_alias="CLOCKLY_S3_ENDPOINT_URL")
+    s3_access_key_id: str | None = Field(default=None, validation_alias="CLOCKLY_S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str | None = Field(default=None, validation_alias="CLOCKLY_S3_SECRET_ACCESS_KEY")
+    s3_region: str = Field(default="auto", validation_alias="CLOCKLY_S3_REGION")
 
     @field_validator("cors_allowed_origins", "trusted_hosts", mode="before")
     @classmethod
@@ -95,7 +105,7 @@ class Settings(BaseSettings):
             return "postgresql+psycopg://" + clean.removeprefix("postgresql://")
         return clean
 
-    @field_validator("rate_limit_backend", "email_provider", "log_format")
+    @field_validator("rate_limit_backend", "email_provider", "log_format", "storage_backend")
     @classmethod
     def normalize_lowercase_setting(cls, value: str) -> str:
         return value.strip().lower()
@@ -118,6 +128,8 @@ class Settings(BaseSettings):
             raise ValueError("CLOCKLY_RATE_LIMIT_BACKEND must be 'memory' or 'redis'.")
         if self.log_format not in {"console", "json"}:
             raise ValueError("CLOCKLY_LOG_FORMAT must be 'console' or 'json'.")
+        if self.storage_backend not in {"local", "r2"}:
+            raise ValueError("CLOCKLY_STORAGE_BACKEND must be 'local' or 'r2'.")
         if self.email_provider not in {"noop", "smtp", "resend", "sendgrid", "mailgun"}:
             raise ValueError("CLOCKLY_EMAIL_PROVIDER must be 'noop', 'smtp', 'resend', 'sendgrid', or 'mailgun'.")
         if self.email_provider != "noop" and not self.email_from:
@@ -126,9 +138,17 @@ class Settings(BaseSettings):
             raise ValueError("CLOCKLY_EMAIL_SMTP_HOST must be set when CLOCKLY_EMAIL_PROVIDER=smtp.")
         if self.email_provider == "resend" and not self.email_resend_api_key:
             raise ValueError("CLOCKLY_EMAIL_RESEND_API_KEY must be set when CLOCKLY_EMAIL_PROVIDER=resend.")
+        if self.storage_backend == "r2":
+            _require_non_empty("CLOCKLY_S3_BUCKET", self.s3_bucket)
+            _require_non_empty("CLOCKLY_S3_ENDPOINT_URL", self.s3_endpoint_url)
+            _require_non_empty("CLOCKLY_S3_ACCESS_KEY_ID", self.s3_access_key_id)
+            _require_non_empty("CLOCKLY_S3_SECRET_ACCESS_KEY", self.s3_secret_access_key)
+            _require_non_empty("CLOCKLY_S3_REGION", self.s3_region)
         if self.environment.lower() == "production":
             if self.secret_key in {"", "change-me-in-production"} or len(self.secret_key) < 32:
                 raise ValueError("CLOCKLY_SECRET_KEY must be a production secret with at least 32 characters.")
+            if self.storage_backend != "r2":
+                raise ValueError("CLOCKLY_STORAGE_BACKEND must be 'r2' in production.")
             _require_https("CLOCKLY_FRONTEND_BASE_URL", self.frontend_base_url)
             _require_https("CLOCKLY_BILLING_SUCCESS_URL", self.billing_success_url)
             _require_https("CLOCKLY_BILLING_CANCEL_URL", self.billing_cancel_url)
@@ -154,6 +174,11 @@ class Settings(BaseSettings):
 def _require_https(name: str, value: str) -> None:
     if not value.lower().startswith("https://"):
         raise ValueError(f"{name} must use https:// in production.")
+
+
+def _require_non_empty(name: str, value: str | None) -> None:
+    if not value or not value.strip():
+        raise ValueError(f"{name} must be set when CLOCKLY_STORAGE_BACKEND=r2.")
 
 
 @lru_cache
