@@ -17,6 +17,7 @@ venv/
 !.env.example
 !.env.development.example
 !.env.production.example
+!.env.local.example
 
 # IDE / local agent state
 .idea/
@@ -24,11 +25,6 @@ venv/
 .claude/
 
 # Runtime data
-backend/app/data/*.sqlite3
-backend/app/data/*.sqlite3-*
-backend/app/data/*.db
-backend/app/data/*.db-*
-backend/app/data/_pytest_tmp/
 exports/
 uploads/
 
@@ -36,6 +32,11 @@ uploads/
 *.xlsx
 *.pdf
 *.log
+.next/
+node_modules/
+playwright-report/
+test-results/
+*.tsbuildinfo
 
 # OS
 .DS_Store

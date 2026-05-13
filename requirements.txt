@@ -1,27 +1,21 @@
-# ── Web framework ──────────────────────────────────────────────────────────────
-fastapi>=0.111.0
-uvicorn[standard]>=0.29.0
-# Jinja2 is required by FastAPI for HTML templates
-jinja2>=3.1.4
-# python-multipart is required for Form data parsing (login, employee forms)
-python-multipart>=0.0.9
-# itsdangerous is used by Starlette's SessionMiddleware to sign the cookie
-itsdangerous>=2.2.0
-
-# ── Data validation (FastAPI uses Pydantic internally) ──────────────────────
-pydantic>=2.7.0
-
-# Database
-psycopg[binary]>=3.2.0
-python-dotenv>=1.0.1
-
-# ── Exports ────────────────────────────────────────────────────────────────────
-openpyxl==3.1.5
-reportlab>=4.2
-
-# ── Development / testing ──────────────────────────────────────────────────────
-pytest>=8.0
-httpx>=0.27.0          # async test client for FastAPI endpoints
-
-# ── Desktop app (LEGACY — only needed if running the old Tkinter UI) ────────────
-# customtkinter==5.2.2  # Uncomment only if using the old desktop UI
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+SQLAlchemy>=2.0,<3.0
+psycopg[binary]>=3.2,<4.0
+alembic>=1.14,<2.0
+pydantic>=2.10,<3.0
+email-validator>=2.2,<3.0
+pydantic-settings>=2.7,<3.0
+python-multipart>=0.0.20,<1.0
+PyJWT>=2.10,<3.0
+redis>=5.2,<6.0
+structlog>=25.1,<26.0
+sentry-sdk>=2.24,<3.0
+openpyxl>=3.1,<4.0
+reportlab>=4.2,<5.0
+stripe>=11.6,<12.0
+boto3>=1.35,<2.0
+pytest>=8.3,<9.0
+testcontainers[postgres]>=4.9,<5.0
+httpx>=0.28,<1.0
+ruff>=0.9,<1.0

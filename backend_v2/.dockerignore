@@ -1,0 +1,31 @@
+# Environment and secrets — never bake into image
+.env
+.env.*
+
+# Test and dev tooling
+tests/
+seed.py
+scripts/
+
+# Python artefacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Virtual environments
+.venv/
+venv/
+
+# Local uploads (production uses R2)
+uploads/
+
+# Docs and misc
+*.md
+Dockerfile
+.dockerignore
+fly.toml

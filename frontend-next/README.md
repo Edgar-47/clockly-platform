@@ -1,0 +1,78 @@
+# ClockLy Frontend Next
+
+`frontend-next/` es el frontend web real de ClockLy. No convive con un
+frontend Jinja ni con otra SPA activa dentro de este repo.
+
+## Architecture Source of Truth
+
+- Next.js App Router es la unica capa web visible al usuario.
+- La sesion vive en cookies HttpOnly emitidas por `backend_v2`.
+- El frontend usa `GET /auth/me` como fuente de verdad del usuario actual.
+- No se guardan tokens en `localStorage`.
+- El proxy de Next solo hace el gate inicial por presencia de cookie; la
+  autorizacion real se resuelve con la sesion del backend.
+
+## Rutas activas
+
+### Publicas
+
+- `/`
+- `/login`
+- `/register-company`
+- `/forgot-password`
+- `/reset-password/{token}`
+- `/accept-invitation/{token}`
+- `/access-unavailable`
+
+### Admin
+
+- `/dashboard`
+- `/onboarding`
+- `/employees`
+- `/sessions`
+- `/analytics`
+- `/tickets`
+- `/settings`
+- `/kiosk`
+
+### Employee
+
+- `/employee`
+
+## Rutas retiradas del flujo principal
+
+Estas rutas existen solo para redirigir fuera de superficies no listas:
+
+- `/expenses`
+- `/businesses`
+- `/schedules`
+- `/superadmin`
+
+## Arranque
+
+```powershell
+npm install
+$env:NEXT_PUBLIC_API_URL="http://127.0.0.1:8010"
+npm run dev
+```
+
+## Validacion
+
+```powershell
+npm run type-check
+npm run lint
+```
+
+## Notas operativas
+
+- El kiosk ya no es una demo publica: requiere sesion admin activa.
+- `/register-company` crea tenant + owner y redirige al wizard `/onboarding`.
+- `/forgot-password` y `/reset-password/{token}` usan el reset real del
+  backend; no exponen si un email existe.
+- Solo aparecen en el kiosk empleados activos con PIN configurado.
+- Los E2E autenticados saltan localmente si no hay `E2E_OWNER_PASSWORD`, pero
+  fallan explicitamente en CI cuando `E2E_AUTH_REQUIRED=true`.
+- Las exportaciones, metricas, tickets y fichajes dependen de endpoints reales
+  del backend.
+- Si una superficie no tiene backend y flujo completo, debe permanecer fuera de
+  la navegacion principal.
