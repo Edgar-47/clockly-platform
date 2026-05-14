@@ -77,12 +77,14 @@ app = FastAPI(
     description="ClockLy REST API for web, kiosk and mobile clients.",
     docs_url="/docs" if settings.environment != "production" else None,
     redoc_url="/redoc" if settings.environment != "production" else None,
+    openapi_url="/openapi.json" if settings.environment != "production" else None,
 )
 
 logger.info(
     "app.settings.loaded",
     environment=settings.environment,
     docs_enabled=app.docs_url is not None,
+    openapi_enabled=app.openapi_url is not None,
     trusted_hosts=settings.trusted_hosts,
     trusted_hosts_env_present=os.getenv("CLOCKLY_TRUSTED_HOSTS") is not None,
     cors_allowed_origins=settings.cors_allowed_origins,

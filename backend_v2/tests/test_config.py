@@ -28,7 +28,7 @@ def _production_settings(**overrides) -> Settings:
         "CLOCKLY_S3_REGION": "auto",
     }
     values.update(overrides)
-    return Settings(**values)
+    return Settings(_env_file=None, **values)
 
 
 def test_production_rejects_disabled_rate_limiting():
@@ -48,10 +48,11 @@ def test_production_requires_redis_rate_limiting():
 
 def test_smtp_email_requires_sender_and_host():
     with pytest.raises(ValidationError, match="CLOCKLY_EMAIL_FROM"):
-        Settings(CLOCKLY_EMAIL_PROVIDER="smtp")
+        Settings(_env_file=None, CLOCKLY_EMAIL_PROVIDER="smtp")
 
     with pytest.raises(ValidationError, match="CLOCKLY_EMAIL_SMTP_HOST"):
         Settings(
+            _env_file=None,
             CLOCKLY_EMAIL_PROVIDER="smtp",
             CLOCKLY_EMAIL_FROM="no-reply@clockly.example",
         )
@@ -64,7 +65,7 @@ def test_production_requires_transactional_email_provider():
 
 def test_r2_storage_requires_s3_settings():
     with pytest.raises(ValidationError, match="CLOCKLY_S3_BUCKET"):
-        Settings(CLOCKLY_STORAGE_BACKEND="r2")
+        Settings(_env_file=None, CLOCKLY_STORAGE_BACKEND="r2")
 
 
 def test_production_requires_r2_storage():
