@@ -1,3 +1,4 @@
+import os
 import time
 import uuid
 
@@ -5,7 +6,10 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.datastructures import Headers, URL
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.types import Receive, Scope, Send
 import structlog
 
 from app.api.router import api_router
@@ -23,6 +27,50 @@ configure_logging(settings)
 configure_sentry(settings)
 logger = structlog.get_logger(__name__)
 
+
+class LoggingTrustedHostMiddleware(TrustedHostMiddleware):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if self.allow_any or scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        raw_host = headers.get("host", "")
+        host = raw_host.split(":")[0]
+        is_valid_host = False
+        found_www_redirect = False
+        for pattern in self.allowed_hosts:
+            if host == pattern or (pattern.startswith("*") and host.endswith(pattern[1:])):
+                is_valid_host = True
+                break
+            if "www." + host == pattern:
+                found_www_redirect = True
+
+        if is_valid_host:
+            await self.app(scope, receive, send)
+            return
+
+        logger.warning(
+            "request.rejected_by_trusted_host",
+            method=scope.get("method"),
+            path=scope.get("path"),
+            host=raw_host,
+            normalized_host=host,
+            x_forwarded_host=headers.get("x-forwarded-host"),
+            x_forwarded_proto=headers.get("x-forwarded-proto"),
+            fly_region=headers.get("fly-region"),
+            fly_forwarded_port=headers.get("fly-forwarded-port"),
+            user_agent=headers.get("user-agent"),
+            allowed_hosts=self.allowed_hosts,
+        )
+        if found_www_redirect and self.www_redirect:
+            url = URL(scope=scope)
+            response = RedirectResponse(url=str(url.replace(netloc="www." + url.netloc)))
+        else:
+            response = PlainTextResponse("Invalid host header", status_code=400)
+        await response(scope, receive, send)
+
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -31,8 +79,18 @@ app = FastAPI(
     redoc_url="/redoc" if settings.environment != "production" else None,
 )
 
+logger.info(
+    "app.settings.loaded",
+    environment=settings.environment,
+    docs_enabled=app.docs_url is not None,
+    trusted_hosts=settings.trusted_hosts,
+    trusted_hosts_env_present=os.getenv("CLOCKLY_TRUSTED_HOSTS") is not None,
+    cors_allowed_origins=settings.cors_allowed_origins,
+    trust_proxy_headers=settings.trust_proxy_headers,
+)
+
 if settings.trusted_hosts:
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+    app.add_middleware(LoggingTrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
 if settings.cors_allowed_origins:
     app.add_middleware(
@@ -86,6 +144,10 @@ async def add_request_context(request: Request, call_next):
         "request.completed",
         method=request.method,
         path=request.url.path,
+        host=request.headers.get("host"),
+        x_forwarded_host=request.headers.get("x-forwarded-host"),
+        x_forwarded_proto=request.headers.get("x-forwarded-proto"),
+        fly_region=request.headers.get("fly-region"),
         status_code=response.status_code,
         duration_ms=duration_ms,
     )
@@ -160,7 +222,15 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 
 @app.get("/health", tags=["system"])
-def health() -> dict[str, str]:
+def health(request: Request) -> dict[str, str]:
+    logger.info(
+        "health.checked",
+        host=request.headers.get("host"),
+        x_forwarded_host=request.headers.get("x-forwarded-host"),
+        x_forwarded_proto=request.headers.get("x-forwarded-proto"),
+        fly_region=request.headers.get("fly-region"),
+        user_agent=request.headers.get("user-agent"),
+    )
     return {"status": "ok"}
 
 
