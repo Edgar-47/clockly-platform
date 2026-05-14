@@ -28,7 +28,7 @@ primary_region = 'cdg'
   CLOCKLY_S3_BUCKET = 'clockly-prod-uploads'
   CLOCKLY_S3_REGION = 'auto'
   CLOCKLY_STORAGE_BACKEND = 'r2'
-  CLOCKLY_TRUSTED_HOSTS = 'api.clockly.es,clockly-api.fly.dev,clockly-api.internal'
+  CLOCKLY_TRUSTED_HOSTS = 'api.clockly.es,clockly-api.fly.dev,*.fly.dev,clockly-api.internal,localhost,127.0.0.1,0.0.0.0'
   CLOCKLY_TRUST_PROXY_HEADERS = 'true'
 
 [http_service]
@@ -46,6 +46,9 @@ primary_region = 'cdg'
     method = 'GET'
     path = '/health'
     protocol = 'http'
+
+    [http_service.checks.headers]
+      Host = 'clockly-api.fly.dev'
 
 [[vm]]
   memory = '512mb'
