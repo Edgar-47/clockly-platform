@@ -70,7 +70,6 @@ primary_region = "mad"   # Madrid — closest to Spain / eu-west-2 Neon region
     path         = "/health"
     protocol     = "http"
     timeout      = "5s"
-    host         = "clockly-api.fly.dev"
 
 # ── VM sizing ─────────────────────────────────────────────────────────────────
 [[vm]]

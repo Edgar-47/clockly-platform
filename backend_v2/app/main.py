@@ -5,7 +5,16 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware as _TrustedHostMiddleware
+
+
+class TrustedHostMiddleware(_TrustedHostMiddleware):
+    """Skip host validation for the /health endpoint so Fly.io health checks pass."""
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http" and scope.get("path") == "/health":
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
 import structlog
 
 from app.api.router import api_router
