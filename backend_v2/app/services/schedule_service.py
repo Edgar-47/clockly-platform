@@ -67,7 +67,7 @@ class ScheduleService:
         self.repo = ScheduleRepository(db, company_id=company_id)
 
     def list_schedules(self, *, include_inactive: bool = False) -> tuple[list[ScheduleRead], int]:
-        schedules = self.repo.list(include_inactive=include_inactive)
+        schedules = self.repo.find_all(include_inactive=include_inactive)
         total = self.repo.count(include_inactive=include_inactive)
         ids = [s.id for s in schedules]
         counts = self.repo.employee_counts(ids)

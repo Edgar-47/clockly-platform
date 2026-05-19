@@ -12,7 +12,7 @@ class ScheduleRepository:
         self.db = db
         self.company_id = company_id
 
-    def list(self, *, include_inactive: bool = False) -> list[Schedule]:
+    def find_all(self, *, include_inactive: bool = False) -> list[Schedule]:
         stmt = select(Schedule).where(Schedule.company_id == self.company_id)
         if not include_inactive:
             stmt = stmt.where(Schedule.is_active.is_(True))
