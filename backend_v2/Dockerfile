@@ -22,10 +22,11 @@ WORKDIR /app
 # Copy installed packages and executables (uvicorn, alembic, …) from builder.
 COPY --from=builder /install /usr/local
 
-# Application source only — no tests, no scripts, no dev tooling.
+# Application source plus the staging cleanup utility. Tests and dev tooling stay out.
 COPY app/     app/
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
+COPY scripts/cleanup_smoke_data.py scripts/cleanup_smoke_data.py
 
 USER 1001
 

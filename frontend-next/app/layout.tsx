@@ -5,11 +5,13 @@ import { Providers } from "@/components/shared/providers";
 import { ServiceWorkerRegistration } from "@/components/shared/service-worker-registration";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://app.clockly.es"),
+  applicationName: "ClockLy",
   title: {
     default: "ClockLy",
     template: "%s · ClockLy",
   },
-  description: "Sistema de control horario y gestión de empleados para negocios modernos.",
+  description: "Software de control horario y gestión de empleados para pequeñas empresas.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
     title: "ClockLy",
   },
   icons: {
-    apple: "/icons/icon-192.png",
+    icon: [{ url: "/clockly-flow-icon.svg", type: "image/svg+xml" }],
   },
 };
 

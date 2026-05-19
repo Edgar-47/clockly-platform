@@ -5,7 +5,9 @@
 # Test and dev tooling
 tests/
 seed.py
-scripts/
+scripts/*
+!scripts/
+!scripts/cleanup_smoke_data.py
 
 # Python artefacts
 __pycache__/

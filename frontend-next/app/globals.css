@@ -120,4 +120,35 @@
   .shine:hover::after {
     opacity: 1;
   }
+
+  .landing-float {
+    animation: clockly-float 7s ease-in-out infinite;
+  }
+
+  .landing-float-slow {
+    animation: clockly-float 9s ease-in-out infinite reverse;
+  }
+}
+
+@keyframes clockly-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

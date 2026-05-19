@@ -114,6 +114,24 @@ Superficies retiradas del flujo principal:
 - `/schedules` redirige a `/dashboard`
 - `/superadmin` queda fuera del flujo principal; superadmin ve `/access-unavailable`
 
+## Landing comercial pública
+
+- La landing pública vive en `frontend-next/app/page.tsx`.
+- Posicionamiento actual: software sencillo de control horario para pequeñas
+  empresas, restaurantes, barberías, centros, talleres y negocios locales.
+- CTAs principales:
+  - Registro: `https://app.clockly.es/register-company`
+  - Login: `https://app.clockly.es/login`
+- SEO público:
+  - Metadata de landing con canonical `https://app.clockly.es`
+  - Open Graph dinámico en `frontend-next/app/opengraph-image.tsx`
+  - `frontend-next/app/robots.ts`
+  - `frontend-next/app/sitemap.ts`
+  - JSON-LD `WebApplication` y `FAQPage`
+- Las rutas privadas se mantienen fuera del sitemap y reciben cabecera
+  `X-Robots-Tag: noindex, nofollow` en producción.
+- Guía de mantenimiento: `docs/LANDING_PAGE.md`.
+
 APIs existentes pero no expuestas en la navegacion web actual:
 
 - `/schedules/*`

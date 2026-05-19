@@ -1,7 +1,7 @@
 {
-  "name": "ClockLy — Control Horario",
+  "name": "ClockLy - Control Horario",
   "short_name": "ClockLy",
-  "description": "Sistema de control horario y gestión de empleados para negocios modernos.",
+  "description": "Software de control horario y gestión de empleados para pequeñas empresas.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -11,16 +11,10 @@
   "lang": "es",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/clockly-flow-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
   "shortcuts": [

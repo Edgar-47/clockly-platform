@@ -1,5 +1,29 @@
 import type { NextConfig } from "next";
 
+const NOINDEX_ROUTES = [
+  "/dashboard/:path*",
+  "/onboarding/:path*",
+  "/employees/:path*",
+  "/sessions/:path*",
+  "/analytics/:path*",
+  "/tickets/:path*",
+  "/cash-closures/:path*",
+  "/salaries/:path*",
+  "/locations/:path*",
+  "/work-locations/:path*",
+  "/settings/:path*",
+  "/upgrade/:path*",
+  "/kiosk/:path*",
+  "/employee/:path*",
+  "/businesses/:path*",
+  "/expenses/:path*",
+  "/schedules/:path*",
+  "/superadmin/:path*",
+  "/access-unavailable/:path*",
+  "/accept-invitation/:path*",
+  "/reset-password/:path*",
+];
+
 const nextConfig: NextConfig = {
   output: "standalone",
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
@@ -14,6 +38,10 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
         ],
       },
+      ...NOINDEX_ROUTES.map((source) => ({
+        source,
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      })),
       {
         source: "/:path*",
         headers: [

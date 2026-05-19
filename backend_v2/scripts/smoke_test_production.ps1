@@ -1,10 +1,39 @@
 param(
     [string]$BASE_URL = "https://clockly-api.fly.dev",
     [string]$Origin = "https://app.clockly.es",
-    [switch]$RunWriteTests
+    [switch]$RunWriteTests,
+    [switch]$RunCleanup,
+    [string]$SmokeRunId,
+    [string]$FlyApp = "clockly-api"
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($SmokeRunId)) {
+    $SmokeRunId = "smoke_" + (Get-Date).ToUniversalTime().ToString("yyyyMMddHHmmss")
+}
+
+function Invoke-SmokeCleanup {
+    param([string]$RunId, [string]$AppName)
+    if ([string]::IsNullOrWhiteSpace($RunId)) {
+        throw "SmokeRunId is required for cleanup."
+    }
+
+    $command = "python scripts/cleanup_smoke_data.py --smoke-run-id $RunId --confirm"
+    Write-Output "Running cleanup for SmokeRunId=$RunId on Fly app $AppName"
+    $output = & fly ssh console -a $AppName --command $command 2>&1
+    $exitCode = $LASTEXITCODE
+    $output | ForEach-Object { Write-Output $_ }
+    $outputText = ($output | Out-String)
+    if ($exitCode -ne 0 -and $outputText -notmatch "SMOKE_CLEANUP_OK") {
+        throw "Smoke cleanup failed with exit code $exitCode."
+    }
+}
+
+if ($RunCleanup) {
+    Invoke-SmokeCleanup -RunId $SmokeRunId -AppName $FlyApp
+    return
+}
 
 $Results = New-Object System.Collections.Generic.List[object]
 $Session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -115,6 +144,8 @@ function Assert-Header {
     Add-Result $Test $Url $ExpectedContains $actual $passed
 }
 
+Write-Output "SmokeRunId=$SmokeRunId"
+
 $health = Invoke-SmokeRequest "health" "GET" "/health" @(200)
 Invoke-SmokeRequest "docs disabled in production" "GET" "/docs" @(404) | Out-Null
 Invoke-SmokeRequest "openapi disabled in production" "GET" "/openapi.json" @(404) | Out-Null
@@ -146,14 +177,13 @@ if ($health -ne $null) {
 }
 
 if ($RunWriteTests) {
-    $suffix = (Get-Date).ToUniversalTime().ToString("yyyyMMddHHmmss")
-    $email = "clockly-smoke-$suffix@example.invalid"
-    $password = "ClockLySmoke-$suffix!"
+    $email = "clockly-smoke-$SmokeRunId@example.invalid"
+    $password = "ClockLySmoke-$SmokeRunId!"
 
     $registerBody = @{
-        company_name = "ClockLy Smoke $suffix"
+        company_name = "ClockLy Smoke $SmokeRunId"
         owner_email = $email
-        owner_full_name = "ClockLy Smoke Owner"
+        owner_full_name = "ClockLy Smoke Owner $SmokeRunId"
         password = $password
         timezone = "Europe/Madrid"
         plan_type = "free"
@@ -163,7 +193,7 @@ if ($RunWriteTests) {
         Invoke-SmokeRequest "auth/me with session" "GET" "/auth/me" @(200) @{} $null $true | Out-Null
         $employeeBody = @{
             first_name = "Smoke"
-            last_name = "Employee"
+            last_name = $SmokeRunId
             role_title = "QA"
             pin = "1234"
         }
@@ -174,7 +204,7 @@ if ($RunWriteTests) {
             $clockInBody = @{
                 employee_id = $employeeData.id
                 method = "web"
-                notes = "Production smoke test"
+                notes = "Production smoke test $SmokeRunId"
             }
             $clockIn = Invoke-SmokeRequest "attendance clock-in" "POST" "/attendance/clock-in" @(201) @{ Origin = $Origin } $clockInBody $true
             if ($clockIn -ne $null -and $clockIn.Status -eq 201) {
@@ -182,18 +212,25 @@ if ($RunWriteTests) {
                 $clockOutBody = @{
                     session_id = $sessionData.id
                     method = "web"
-                    notes = "Production smoke test cleanup"
+                    notes = "Production smoke cleanup $SmokeRunId"
                 }
                 Invoke-SmokeRequest "attendance clock-out" "POST" "/attendance/clock-out" @(200) @{ Origin = $Origin } $clockOutBody $true | Out-Null
             }
         }
-        Invoke-SmokeRequest "logout" "POST" "/auth/logout" @(200) @{ Origin = $Origin } $null $true | Out-Null
+        Invoke-SmokeRequest "billing checkout test" "POST" "/billing/checkout" @(200) @{ Origin = $Origin } @{ plan_type = "pro" } $true | Out-Null
+        Invoke-SmokeRequest "logout after register" "POST" "/auth/logout" @(200) @{ Origin = $Origin } $null $true | Out-Null
+
+        $LoginSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $script:Session = $LoginSession
+        Invoke-SmokeRequest "login created owner" "POST" "/auth/login" @(200) @{ Origin = $Origin } @{ email = $email; password = $password } $true | Out-Null
+        Invoke-SmokeRequest "refresh created owner" "POST" "/auth/refresh" @(200) @{ Origin = $Origin } $null $true | Out-Null
+        Invoke-SmokeRequest "logout after login" "POST" "/auth/logout" @(200) @{ Origin = $Origin } $null $true | Out-Null
     }
 } else {
-    Add-Result "write flows" $BASE_URL "Run with -RunWriteTests" "SKIPPED" $true "Registration, employee create and attendance are opt-in to avoid persistent test data."
+    Add-Result "write flows" $BASE_URL "Run with -RunWriteTests" "SKIPPED" $true "Registration, employee create, attendance and billing are opt-in."
 }
 
-$Results | Format-Table -AutoSize
+$Results | Format-Table -AutoSize -Wrap
 
 $failures = @($Results | Where-Object { $_.Result -eq "FAIL" })
 if ($failures.Count -gt 0) {

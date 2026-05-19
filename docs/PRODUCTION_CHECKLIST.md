@@ -62,6 +62,15 @@ Complete before serving real traffic.
 
 - [ ] Build with `cd frontend-next && npm ci && npm run build`.
 - [ ] Set `NEXT_PUBLIC_API_URL` to the production backend origin at build time.
+- [ ] Confirm landing metadata title, description and canonical are correct.
+- [ ] Confirm `https://app.clockly.es/opengraph-image` renders the Open Graph image.
+- [ ] Confirm `https://app.clockly.es/robots.txt` points to the sitemap.
+- [ ] Confirm `https://app.clockly.es/sitemap.xml` does not include private routes.
+- [ ] Confirm landing CTAs point to `https://app.clockly.es/register-company`
+  and `https://app.clockly.es/login`.
+- [ ] Confirm JSON-LD contains only real ClockLy product information.
+- [ ] Run a responsive landing check on desktop and mobile.
+- [ ] Run a Lighthouse pass for Performance, Accessibility, Best Practices and SEO.
 - [ ] Verify `/kiosk` redirects unauthenticated users to `/login`.
 - [ ] Verify `/accept-invitation/{token}` is reachable without a session.
 - [ ] Verify superadmin users land on `/access-unavailable`, not tenant dashboard.
