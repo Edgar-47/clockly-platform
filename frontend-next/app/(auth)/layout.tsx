@@ -26,8 +26,13 @@ export default function AuthLayout({
 
         {children}
 
-        <p className="mt-8 text-[11px] text-ink-xmuted">
+        <p className="mt-8 text-[11px] text-ink-xmuted text-center">
           © {new Date().getFullYear()} ClockLy · Control horario para negocios
+        </p>
+        <p className="mt-1 text-[11px] text-ink-xmuted">
+          <Link href="/privacy" className="hover:underline">Privacidad</Link>
+          {" · "}
+          <Link href="/terms" className="hover:underline">Términos</Link>
         </p>
       </div>
     </div>

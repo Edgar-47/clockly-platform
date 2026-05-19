@@ -60,10 +60,10 @@ test.describe("Logout", () => {
 });
 
 test.describe("Forgot password", () => {
-  test("forgot-password page shows informational message", async ({ page }) => {
+  test("forgot-password page shows reset form", async ({ page }) => {
     await page.goto("/forgot-password");
     await expect(page.getByRole("heading", { name: /recuperar acceso/i })).toBeVisible();
-    await expect(page.getByText(/Contacta con el administrador/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /enviar enlace/i })).toBeVisible();
   });
 
   test("forgot-password page has link back to login", async ({ page }) => {
