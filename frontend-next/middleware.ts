@@ -8,6 +8,8 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/accept-invitation",
+  "/privacy",
+  "/terms",
   "/opengraph-image",
 ];
 const SESSION_COOKIES = ["clockly_access", "clockly_refresh"];

@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "ClockLy, control horario simple para pequeñas empresas";
+export const alt = "ClockLy, control horario y gestión de empleados para pymes";
 export const size = {
   width: 1200,
   height: 630,
@@ -38,7 +38,7 @@ export default function Image() {
               marginTop: 42,
             }}
           >
-            Control horario simple para pequeñas empresas
+            Control horario para pymes
           </div>
           <div
             style={{
@@ -49,7 +49,7 @@ export default function Image() {
               marginTop: 30,
             }}
           >
-            Fichajes con PIN, empleados organizados, sesiones claras y modo kiosk.
+            Fichajes, empleados, retrasos y exportaciones en una plataforma sencilla.
           </div>
         </div>
         <div

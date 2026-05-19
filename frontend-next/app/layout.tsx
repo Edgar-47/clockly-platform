@@ -5,13 +5,13 @@ import { Providers } from "@/components/shared/providers";
 import { ServiceWorkerRegistration } from "@/components/shared/service-worker-registration";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://app.clockly.es"),
+  metadataBase: new URL("https://clockly.es"),
   applicationName: "ClockLy",
   title: {
     default: "ClockLy",
     template: "%s · ClockLy",
   },
-  description: "Software de control horario y gestión de empleados para pequeñas empresas.",
+  description: "Software de control horario y gestión de empleados para pymes en España.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

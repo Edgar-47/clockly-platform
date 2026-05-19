@@ -89,6 +89,8 @@ Rutas web activas y defendibles:
 - `/login` acceso por email + password
 - `/forgot-password` solicitud real de reset por email
 - `/reset-password/{token}` cambio real de password con token
+- `/privacy` informacion provisional de privacidad pendiente de revision legal
+- `/terms` terminos provisionales pendientes de revision legal
 - `/onboarding` wizard inicial para owner/admin
 - `/dashboard` panel admin
 - `/employees` gestion de empleados
@@ -117,17 +119,20 @@ Superficies retiradas del flujo principal:
 ## Landing comercial pública
 
 - La landing pública vive en `frontend-next/app/page.tsx`.
-- Posicionamiento actual: software sencillo de control horario para pequeñas
-  empresas, restaurantes, barberías, centros, talleres y negocios locales.
+- Posicionamiento actual: software de control horario y gestion de empleados
+  para pymes espanolas, restaurantes, comercios, clinicas, gimnasios, talleres
+  y negocios con equipos por turnos.
 - CTAs principales:
+  - Demo privada: `mailto:clockly.contact@gmail.com`
   - Registro: `https://app.clockly.es/register-company`
   - Login: `https://app.clockly.es/login`
 - SEO público:
-  - Metadata de landing con canonical `https://app.clockly.es`
+  - Metadata de landing con canonical `https://clockly.es`
   - Open Graph dinámico en `frontend-next/app/opengraph-image.tsx`
   - `frontend-next/app/robots.ts`
   - `frontend-next/app/sitemap.ts`
-  - JSON-LD `WebApplication` y `FAQPage`
+  - JSON-LD `SoftwareApplication`, `Organization`, `WebSite` y `FAQPage`
+  - FAQ amplia orientada a busquedas de control horario para pymes
 - Las rutas privadas se mantienen fuera del sitemap y reciben cabecera
   `X-Robots-Tag: noindex, nofollow` en producción.
 - Guía de mantenimiento: `docs/LANDING_PAGE.md`.

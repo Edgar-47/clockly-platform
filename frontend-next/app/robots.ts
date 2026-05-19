@@ -1,13 +1,13 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = "https://app.clockly.es";
+const SITE_URL = "https://clockly.es";
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/register-company", "/login"],
+        allow: ["/", "/register-company", "/login", "/privacy", "/terms"],
         disallow: [
           "/api/",
           "/_next/",
