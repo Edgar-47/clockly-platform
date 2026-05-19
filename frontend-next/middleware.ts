@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/login", "/register-company", "/forgot-password", "/reset-password", "/accept-invitation"];
+const PUBLIC_PATHS = ["/", "/login", "/register-company", "/forgot-password", "/reset-password", "/accept-invitation", "/privacy", "/terms"];
 const SESSION_COOKIES = ["clockly_access", "clockly_refresh"];
 const LEAFLET_IMAGE_SOURCES = ["https://unpkg.com", "https://*.tile.openstreetmap.org"];
 const GOOGLE_FONT_SOURCES = ["https://fonts.googleapis.com", "https://fonts.gstatic.com"];
