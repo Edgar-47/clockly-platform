@@ -423,4 +423,100 @@ Archivos incluidos en commit:
 - `docs/release-candidate-validation.md` — Informe RC local completo
 - `docs/staging-smoke-validation.md` — Este informe
 
-*Informe generado: 2026-05-19 | Validación staging real contra api.clockly.es / app.clockly.es*
+---
+
+## 20. Deploy final y smoke post-deploy (2026-05-19)
+
+### GitHub
+| Campo | Valor |
+|-------|-------|
+| Rama | `claude/amazing-swartz-761dff` |
+| Commit principal | `ff7785f` — legal pages, E2E fix, Next.js 16.2.6, docs |
+| Commit fix middleware | `af32544` — `/privacy` y `/terms` marcados como rutas públicas |
+| Remote | `https://github.com/Edgar-47/clockly-platform.git` |
+| Push | ✅ Realizado — rama nueva publicada en origin |
+
+### Archivos subidos
+- `frontend-next/app/privacy/page.tsx` — Política de Privacidad RGPD (10 secciones)
+- `frontend-next/app/terms/page.tsx` — Términos y Condiciones (15 secciones)
+- `frontend-next/app/(auth)/layout.tsx` — Footer auth con "Privacidad · Términos"
+- `frontend-next/middleware.ts` — `/privacy` y `/terms` como rutas públicas
+- `frontend-next/e2e/auth.spec.ts` — Fix test stale
+- `frontend-next/package-lock.json` — Next.js 16.2.6
+- `docs/release-candidate-validation.md`
+- `docs/staging-smoke-validation.md`
+
+### Deploy
+| App | Imagen | Resultado |
+|-----|--------|-----------|
+| `clockly-app` | `deployment-01KRZWS5EP9QSZ0EZ7JK7T0TQK` | ✅ Next.js 16.2.6 desplegado |
+| `clockly-api` | `deployment-01KRNPJQXP5EKZHFD15GMNFJZ4` | ➡️ Sin cambios — no desplegado |
+
+### Frontend smoke post-deploy
+| Ruta | Resultado | Observación |
+|------|-----------|-------------|
+| `/privacy` | ✅ 200 | Accesible sin login, CSP nonce funcional |
+| `/terms` | ✅ 200 | Accesible sin login, CSP nonce funcional |
+| `/login` | ✅ 200 | Funcional |
+| `/register-company` | ✅ 200 | Funcional |
+| `/forgot-password` | ✅ 200 | Funcional |
+| `/dashboard` | ✅ 307 → /login | Protegida correctamente |
+| CORS `app.clockly.es` | ✅ allow-origin presente | Correcto |
+| CORS `evil.com` | ✅ sin allow-origin | Correcto |
+| Security headers | ✅ HSTS, X-Frame-Options, CSP, Referrer | Todos presentes |
+| Bug fix middleware | ✅ `/privacy` y `/terms` públicas | Detectado y corregido en commit `af32544` |
+
+### Backend smoke post-deploy
+| Endpoint | Resultado |
+|----------|-----------|
+| `GET /health` | ✅ 200 `{"status":"ok"}` |
+| `GET /docs` | ✅ 404 (desactivado en prod) |
+| `GET /openapi.json` | ✅ 404 (desactivado en prod) |
+
+### Functional smoke
+| Check | Resultado |
+|-------|-----------|
+| Login QA (`qa_staging_20260514@clockly.test`) | ✅ 200, cookies HttpOnly+Secure+SameSite=lax |
+| `/auth/me` → role/plan | ✅ role: owner, plan_type: free |
+| Employees list | ✅ 5 empleados (Ana, Arnau, Carlos, Laia, Nuria) |
+| Sessions list | ✅ 2 sessiones en staging |
+| Forgot password (`/auth/request-password-reset`) | ✅ 200 `{"ok":true,...}` |
+| Stripe checkout (`/billing/checkout`) | ✅ URL real `cs_test_...` generada |
+| CSRF check | ✅ Bloqueó `Origin` incorrecto con `forbidden` |
+
+### Email validation
+| Check | Resultado |
+|-------|-----------|
+| `POST /auth/request-password-reset` | ✅ 200 OK |
+| Log backend Resend | ✅ `POST https://api.resend.com/emails "HTTP/1.1 200 OK"` |
+| Confirmación inbox físico | ❌ NOT CONFIRMED — no hay acceso a bandeja `@clockly.test` |
+
+### Stripe validation
+| Check | Resultado |
+|-------|-----------|
+| Checkout URL generada | ✅ `checkout.stripe.com/c/pay/cs_test_...` |
+| Portal billing | ➡️ No validado (requiere Stripe customer activo) |
+| Webhook end-to-end | ❌ NOT VALIDATED — Stripe CLI no disponible |
+| Stripe CLI disponible | ❌ `command not found` |
+
+Comandos para validar cuando esté disponible:
+```bash
+stripe login
+stripe listen --forward-to https://api.clockly.es/billing/webhook
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.updated
+stripe trigger customer.subscription.deleted
+```
+
+### Estado final actualizado
+**GO-PILOT** — ClockLy está listo para demo interna, demo comercial controlada y piloto privado sin cobro.
+
+| Escenario | Estado |
+|-----------|--------|
+| Demo interna | ✅ **GO** |
+| Demo comercial controlada | ✅ **GO** |
+| Piloto privado sin cobro (plan FREE/PRO manual) | ✅ **GO** |
+| Cliente real pagando (billing automático) | ❌ **NO-GO** hasta Stripe webhook validado |
+| Lanzamiento público amplio | ❌ **NO-GO** hasta revisión legal páginas + inbox email confirmado |
+
+*Informe actualizado: 2026-05-19 — post-deploy real | api.clockly.es / app.clockly.es | Next.js 16.2.6*
