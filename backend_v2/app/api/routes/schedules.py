@@ -1,11 +1,19 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
-from app.schemas.schedule import ScheduleCreate, ScheduleListResponse, ScheduleRead, ScheduleUpdate
+from app.models.employee import Employee
+from app.schemas.schedule import (
+    EmployeeScheduleAssign,
+    ScheduleCreate,
+    ScheduleListResponse,
+    ScheduleRead,
+    ScheduleUpdate,
+)
 from app.services.schedule_service import ScheduleService
 
 
@@ -50,3 +58,64 @@ def update_schedule(
     db: Session = Depends(get_db),
 ) -> ScheduleRead:
     return ScheduleService(db, company_id=ctx.company_id).update_schedule(schedule_id, payload)
+
+
+@router.delete("/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_schedule(
+    schedule_id: UUID,
+    ctx: TenantContext = Depends(require_permission("schedules:write")),
+    db: Session = Depends(get_db),
+) -> None:
+    ScheduleService(db, company_id=ctx.company_id).delete_schedule(schedule_id)
+
+
+# ── Employee schedule assignment ──────────────────────────────────────────────
+
+@router.get("/employees/{employee_id}/schedule", response_model=ScheduleRead | None)
+def get_employee_schedule(
+    employee_id: UUID,
+    ctx: TenantContext = Depends(require_permission("schedules:read")),
+    db: Session = Depends(get_db),
+) -> ScheduleRead | None:
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.id == employee_id,
+            Employee.company_id == ctx.company_id,
+        )
+    )
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Employee not found.")
+    if employee.schedule_id is None:
+        return None
+    return ScheduleService(db, company_id=ctx.company_id).get_schedule(employee.schedule_id)
+
+
+@router.put("/employees/{employee_id}/schedule", response_model=ScheduleRead | None)
+def assign_employee_schedule(
+    employee_id: UUID,
+    payload: EmployeeScheduleAssign,
+    ctx: TenantContext = Depends(require_permission("schedules:write")),
+    db: Session = Depends(get_db),
+) -> ScheduleRead | None:
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.id == employee_id,
+            Employee.company_id == ctx.company_id,
+        )
+    )
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Employee not found.")
+
+    if payload.schedule_id is not None:
+        svc = ScheduleService(db, company_id=ctx.company_id)
+        schedule = svc.get_schedule(payload.schedule_id)  # raises 404 if not found
+        employee.schedule_id = payload.schedule_id
+        db.add(employee)
+        db.commit()
+        return schedule
+
+    # Unassign
+    employee.schedule_id = None
+    db.add(employee)
+    db.commit()
+    return None

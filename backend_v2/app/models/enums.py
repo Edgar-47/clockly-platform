@@ -132,6 +132,13 @@ class LateArrivalStatus(StrEnum):
     IGNORED = "ignored"
 
 
+class ScheduleType(StrEnum):
+    NONE = "none"
+    FIXED = "fixed"
+    WEEKLY_CUSTOM = "weekly_custom"
+    FLEXIBLE_WINDOW = "flexible_window"
+
+
 class CashClosureShift(StrEnum):
     MORNING = "morning"
     AFTERNOON = "afternoon"

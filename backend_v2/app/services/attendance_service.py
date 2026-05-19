@@ -493,15 +493,14 @@ class AttendanceService:
     ) -> LateArrival | None:
         """Create a LateArrival record if the employee clocked in after the grace window.
 
-        Logic:
-        1. Company must have late_arrivals_enabled = True.
-        2. Employee must have an assigned schedule.
-        3. Today must be a working day in that schedule.
-        4. delay = clock_in (local time) - scheduled entry_time
-        5. delay_after_grace = delay - grace_period_minutes
-        6. If delay_after_grace > 0 → create record (idempotent via unique constraint).
+        Supports all 4 schedule types:
+        - none: never creates a late arrival record
+        - fixed: uses schedule.entry_time + grace
+        - weekly_custom: uses the rule for that weekday + rule/schedule grace
+        - flexible_window: uses entry_window_end as the deadline
         """
         from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        from app.models.enums import ScheduleType
 
         settings = self.settings.get_or_create()
         if not settings.late_arrivals_enabled:
@@ -509,6 +508,10 @@ class AttendanceService:
 
         schedule = employee.schedule
         if schedule is None or not schedule.is_active:
+            return None
+
+        # "none" type: never detect late arrivals
+        if schedule.schedule_type == ScheduleType.NONE:
             return None
 
         # Convert UTC clock-in to company local time for comparison
@@ -520,28 +523,68 @@ class AttendanceService:
         local_clock_in = clock_in_time.astimezone(tz)
         local_date = local_clock_in.date()
         weekday = local_date.weekday()  # 0=Mon…6=Sun
-
-        day_flags = [
-            schedule.monday,
-            schedule.tuesday,
-            schedule.wednesday,
-            schedule.thursday,
-            schedule.friday,
-            schedule.saturday,
-            schedule.sunday,
-        ]
-        if not day_flags[weekday]:
-            return None
-
-        # Both times in minutes from midnight for arithmetic
-        scheduled_minutes = schedule.entry_time.hour * 60 + schedule.entry_time.minute
         actual_minutes = local_clock_in.hour * 60 + local_clock_in.minute
 
+        # Grace: prefer schedule-level override, fall back to company setting
+        company_grace = settings.late_arrival_grace_minutes
+        schedule_grace = schedule.grace_minutes if schedule.grace_minutes is not None else company_grace
+
+        scheduled_start = None  # the time we compare clock_in against
+        grace = schedule_grace
+
+        if schedule.schedule_type == ScheduleType.FIXED:
+            day_flags = [
+                schedule.monday, schedule.tuesday, schedule.wednesday, schedule.thursday,
+                schedule.friday, schedule.saturday, schedule.sunday,
+            ]
+            if not day_flags[weekday]:
+                return None
+            if schedule.entry_time is None:
+                return None
+            scheduled_start = schedule.entry_time
+
+        elif schedule.schedule_type == ScheduleType.WEEKLY_CUSTOM:
+            rule = next((r for r in schedule.rules if r.weekday == weekday), None)
+            if rule is None or not rule.is_working_day:
+                return None
+            if rule.start_time is None:
+                return None
+            scheduled_start = rule.start_time
+            if rule.grace_minutes is not None:
+                grace = rule.grace_minutes
+
+        elif schedule.schedule_type == ScheduleType.FLEXIBLE_WINDOW:
+            # Try per-day rule first
+            rule = next((r for r in schedule.rules if r.weekday == weekday), None)
+            if rule is not None:
+                if not rule.is_working_day:
+                    return None
+                deadline = rule.entry_window_end
+                if deadline is None:
+                    return None
+                scheduled_start = deadline
+                if rule.grace_minutes is not None:
+                    grace = rule.grace_minutes
+            else:
+                # Fall back to schedule-level window
+                if schedule.entry_window_end is None:
+                    return None
+                # Check working days via day flags for flexible window
+                day_flags = [
+                    schedule.monday, schedule.tuesday, schedule.wednesday, schedule.thursday,
+                    schedule.friday, schedule.saturday, schedule.sunday,
+                ]
+                if not day_flags[weekday]:
+                    return None
+                scheduled_start = schedule.entry_window_end
+        else:
+            return None
+
+        scheduled_minutes = scheduled_start.hour * 60 + scheduled_start.minute
         delay_total = actual_minutes - scheduled_minutes
         if delay_total <= 0:
             return None  # on time or early
 
-        grace = settings.late_arrival_grace_minutes
         delay_after_grace = delay_total - grace
         if delay_after_grace <= 0:
             return None  # within grace period
@@ -553,7 +596,7 @@ class AttendanceService:
             attendance_session_id=session.id,
             schedule_id=schedule.id,
             date=local_date,
-            scheduled_start_time=schedule.entry_time,
+            scheduled_start_time=scheduled_start,
             actual_clock_in_time=local_clock_in.time().replace(second=0, microsecond=0),
             delay_minutes_total=delay_total,
             delay_minutes_after_grace=delay_after_grace,

@@ -28,6 +28,7 @@ from app.models.enums import InvitationStatus
 from app.models.refresh_token import RefreshToken
 from app.models.password_reset_token import PasswordResetToken
 from app.models.schedule import Schedule
+from app.models.schedule_rule import ScheduleRule
 from app.models.salary import SalaryCalculation, SalaryProfile
 from app.models.stripe_webhook_event import StripeWebhookEvent
 from app.models.ticket import Ticket
@@ -63,6 +64,7 @@ __all__ = [
     "PasswordResetToken",
     "RefreshToken",
     "Schedule",
+    "ScheduleRule",
     "SalaryCalculation",
     "SalaryProfile",
     "SalaryType",

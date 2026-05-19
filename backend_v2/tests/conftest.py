@@ -61,6 +61,7 @@ from app.models.password_reset_token import PasswordResetToken  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.salary import SalaryCalculation, SalaryProfile  # noqa: F401
 from app.models.schedule import Schedule  # noqa: F401
+from app.models.schedule_rule import ScheduleRule  # noqa: F401
 from app.models.stripe_webhook_event import StripeWebhookEvent  # noqa: F401
 from app.models.ticket import Ticket  # noqa: F401
 from app.models.user import User

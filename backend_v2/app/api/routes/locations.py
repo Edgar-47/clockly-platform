@@ -8,7 +8,6 @@ from app.db.session import get_db
 from app.dependencies.auth import TenantContext, require_permission
 from app.models.company_location import CompanyLocation
 from app.schemas.location import LocationCreate, LocationListResponse, LocationRead, LocationUpdate
-from app.services.plans import check_plan_feature
 
 
 router = APIRouter(prefix="/locations", tags=["locations"])
@@ -33,7 +32,6 @@ def create_location(
     ctx: TenantContext = Depends(require_permission("locations:write")),
     db: Session = Depends(get_db),
 ) -> LocationRead:
-    check_plan_feature(db, ctx.company_id, "has_multi_location", actor_user_id=ctx.user.id)
     location = CompanyLocation(
         company_id=ctx.company_id,
         name=payload.name,

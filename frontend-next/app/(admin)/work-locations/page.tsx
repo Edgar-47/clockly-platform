@@ -230,33 +230,41 @@ export default function WorkLocationsPage() {
   const [editTarget, setEditTarget] = useState<WorkLocation | null>(null);
 
   const handleCreate = async (values: LocationFormValues) => {
-    await create.mutateAsync({
-      name: values.name,
-      address: values.address || undefined,
-      latitude: values.latitude !== "" ? Number(values.latitude) : undefined,
-      longitude: values.longitude !== "" ? Number(values.longitude) : undefined,
-      allowed_radius_meters: values.allowed_radius_meters,
-      is_active: values.is_active,
-    });
-    toast.success("Centro de trabajo creado.");
-    setCreateOpen(false);
-  };
-
-  const handleUpdate = async (values: LocationFormValues) => {
-    if (!editTarget) return;
-    await update.mutateAsync({
-      id: editTarget.id,
-      payload: {
+    try {
+      await create.mutateAsync({
         name: values.name,
         address: values.address || undefined,
         latitude: values.latitude !== "" ? Number(values.latitude) : undefined,
         longitude: values.longitude !== "" ? Number(values.longitude) : undefined,
         allowed_radius_meters: values.allowed_radius_meters,
         is_active: values.is_active,
-      },
-    });
-    toast.success("Centro actualizado.");
-    setEditTarget(null);
+      });
+      toast.success("Centro de trabajo creado.");
+      setCreateOpen(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al crear el centro de trabajo.");
+    }
+  };
+
+  const handleUpdate = async (values: LocationFormValues) => {
+    if (!editTarget) return;
+    try {
+      await update.mutateAsync({
+        id: editTarget.id,
+        payload: {
+          name: values.name,
+          address: values.address || undefined,
+          latitude: values.latitude !== "" ? Number(values.latitude) : undefined,
+          longitude: values.longitude !== "" ? Number(values.longitude) : undefined,
+          allowed_radius_meters: values.allowed_radius_meters,
+          is_active: values.is_active,
+        },
+      });
+      toast.success("Centro actualizado.");
+      setEditTarget(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al actualizar el centro.");
+    }
   };
 
   const handleToggleActive = (loc: WorkLocation) => {

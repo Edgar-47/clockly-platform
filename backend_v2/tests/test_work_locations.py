@@ -1,4 +1,7 @@
-"""Work location CRUD + permission tests."""
+"""Work location CRUD + permission tests.
+
+Plan gate removed from POST /locations — any plan can now create locations.
+"""
 
 import pytest
 
@@ -39,7 +42,7 @@ class TestListLocations:
 
 class TestCreateLocation:
     def test_admin_creates_location_with_coords(self, client, db):
-        company = make_company(db, plan="business")
+        company = make_company(db)
         admin = make_user(db, company=company, role=UserRole.ADMIN)
         db.commit()
 
@@ -52,7 +55,7 @@ class TestCreateLocation:
         assert data["allowed_radius_meters"] == 200
 
     def test_location_without_coords_is_valid(self, client, db):
-        company = make_company(db, plan="business")
+        company = make_company(db)
         admin = make_user(db, company=company, role=UserRole.ADMIN)
         db.commit()
 
@@ -67,7 +70,7 @@ class TestCreateLocation:
         assert data["longitude"] is None
 
     def test_only_one_coord_raises_422(self, client, db):
-        company = make_company(db, plan="business")
+        company = make_company(db)
         admin = make_user(db, company=company, role=UserRole.ADMIN)
         db.commit()
 
@@ -77,6 +80,18 @@ class TestCreateLocation:
             json={"name": "Bad", "latitude": 41.3851},  # no longitude
         )
         assert resp.status_code == 422
+
+    def test_free_plan_can_create_location(self, client, db):
+        company = make_company(db, plan="free")
+        admin = make_user(db, company=company, role=UserRole.ADMIN)
+        db.commit()
+
+        resp = client.post(
+            "/locations",
+            headers=auth_headers(admin),
+            json={"name": "Free plan location"},
+        )
+        assert resp.status_code == 201
 
     def test_employee_cannot_create(self, client, db):
         company = make_company(db)
@@ -90,10 +105,25 @@ class TestCreateLocation:
         )
         assert resp.status_code == 403
 
+    def test_cross_tenant_isolation(self, client, db):
+        company_a = make_company(db, slug="co-a", name="Co A")
+        company_b = make_company(db, slug="co-b", name="Co B")
+        admin_a = make_user(db, company=company_a, email="a@test.com", role=UserRole.ADMIN)
+        admin_b = make_user(db, company=company_b, email="b@test.com", role=UserRole.ADMIN)
+        db.commit()
+
+        # admin_a creates a location
+        loc_id = make_location(client, admin_a, name="Co A Office").json()["id"]
+
+        # admin_b cannot see it in their list
+        resp = client.get("/locations", headers=auth_headers(admin_b))
+        ids = [loc["id"] for loc in resp.json()["items"]]
+        assert loc_id not in ids
+
 
 class TestUpdateLocation:
     def test_admin_can_update_name(self, client, db):
-        company = make_company(db, plan="business")
+        company = make_company(db)
         admin = make_user(db, company=company, role=UserRole.ADMIN)
         db.commit()
 
@@ -109,7 +139,7 @@ class TestUpdateLocation:
         assert resp.json()["name"] == "New Name"
 
     def test_admin_can_update_radius(self, client, db):
-        company = make_company(db, plan="business")
+        company = make_company(db)
         admin = make_user(db, company=company, role=UserRole.ADMIN)
         db.commit()
 
@@ -123,16 +153,13 @@ class TestUpdateLocation:
         assert resp.json()["allowed_radius_meters"] == 500
 
     def test_cross_tenant_update_returns_404(self, client, db):
-        company_a = make_company(db, slug="company-a")
-        company_b = make_company(db, slug="company-b")
+        company_a = make_company(db, slug="company-a", name="A")
+        company_b = make_company(db, slug="company-b", name="B")
         admin_a = make_user(db, company=company_a, email="admin-a@test.com", role=UserRole.ADMIN)
         admin_b = make_user(db, company=company_b, email="admin-b@test.com", role=UserRole.ADMIN)
         db.commit()
 
-        loc_id = make_location(client, admin_a).json().get("id")
-        if not loc_id:
-            # plan gate — still verify that admin_b cannot reach it
-            pytest.skip("Location creation requires business plan; cross-tenant test skipped")
+        loc_id = make_location(client, admin_a).json()["id"]
 
         resp = client.patch(
             f"/locations/{loc_id}",
@@ -144,7 +171,7 @@ class TestUpdateLocation:
 
 class TestDeleteLocation:
     def test_delete_soft_deactivates(self, client, db):
-        company = make_company(db, plan="business")
+        company = make_company(db)
         admin = make_user(db, company=company, role=UserRole.ADMIN)
         db.commit()
 
@@ -166,15 +193,13 @@ class TestDeleteLocation:
         assert loc_id not in default_ids
 
     def test_cross_tenant_delete_returns_404(self, client, db):
-        company_a = make_company(db, slug="co-a")
-        company_b = make_company(db, slug="co-b")
+        company_a = make_company(db, slug="co-a", name="A")
+        company_b = make_company(db, slug="co-b", name="B")
         admin_a = make_user(db, company=company_a, email="a@test.com", role=UserRole.ADMIN)
         admin_b = make_user(db, company=company_b, email="b@test.com", role=UserRole.ADMIN)
         db.commit()
 
-        loc_id = make_location(client, admin_a).json().get("id")
-        if not loc_id:
-            pytest.skip("Location creation requires business plan")
+        loc_id = make_location(client, admin_a).json()["id"]
 
         resp = client.delete(f"/locations/{loc_id}", headers=auth_headers(admin_b))
         assert resp.status_code == 404
