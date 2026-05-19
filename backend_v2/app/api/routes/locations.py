@@ -20,6 +20,7 @@ def list_locations(
     ctx: TenantContext = Depends(require_permission("locations:read")),
     db: Session = Depends(get_db),
 ) -> LocationListResponse:
+    check_plan_feature(db, ctx.company_id, "has_multi_location", actor_user_id=ctx.user.id)
     statement = select(CompanyLocation).where(CompanyLocation.company_id == ctx.company_id)
     if not include_inactive:
         statement = statement.where(CompanyLocation.is_active.is_(True))
@@ -56,6 +57,7 @@ def update_location(
     ctx: TenantContext = Depends(require_permission("locations:write")),
     db: Session = Depends(get_db),
 ) -> LocationRead:
+    check_plan_feature(db, ctx.company_id, "has_multi_location", actor_user_id=ctx.user.id)
     location = db.scalar(
         select(CompanyLocation).where(
             CompanyLocation.id == location_id,
@@ -90,6 +92,7 @@ def delete_location(
     ctx: TenantContext = Depends(require_permission("locations:write")),
     db: Session = Depends(get_db),
 ) -> None:
+    check_plan_feature(db, ctx.company_id, "has_multi_location", actor_user_id=ctx.user.id)
     location = db.scalar(
         select(CompanyLocation).where(
             CompanyLocation.id == location_id,

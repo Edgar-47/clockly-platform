@@ -35,7 +35,7 @@ export default function AcceptInvitationPage() {
       toast.success("Invitacion aceptada.");
     },
     onError: (error: { detail?: string }) => {
-      toast.error(error.detail ?? "La invitacion no es valida o ha expirado.");
+      toast.error(error.detail ?? "La invitación no es válida o ha expirado.");
     },
   });
 
@@ -57,7 +57,7 @@ export default function AcceptInvitationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Aceptar invitacion</CardTitle>
+            <CardTitle>Aceptar invitación</CardTitle>
             <CardDescription>{previewDescription}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -67,7 +67,7 @@ export default function AcceptInvitationPage() {
                 <div>
                   <p className="text-sm font-semibold text-ink">Cuenta creada para {acceptedEmail}</p>
                   <p className="mt-1 text-sm text-ink-muted">
-                    Ya puedes iniciar sesion con la contrasena que acabas de definir.
+                    Ya puedes iniciar sesión con la contraseña que acabas de definir.
                   </p>
                 </div>
                 <Button type="button" className="w-full" onClick={() => router.replace("/login")}>
@@ -76,13 +76,13 @@ export default function AcceptInvitationPage() {
               </div>
             ) : preview.isLoading ? (
               <div className="rounded-md border border-border bg-surface-bg px-3.5 py-3 text-sm text-ink-muted">
-                Validando invitacion...
+                Validando invitación...
               </div>
             ) : preview.error || preview.data?.status !== "pending" ? (
               <div className="space-y-4">
                 <div className="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-3.5 py-3 text-sm text-danger-DEFAULT">
                   <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <span>La invitacion no es valida, ya fue usada o ha caducado.</span>
+                  <span>La invitación no es válida, ya fue usada o ha caducado.</span>
                 </div>
                 <Button asChild variant="secondary" className="w-full">
                   <Link href="/login">Volver al login</Link>
@@ -93,7 +93,7 @@ export default function AcceptInvitationPage() {
                 {acceptInvitation.isError && (
                   <div className="rounded-md border border-danger-border bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-DEFAULT">
                     {(acceptInvitation.error as { detail?: string })?.detail ??
-                      "No se pudo aceptar la invitacion. Revisa el enlace o solicita una nueva."}
+                      "No se pudo aceptar la invitación. Revisa el enlace o solicita una nueva."}
                   </div>
                 )}
 
@@ -114,7 +114,7 @@ export default function AcceptInvitationPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="password">Contrasena</Label>
+                  <Label htmlFor="password">Contraseña</Label>
                   <Input
                     id="password"
                     type="password"
@@ -137,7 +137,7 @@ export default function AcceptInvitationPage() {
         <p className="text-center text-sm text-ink-muted">
           Ya tienes cuenta?{" "}
           <Link href="/login" className="font-medium text-primary hover:underline">
-            Inicia sesion
+            Inicia sesión
           </Link>
         </p>
       </div>

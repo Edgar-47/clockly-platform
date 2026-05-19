@@ -16,7 +16,7 @@ def make_location(client, admin, *, name="Oficina", **kwargs):
 
 class TestListLocations:
     def test_admin_can_list(self, client, db):
-        company = make_company(db)
+        company = make_company(db, plan="business")
         admin = make_user(db, company=company, role=UserRole.ADMIN)
         db.commit()
 
@@ -25,12 +25,21 @@ class TestListLocations:
         assert "items" in resp.json()
 
     def test_employee_cannot_list(self, client, db):
-        company = make_company(db)
+        company = make_company(db, plan="business")
         emp_user = make_user(db, company=company, role=UserRole.EMPLOYEE)
         db.commit()
 
         resp = client.get("/locations", headers=auth_headers(emp_user))
         assert resp.status_code == 403
+
+    def test_pro_without_business_cannot_list_work_locations(self, client, db):
+        company = make_company(db, plan="pro")
+        admin = make_user(db, company=company, role=UserRole.ADMIN)
+        db.commit()
+
+        resp = client.get("/locations", headers=auth_headers(admin))
+        assert resp.status_code == 403
+        assert resp.json()["error"]["code"] == "plan_required"
 
     def test_unauthenticated_cannot_list(self, client, db):
         resp = client.get("/locations")
@@ -79,7 +88,7 @@ class TestCreateLocation:
         assert resp.status_code == 422
 
     def test_employee_cannot_create(self, client, db):
-        company = make_company(db)
+        company = make_company(db, plan="business")
         emp_user = make_user(db, company=company, role=UserRole.EMPLOYEE)
         db.commit()
 
@@ -89,6 +98,15 @@ class TestCreateLocation:
             json={"name": "Attempt"},
         )
         assert resp.status_code == 403
+
+    def test_pro_without_business_cannot_create_location(self, client, db):
+        company = make_company(db, plan="pro")
+        admin = make_user(db, company=company, role=UserRole.ADMIN)
+        db.commit()
+
+        resp = make_location(client, admin, name="Blocked")
+        assert resp.status_code == 403
+        assert resp.json()["error"]["code"] == "plan_required"
 
 
 class TestUpdateLocation:
@@ -123,8 +141,8 @@ class TestUpdateLocation:
         assert resp.json()["allowed_radius_meters"] == 500
 
     def test_cross_tenant_update_returns_404(self, client, db):
-        company_a = make_company(db, slug="company-a")
-        company_b = make_company(db, slug="company-b")
+        company_a = make_company(db, slug="company-a", plan="business")
+        company_b = make_company(db, slug="company-b", plan="business")
         admin_a = make_user(db, company=company_a, email="admin-a@test.com", role=UserRole.ADMIN)
         admin_b = make_user(db, company=company_b, email="admin-b@test.com", role=UserRole.ADMIN)
         db.commit()
@@ -166,8 +184,8 @@ class TestDeleteLocation:
         assert loc_id not in default_ids
 
     def test_cross_tenant_delete_returns_404(self, client, db):
-        company_a = make_company(db, slug="co-a")
-        company_b = make_company(db, slug="co-b")
+        company_a = make_company(db, slug="co-a", plan="business")
+        company_b = make_company(db, slug="co-b", plan="business")
         admin_a = make_user(db, company=company_a, email="a@test.com", role=UserRole.ADMIN)
         admin_b = make_user(db, company=company_b, email="b@test.com", role=UserRole.ADMIN)
         db.commit()

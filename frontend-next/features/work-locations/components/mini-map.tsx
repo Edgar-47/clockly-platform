@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import type { Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+type LeafletContainer = HTMLDivElement & { _leaflet_id?: number };
+
 interface MiniMapProps {
   latitude: number;
   longitude: number;
@@ -20,7 +22,13 @@ export function MiniMap({ latitude, longitude, radiusMeters, label }: MiniMapPro
     if (mapRef.current) return;
     if (!containerRef.current) return;
 
+    let cancelled = false;
+    const container = containerRef.current as LeafletContainer;
+
     import("leaflet").then((L) => {
+      if (cancelled || !containerRef.current || mapRef.current) return;
+      const target = containerRef.current as LeafletContainer;
+
       delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -28,18 +36,32 @@ export function MiniMap({ latitude, longitude, radiusMeters, label }: MiniMapPro
         shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
-      const map = L.map(containerRef.current!, {
-        center: [latitude, longitude],
-        zoom: 16,
-        zoomControl: false,
-        scrollWheelZoom: false,
-        dragging: false,
-        touchZoom: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        keyboard: false,
-        attributionControl: false,
-      });
+      // React Strict Mode can resolve an old dynamic import after cleanup.
+      // Clearing Leaflet's marker prevents "Map container is already initialized".
+      target._leaflet_id = undefined;
+      delete target._leaflet_id;
+
+      let map: LeafletMap;
+      try {
+        map = L.map(target, {
+          center: [latitude, longitude],
+          zoom: 16,
+          zoomControl: false,
+          scrollWheelZoom: false,
+          dragging: false,
+          touchZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          attributionControl: false,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("Map container is already initialized")) {
+          return;
+        }
+        throw error;
+      }
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
@@ -76,8 +98,10 @@ export function MiniMap({ latitude, longitude, radiusMeters, label }: MiniMapPro
     });
 
     return () => {
+      cancelled = true;
       mapRef.current?.remove();
       mapRef.current = null;
+      delete container._leaflet_id;
     };
   }, [latitude, longitude, radiusMeters, label]);
 

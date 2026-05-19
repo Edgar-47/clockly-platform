@@ -39,7 +39,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-bg p-6">
         <div className="max-w-md rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-DEFAULT">
-          No se pudo validar la sesion administrativa. Revisa la conexion con el backend.
+          No se pudo validar la sesión administrativa. Revisa la conexión con el backend.
         </div>
       </div>
     );

@@ -5,6 +5,8 @@ import type { Map as LeafletMap } from "leaflet";
 import type { AttendanceLocationEvent } from "@/types/location";
 import type { WorkLocation } from "@/types/location";
 
+type LeafletContainer = HTMLDivElement & { _leaflet_id?: number };
+
 interface AttendanceMapProps {
   events: AttendanceLocationEvent[];
   workLocations: WorkLocation[];
@@ -47,8 +49,14 @@ export function AttendanceMap({
     if (mapRef.current) return;
     if (!containerRef.current) return;
 
+    let cancelled = false;
+    const container = containerRef.current as LeafletContainer;
+
     // Dynamic import to avoid SSR issues
     import("leaflet").then((L) => {
+      if (cancelled || !containerRef.current || mapRef.current) return;
+      const target = containerRef.current as LeafletContainer;
+
       // Fix default marker icon path broken by webpack
       delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
       L.Icon.Default.mergeOptions({
@@ -59,11 +67,25 @@ export function AttendanceMap({
 
       const center: [number, number] = initialCenterRef.current ?? [40.416775, -3.70379];
 
-      const map = L.map(containerRef.current!, {
-        center,
-        zoom: 13,
-        zoomControl: true,
-      });
+      // React Strict Mode can resolve an old dynamic import after cleanup.
+      // Clearing Leaflet's marker prevents "Map container is already initialized".
+      target._leaflet_id = undefined;
+      delete target._leaflet_id;
+
+      let map: LeafletMap;
+      try {
+        map = L.map(target, {
+          center,
+          zoom: 13,
+          zoomControl: true,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("Map container is already initialized")) {
+          return;
+        }
+        throw error;
+      }
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -74,8 +96,10 @@ export function AttendanceMap({
     });
 
     return () => {
+      cancelled = true;
       mapRef.current?.remove();
       mapRef.current = null;
+      delete container._leaflet_id;
     };
   }, []);
 

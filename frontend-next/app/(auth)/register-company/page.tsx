@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Building2 } from "lucide-react";
@@ -11,8 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRegisterCompany } from "@/hooks/use-auth";
-import { usePlans } from "@/hooks/use-plans";
-import type { PlanType } from "@/types/plan";
 
 const TIMEZONES = [
   "Europe/Madrid",
@@ -35,21 +33,9 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const DEFAULT_PLANS: Array<{ code: PlanType; name: string; max_employees: number | null }> = [
-  { code: "free", name: "Free", max_employees: 5 },
-  { code: "pro", name: "Pro", max_employees: 30 },
-  { code: "business", name: "Business", max_employees: null },
-];
-
 export default function RegisterCompanyPage() {
   const registerCompany = useRegisterCompany();
-  const plans = usePlans();
-  const planOptions = useMemo(
-    () => (plans.data?.length ? plans.data : DEFAULT_PLANS),
-    [plans.data],
-  );
   const [selectedTimezone, setSelectedTimezone] = useState("Europe/Madrid");
-  const [selectedPlan, setSelectedPlan] = useState<PlanType>("free");
 
   const {
     register,
@@ -76,7 +62,7 @@ export default function RegisterCompanyPage() {
           Crear empresa
         </h1>
         <p className="mt-1.5 text-[13px] text-ink-muted">
-          Alta del tenant, owner y configuracion inicial.
+          Alta del tenant, owner y configuración inicial.
         </p>
       </div>
 
@@ -109,56 +95,31 @@ export default function RegisterCompanyPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-[13px]">Contrasena</Label>
+          <Label htmlFor="password" className="text-[13px]">Contraseña</Label>
           <Input id="password" type="password" autoComplete="new-password" {...register("password")} aria-invalid={!!errors.password} />
           {errors.password && <p className="text-[12px] text-danger-DEFAULT">{errors.password.message}</p>}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="text-[13px]">Zona horaria</Label>
-            <Select
-              value={selectedTimezone}
-              onValueChange={(value) => {
-                setSelectedTimezone(value);
-                setValue("timezone", value, { shouldValidate: true });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TIMEZONES.map((timezone) => (
-                  <SelectItem key={timezone} value={timezone}>
-                    {timezone}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-[13px]">Plan inicial</Label>
-            <Select
-              value={selectedPlan}
-              onValueChange={(value) => {
-                const plan = value as PlanType;
-                setSelectedPlan(plan);
-                setValue("plan_type", plan, { shouldValidate: true });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {planOptions.map((plan) => (
-                  <SelectItem key={plan.code} value={plan.code}>
-                    {plan.name} {plan.max_employees === null ? "(sin limite)" : `(${plan.max_employees})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-1.5">
+          <Label className="text-[13px]">Zona horaria</Label>
+          <Select
+            value={selectedTimezone}
+            onValueChange={(value) => {
+              setSelectedTimezone(value);
+              setValue("timezone", value, { shouldValidate: true });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEZONES.map((timezone) => (
+                <SelectItem key={timezone} value={timezone}>
+                  {timezone}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Button type="submit" className="w-full" size="lg" loading={registerCompany.isPending}>
@@ -167,9 +128,9 @@ export default function RegisterCompanyPage() {
       </form>
 
       <div className="mt-5 text-center text-[13px] text-ink-muted">
-        Ya tienes cuenta?{" "}
+          ¿Ya tienes cuenta?{" "}
         <Link href="/login" className="font-medium text-primary hover:underline">
-          Inicia sesion
+          Inicia sesión
         </Link>
       </div>
     </div>

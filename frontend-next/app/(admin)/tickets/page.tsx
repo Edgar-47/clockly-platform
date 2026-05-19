@@ -61,7 +61,7 @@ export default function TicketsPage() {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="open">Abiertas</SelectItem>
-                <SelectItem value="in_review">En revision</SelectItem>
+                <SelectItem value="in_review">En revisión</SelectItem>
                 <SelectItem value="resolved">Resueltas</SelectItem>
                 <SelectItem value="rejected">Rechazadas</SelectItem>
               </SelectContent>
@@ -70,7 +70,7 @@ export default function TicketsPage() {
           <TicketsTable
             tickets={tickets.data}
             loading={tickets.isLoading}
-            updatingId={updateStatus.variables?.id ?? null}
+            updatingId={updateStatus.isPending ? updateStatus.variables?.id ?? null : null}
             onStatusChange={handleStatusChange}
           />
         </div>

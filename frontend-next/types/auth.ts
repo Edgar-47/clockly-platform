@@ -80,7 +80,7 @@ export interface RegisterCompanyRequest {
   owner_full_name: string;
   password: string;
   timezone: string;
-  plan_type: PlanType;
+  plan_type?: PlanType;
 }
 
 export interface PasswordResetRequest {

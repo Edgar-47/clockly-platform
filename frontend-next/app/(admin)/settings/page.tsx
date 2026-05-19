@@ -158,7 +158,7 @@ export default function SettingsPage() {
     event.preventDefault();
     if (!canWriteSettings) return;
     if (autoEnabled && !autoTime) {
-      toast.error("Define una hora limite para activar el desfichaje automatico.");
+      toast.error("Define una hora límite para activar el desfichaje automático.");
       return;
     }
     updateAutoClockOut.mutate(
@@ -171,10 +171,10 @@ export default function SettingsPage() {
       {
         onSuccess: () => {
           setAutoDraft({});
-          toast.success("Desfichaje automatico actualizado.");
+          toast.success("Desfichaje automático actualizado.");
         },
         onError: (error: { detail?: string; message?: string }) =>
-          toast.error(error.detail ?? error.message ?? "No se pudo guardar la configuracion."),
+          toast.error(error.detail ?? error.message ?? "No se pudo guardar la configuración."),
       },
     );
   }
@@ -187,10 +187,10 @@ export default function SettingsPage() {
   if (me.data && !canReadSettings) {
     return (
       <>
-        <Topbar title="Configuracion" />
+        <Topbar title="Configuración" />
         <div className="p-6">
           <div className="rounded-md border border-warning-border bg-warning-bg px-4 py-3 text-sm text-warning-DEFAULT">
-            Tu rol no puede acceder a la configuracion del local o empresa.
+            Tu rol no puede acceder a la configuración del local o empresa.
           </div>
         </div>
       </>
@@ -238,15 +238,15 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock3 className="h-4 w-4 text-primary" />
-              Desfichaje automatico
+              Desfichaje automático
             </CardTitle>
             <CardDescription>
-              Cierra sesiones abiertas al superar la hora limite del local y las marca como incidencia auditable.
+              Cierra sesiones abiertas al superar la hora límite del local y las marca como incidencia auditable.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {autoClockOutQuery.isLoading ? (
-              <p className="text-sm text-ink-muted">Cargando configuracion...</p>
+              <p className="text-sm text-ink-muted">Cargando configuración...</p>
             ) : (
               <form onSubmit={handleSaveAutoClockOut} className="grid gap-4 md:grid-cols-[180px_180px_1fr_140px_auto] md:items-end">
                 <label className="flex items-center gap-2 rounded-md border border-border bg-surface-bg px-3 py-2.5 text-sm font-medium text-ink">
@@ -260,7 +260,7 @@ export default function SettingsPage() {
                   Activado
                 </label>
                 <div className="space-y-1.5">
-                  <Label htmlFor="auto-clock-out-time">Hora limite</Label>
+                  <Label htmlFor="auto-clock-out-time">Hora límite</Label>
                   <Input
                     id="auto-clock-out-time"
                     type="time"

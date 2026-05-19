@@ -25,7 +25,7 @@ export default function UpgradePage() {
             <dl className="grid gap-4 text-sm md:grid-cols-4">
               <div>
                 <dt className="text-[12px] text-ink-muted">Empleados</dt>
-                <dd className="font-semibold text-ink">{company?.max_employees ?? "Sin limite"}</dd>
+                <dd className="font-semibold text-ink">{company?.max_employees ?? "Sin límite"}</dd>
               </div>
               <div>
                 <dt className="text-[12px] text-ink-muted">Exportaciones</dt>

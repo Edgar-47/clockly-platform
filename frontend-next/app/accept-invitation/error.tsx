@@ -13,8 +13,8 @@ export default function InvitationError({
     <RouteErrorFallback
       error={error}
       reset={reset}
-      title="No se pudo cargar la invitacion"
-      description="La invitacion no se pudo preparar correctamente. Reintenta o solicita un nuevo enlace al administrador."
+      title="No se pudo cargar la invitación"
+      description="La invitación no se pudo preparar correctamente. Reintenta o solicita un nuevo enlace al administrador."
       homeHref="/login"
       homeLabel="Ir al acceso"
     />

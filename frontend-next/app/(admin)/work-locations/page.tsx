@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +25,9 @@ import {
   useUpdateWorkLocation,
   useDeleteWorkLocation,
 } from "@/hooks/use-locations";
+import { useMe } from "@/hooks/use-auth";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { Topbar } from "@/components/shared/topbar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -32,6 +35,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -44,21 +48,68 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { WorkLocation } from "@/types/location";
+import type { WorkLocation, WorkLocationCreate, WorkLocationUpdate } from "@/types/location";
 
 const MiniMap = dynamic(
   () => import("@/features/work-locations/components/mini-map").then((m) => m.MiniMap),
   { ssr: false },
 );
 
-const locationSchema = z.object({
-  name: z.string().min(1, "El nombre es obligatorio").max(160),
-  address: z.string().max(255).optional(),
-  latitude: z.coerce.number().min(-90).max(90).optional().or(z.literal("")),
-  longitude: z.coerce.number().min(-180).max(180).optional().or(z.literal("")),
-  allowed_radius_meters: z.coerce.number().min(10).max(50000).default(100),
-  is_active: z.boolean().default(true),
-});
+const emptyStringToUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value;
+
+const optionalText = (maxLength: number) =>
+  z.preprocess(
+    emptyStringToUndefined,
+    z.string().trim().max(maxLength, `Maximo ${maxLength} caracteres`).optional(),
+  );
+
+const optionalCoordinate = (min: number, max: number, label: string) =>
+  z.preprocess(
+    emptyStringToUndefined,
+    z.coerce
+      .number({
+        invalid_type_error: `${label} debe ser un numero valido`,
+      })
+      .min(min, `${label} debe ser mayor o igual que ${min}`)
+      .max(max, `${label} debe ser menor o igual que ${max}`)
+      .optional(),
+  );
+
+const locationSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "El nombre es obligatorio")
+      .max(160, "Maximo 160 caracteres"),
+    address: optionalText(255),
+    latitude: optionalCoordinate(-90, 90, "La latitud"),
+    longitude: optionalCoordinate(-180, 180, "La longitud"),
+    allowed_radius_meters: z.preprocess(
+      emptyStringToUndefined,
+      z.coerce
+        .number({
+          invalid_type_error: "El radio debe ser un numero valido",
+        })
+        .int("El radio debe ser un numero entero")
+        .min(10, "El radio minimo es 10 metros")
+        .max(50000, "El radio maximo es 50.000 metros")
+        .default(100),
+    ),
+    is_active: z.boolean().default(true),
+  })
+  .superRefine((values, ctx) => {
+    const hasLatitude = values.latitude !== undefined;
+    const hasLongitude = values.longitude !== undefined;
+    if (hasLatitude === hasLongitude) return;
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: hasLatitude ? ["longitude"] : ["latitude"],
+      message: "Indica latitud y longitud juntas, o deja ambas vacias.",
+    });
+  });
 
 type LocationFormValues = z.infer<typeof locationSchema>;
 
@@ -67,9 +118,10 @@ interface LocationFormProps {
   onSubmit: (values: LocationFormValues) => Promise<void>;
   onCancel: () => void;
   loading: boolean;
+  error?: string | null;
 }
 
-function LocationForm({ defaultValues, onSubmit, onCancel, loading }: LocationFormProps) {
+function LocationForm({ defaultValues, onSubmit, onCancel, loading, error }: LocationFormProps) {
   const { capture, permissionStatus } = useGeolocation();
   const {
     register,
@@ -98,6 +150,15 @@ function LocationForm({ defaultValues, onSubmit, onCancel, loading }: LocationFo
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-danger-border bg-danger-bg px-3.5 py-3 text-[12px] text-danger-DEFAULT"
+        >
+          {error}
+        </div>
+      )}
+
       {/* Name */}
       <div className="space-y-1.5">
         <Label htmlFor="name" className="text-[13px] font-semibold text-ink">
@@ -129,7 +190,7 @@ function LocationForm({ defaultValues, onSubmit, onCancel, loading }: LocationFo
 
       {/* Coordinates */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Label className="text-[13px] font-semibold text-ink">Coordenadas GPS</Label>
           <Button
             type="button"
@@ -142,8 +203,11 @@ function LocationForm({ defaultValues, onSubmit, onCancel, loading }: LocationFo
             Usar mi ubicación
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <div>
+            <Label htmlFor="latitude" className="sr-only">
+              Latitud
+            </Label>
             <Input
               id="latitude"
               type="number"
@@ -157,6 +221,9 @@ function LocationForm({ defaultValues, onSubmit, onCancel, loading }: LocationFo
             )}
           </div>
           <div>
+            <Label htmlFor="longitude" className="sr-only">
+              Longitud
+            </Label>
             <Input
               id="longitude"
               type="number"
@@ -220,43 +287,71 @@ function LocationForm({ defaultValues, onSubmit, onCancel, loading }: LocationFo
   );
 }
 
+function locationErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function toLocationPayload(values: LocationFormValues): WorkLocationCreate {
+  const payload: WorkLocationCreate = {
+    name: values.name,
+    allowed_radius_meters: values.allowed_radius_meters,
+    is_active: values.is_active,
+  };
+
+  if (values.address) payload.address = values.address;
+  if (values.latitude !== undefined && values.longitude !== undefined) {
+    payload.latitude = values.latitude;
+    payload.longitude = values.longitude;
+  }
+
+  return payload;
+}
+
+function toLocationUpdatePayload(values: LocationFormValues): WorkLocationUpdate {
+  return toLocationPayload(values);
+}
+
 export default function WorkLocationsPage() {
-  const { data: locations = [], isLoading } = useWorkLocations(true);
+  const { data: auth, isLoading: authLoading } = useMe();
+  const canManageWorkLocations = Boolean(auth?.company.has_multi_location);
+  const { data: locations = [], isLoading } = useWorkLocations(true, canManageWorkLocations);
   const create = useCreateWorkLocation();
   const update = useUpdateWorkLocation();
   const del = useDeleteWorkLocation();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<WorkLocation | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const handleCreate = async (values: LocationFormValues) => {
-    await create.mutateAsync({
-      name: values.name,
-      address: values.address || undefined,
-      latitude: values.latitude !== "" ? Number(values.latitude) : undefined,
-      longitude: values.longitude !== "" ? Number(values.longitude) : undefined,
-      allowed_radius_meters: values.allowed_radius_meters,
-      is_active: values.is_active,
-    });
-    toast.success("Centro de trabajo creado.");
-    setCreateOpen(false);
+    setCreateError(null);
+    try {
+      await create.mutateAsync(toLocationPayload(values));
+      toast.success("Centro de trabajo creado.");
+      setCreateOpen(false);
+    } catch (error) {
+      const message = locationErrorMessage(error, "No se pudo crear el centro de trabajo.");
+      setCreateError(message);
+      toast.error(message);
+    }
   };
 
   const handleUpdate = async (values: LocationFormValues) => {
     if (!editTarget) return;
-    await update.mutateAsync({
-      id: editTarget.id,
-      payload: {
-        name: values.name,
-        address: values.address || undefined,
-        latitude: values.latitude !== "" ? Number(values.latitude) : undefined,
-        longitude: values.longitude !== "" ? Number(values.longitude) : undefined,
-        allowed_radius_meters: values.allowed_radius_meters,
-        is_active: values.is_active,
-      },
-    });
-    toast.success("Centro actualizado.");
-    setEditTarget(null);
+    setEditError(null);
+    try {
+      await update.mutateAsync({
+        id: editTarget.id,
+        payload: toLocationUpdatePayload(values),
+      });
+      toast.success("Centro actualizado.");
+      setEditTarget(null);
+    } catch (error) {
+      const message = locationErrorMessage(error, "No se pudo actualizar el centro.");
+      setEditError(message);
+      toast.error(message);
+    }
   };
 
   const handleToggleActive = (loc: WorkLocation) => {
@@ -271,26 +366,67 @@ export default function WorkLocationsPage() {
     del.mutate(loc.id, { onSuccess: () => toast.success("Centro desactivado.") });
   };
 
+  if (authLoading) {
+    return (
+      <>
+        <Topbar title="Centros de trabajo" />
+        <div className="flex min-h-[calc(100vh-62px)] items-center justify-center p-6">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      </>
+    );
+  }
+
+  if (!canManageWorkLocations) {
+    return (
+      <>
+        <Topbar title="Centros de trabajo" />
+        <div className="flex min-h-[calc(100vh-62px)] items-center justify-center p-6">
+          <div className="max-w-md rounded-xl border border-warning-border bg-warning-bg p-6 text-center">
+            <h1 className="text-[14px] font-bold text-ink">Centros disponibles en Business</h1>
+            <p className="mt-2 text-[13px] text-ink-muted">
+              Tu plan actual no incluye gestión multi-centro. Los fichajes siguen funcionando sin sedes configuradas.
+            </p>
+            <Button asChild className="mt-5" size="sm">
+              <Link href="/upgrade">Ver planes</Link>
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-      {/* Page header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <>
+      <Topbar
+        title="Centros de trabajo"
+        actions={
+          <Button
+            size="sm"
+            onClick={() => {
+              setCreateError(null);
+              setCreateOpen(true);
+            }}
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            Nuevo centro
+          </Button>
+        }
+      />
+
+      <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
+        {/* Page header */}
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <Building2 className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h1 className="text-[16px] font-bold text-ink">Centros de trabajo</h1>
+          <div className="min-w-0">
+            <h2 className="text-[16px] font-bold text-ink">Centros de trabajo</h2>
             <p className="mt-0.5 text-[12px] text-ink-xmuted">
               Define dónde trabajan tus empleados para verificar fichajes por ubicación.
             </p>
           </div>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)} className="w-full rounded-xl sm:w-auto">
-          <PlusCircle className="h-3.5 w-3.5" />
-          Nuevo centro
-        </Button>
-      </div>
 
       {/* Privacy notice */}
       <div className="flex gap-2.5 rounded-xl border border-border bg-surface-bg px-4 py-3 text-[12px] text-ink-muted">
@@ -325,7 +461,10 @@ export default function WorkLocationsPage() {
               size="sm"
               variant="outline"
               className="mt-4 rounded-xl"
-              onClick={() => setCreateOpen(true)}
+              onClick={() => {
+                setCreateError(null);
+                setCreateOpen(true);
+              }}
             >
               <PlusCircle className="h-3.5 w-3.5" />
               Crear primer centro
@@ -360,9 +499,9 @@ export default function WorkLocationsPage() {
                 <div className="flex flex-1 flex-col justify-between gap-3 p-4">
                   <div>
                     <div className="flex items-start justify-between gap-2">
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-[14px] font-bold text-ink">{loc.name}</p>
+                          <p className="break-words text-[14px] font-bold text-ink">{loc.name}</p>
                           <Badge
                             variant={loc.is_active ? "success" : "muted"}
                             className="text-[10px]"
@@ -371,7 +510,7 @@ export default function WorkLocationsPage() {
                           </Badge>
                         </div>
                         {loc.address && (
-                          <p className="mt-1 text-[12px] text-ink-muted">{loc.address}</p>
+                          <p className="mt-1 break-words text-[12px] text-ink-muted">{loc.address}</p>
                         )}
                       </div>
 
@@ -384,7 +523,10 @@ export default function WorkLocationsPage() {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 rounded-lg p-0"
-                            onClick={() => setEditTarget(loc)}
+                            onClick={() => {
+                              setEditError(null);
+                              setEditTarget(loc);
+                            }}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </Button>
@@ -426,7 +568,12 @@ export default function WorkLocationsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setEditTarget(loc)}>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditError(null);
+                                  setEditTarget(loc);
+                                }}
+                              >
                                 <Edit2 className="h-4 w-4" />
                                 Editar
                               </DropdownMenuItem>
@@ -479,26 +626,48 @@ export default function WorkLocationsPage() {
       </div>
 
       {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (open) setCreateError(null);
+        }}
+      >
         <DialogContent className="flex max-h-[90vh] w-[92vw] max-w-md flex-col overflow-hidden rounded-2xl p-0 sm:w-full">
           <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
             <DialogTitle className="text-[16px]">Nuevo centro de trabajo</DialogTitle>
+            <DialogDescription className="sr-only">
+              Rellena los datos del centro, sus coordenadas y el radio de verificacion.
+            </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto px-6 py-5">
             <LocationForm
               onSubmit={handleCreate}
-              onCancel={() => setCreateOpen(false)}
+              onCancel={() => {
+                setCreateOpen(false);
+                setCreateError(null);
+              }}
               loading={create.isPending}
+              error={createError}
             />
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Edit dialog */}
-      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+          setEditError(null);
+        }}
+      >
         <DialogContent className="flex max-h-[90vh] w-[92vw] max-w-md flex-col overflow-hidden rounded-2xl p-0 sm:w-full">
           <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
             <DialogTitle className="text-[16px]">Editar centro de trabajo</DialogTitle>
+            <DialogDescription className="sr-only">
+              Actualiza los datos del centro, sus coordenadas y el radio de verificacion.
+            </DialogDescription>
           </DialogHeader>
           {editTarget && (
             <div className="overflow-y-auto px-6 py-5">
@@ -512,13 +681,18 @@ export default function WorkLocationsPage() {
                   is_active: editTarget.is_active,
                 }}
                 onSubmit={handleUpdate}
-                onCancel={() => setEditTarget(null)}
+                onCancel={() => {
+                  setEditTarget(null);
+                  setEditError(null);
+                }}
                 loading={update.isPending}
+                error={editError}
               />
             </div>
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }

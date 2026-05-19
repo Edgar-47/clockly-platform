@@ -23,19 +23,26 @@ import type { SalaryType } from "@/types/salary";
 
 const SALARY_LABELS: Record<SalaryType, string> = {
   hourly: "Por hora",
-  daily: "Por dia",
+  daily: "Por día",
   shift: "Por turno",
   monthly: "Fijo mensual",
   weekly: "Por semana",
 };
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function currentMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: toDateInputValue(start),
+    end: toDateInputValue(end),
   };
 }
 
@@ -116,7 +123,7 @@ export default function SalariesPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error((error as Error).message ?? "No se pudo exportar el calculo.");
+      toast.error((error as Error).message ?? "No se pudo exportar el cálculo.");
     } finally {
       setExporting(null);
     }
@@ -140,13 +147,13 @@ export default function SalariesPage() {
       <Topbar title="Salarios estimados" />
       <div className="space-y-5 p-6">
         <div className="rounded-md border border-warning-border bg-warning-bg px-3.5 py-2.5 text-[13px] text-warning-DEFAULT">
-          Calculo estimado basado en fichajes registrados. Revisar antes de pagar.
+          Cálculo estimado basado en fichajes registrados. Revisar antes de pagar.
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Trabajador y vigencia</CardTitle>
-            <CardDescription>Asigna modalidad salarial sin sobrescribir historicos.</CardDescription>
+            <CardDescription>Asigna modalidad salarial sin sobrescribir históricos.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)]">
@@ -209,7 +216,7 @@ export default function SalariesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Notas</Label>
-                  <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Contrato, pacto o revision" />
+                  <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Contrato, pacto o revisión" />
                 </div>
                 <Button type="submit" loading={createProfile.isPending} disabled={!selectedEmployeeId}>
                   <Save className="h-4 w-4" />
@@ -254,7 +261,7 @@ export default function SalariesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Calculo por periodo</CardTitle>
+            <CardTitle>Cálculo por periodo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-3 md:grid-cols-[160px_160px_auto_auto_auto] md:items-end">
@@ -274,14 +281,14 @@ export default function SalariesPage() {
                   generateCalculation.mutate(
                     { employeeId: selectedEmployeeId, periodStart, periodEnd },
                     {
-                      onSuccess: () => toast.success("Calculo guardado."),
+                      onSuccess: () => toast.success("Cálculo guardado."),
                       onError: (error: { detail?: string; message?: string }) =>
-                        toast.error(error.detail ?? error.message ?? "No se pudo guardar el calculo."),
+                        toast.error(error.detail ?? error.message ?? "No se pudo guardar el cálculo."),
                     },
                   )
                 }
               >
-                Guardar calculo
+                Guardar cálculo
               </Button>
               <Button variant="secondary" loading={exporting === "excel"} onClick={() => handleExport("excel")}>
                 <Download className="h-4 w-4" />
@@ -304,7 +311,7 @@ export default function SalariesPage() {
                 <div className="grid gap-4 md:grid-cols-5">
                   <Summary label="Total estimado" value={money(calculationQuery.data.gross_estimated_amount, calculationQuery.data.currency)} />
                   <Summary label="Horas" value={calculationQuery.data.total_hours} />
-                  <Summary label="Dias" value={calculationQuery.data.total_days} />
+                  <Summary label="Días" value={calculationQuery.data.total_days} />
                   <Summary label="Turnos" value={calculationQuery.data.total_shifts} />
                   <Summary label="Incidencias" value={calculationQuery.data.incident_count} />
                 </div>
@@ -321,7 +328,7 @@ export default function SalariesPage() {
                         <th className="px-3 py-2 font-semibold">Tramo</th>
                         <th className="px-3 py-2 font-semibold">Modalidad</th>
                         <th className="px-3 py-2 font-semibold">Horas</th>
-                        <th className="px-3 py-2 font-semibold">Dias</th>
+                        <th className="px-3 py-2 font-semibold">Días</th>
                         <th className="px-3 py-2 font-semibold">Turnos</th>
                         <th className="px-3 py-2 font-semibold">Total</th>
                       </tr>

@@ -14,7 +14,7 @@ export default function EmployeeError({
       error={error}
       reset={reset}
       title="No se pudo cargar tu portal"
-      description="La vista de empleado encontro un error inesperado. Puedes reintentar sin perder la sesion actual."
+      description="La vista de empleado encontró un error inesperado. Puedes reintentar sin perder la sesión actual."
       homeHref="/employee"
       homeLabel="Volver al portal"
     />

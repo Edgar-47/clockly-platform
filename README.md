@@ -224,7 +224,9 @@ con esa misma key antes de cortar produccion.
 - `POST /auth/login` devuelve payload de sesion sin tokens en JSON y fija
   cookies HttpOnly.
 - `POST /auth/register-company` crea el tenant, el owner, la configuracion
-  base de onboarding y fija cookies HttpOnly.
+  base de onboarding en plan Free y fija cookies HttpOnly. Los planes Pro y
+  Business no se activan desde registro/onboarding; solo desde billing
+  autorizado.
 - `POST /auth/request-password-reset` siempre responde igual y envia email si
   el usuario existe.
 - `POST /auth/reset-password` valida un token seguro, cambia la password,

@@ -26,11 +26,11 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setLocalError(null);
     if (password.length < 8) {
-      setLocalError("La contrasena debe tener al menos 8 caracteres.");
+      setLocalError("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
     if (password !== confirmPassword) {
-      setLocalError("Las contrasenas no coinciden.");
+      setLocalError("Las contraseñas no coinciden.");
       return;
     }
     resetPassword.mutate();
@@ -40,10 +40,10 @@ export default function ResetPasswordPage() {
     <div className="w-full rounded-xl border border-border bg-white p-7 shadow-md">
       <div className="mb-6 text-center">
         <h1 className="text-[22px] font-bold tracking-tight text-ink">
-          Cambiar contrasena
+          Cambiar contraseña
         </h1>
         <p className="mt-1.5 text-[13px] text-ink-muted">
-          Define una nueva contrasena para tu cuenta.
+          Define una nueva contraseña para tu cuenta.
         </p>
       </div>
 
@@ -51,9 +51,9 @@ export default function ResetPasswordPage() {
         <div className="space-y-5 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-success" />
           <div>
-            <p className="text-sm font-semibold text-ink">Contrasena actualizada</p>
+            <p className="text-sm font-semibold text-ink">Contraseña actualizada</p>
             <p className="mt-1 text-sm text-ink-muted">
-              Ya puedes iniciar sesion con la nueva contrasena.
+              Ya puedes iniciar sesión con la nueva contraseña.
             </p>
           </div>
           <Button type="button" className="w-full" onClick={() => router.replace("/login")}>
@@ -74,7 +74,7 @@ export default function ResetPasswordPage() {
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="new-password" className="text-[13px]">Nueva contrasena</Label>
+            <Label htmlFor="new-password" className="text-[13px]">Nueva contraseña</Label>
             <Input
               id="new-password"
               type="password"
@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirm-password" className="text-[13px]">Confirmar contrasena</Label>
+            <Label htmlFor="confirm-password" className="text-[13px]">Confirmar contraseña</Label>
             <Input
               id="confirm-password"
               type="password"
@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <Button type="submit" className="w-full" size="lg" loading={resetPassword.isPending}>
-            Guardar contrasena
+            Guardar contraseña
           </Button>
         </form>
       )}

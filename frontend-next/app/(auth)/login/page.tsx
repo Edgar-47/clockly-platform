@@ -31,7 +31,7 @@ export default function LoginPage() {
 
       <div className="mt-4 flex items-center justify-between gap-3 text-[13px]">
         <Link href="/forgot-password" className="font-medium text-primary hover:underline">
-          Olvide mi contrasena
+          Olvidé mi contraseña
         </Link>
         <Link href="/register-company" className="font-medium text-primary hover:underline">
           Crear empresa

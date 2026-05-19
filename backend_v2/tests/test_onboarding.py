@@ -5,7 +5,7 @@ from app.main import app
 from app.models.company import Company
 from app.models.company_settings import CompanySettings
 from app.models.employee import Employee
-from app.models.enums import UserRole
+from app.models.enums import PlanType, UserRole
 from app.models.user import User
 
 
@@ -28,7 +28,7 @@ def _register_payload(**overrides):
         "owner_full_name": "Acme Owner",
         "password": "owner-pass-123",
         "timezone": "UTC",
-        "plan_type": "pro",
+        "plan_type": "free",
     }
     payload.update(overrides)
     return payload
@@ -46,7 +46,7 @@ class TestCompanyRegistration:
         data = resp.json()
         assert data["user"]["role"] == "owner"
         assert data["company"]["name"] == "Acme Clinic"
-        assert data["company"]["plan_type"] == "pro"
+        assert data["company"]["plan_type"] == "free"
 
         company = db.query(Company).filter_by(slug="acme-clinic").one()
         owner = db.query(User).filter_by(email="owner@acme.test").one()
@@ -54,6 +54,7 @@ class TestCompanyRegistration:
         assert owner.company_id == company.id
         assert owner.role == UserRole.OWNER
         assert company.created_by == owner.id
+        assert company.plan_type == PlanType.FREE
         assert settings.onboarding_step == "company"
 
         me = client.get("/auth/me")
@@ -134,6 +135,7 @@ class TestOnboardingWizard:
         complete = client.post("/onboarding/complete")
 
         assert company.status_code == 200
+        assert company.json()["plan_type"] == "free"
         assert employee.status_code == 201
         assert invitation.status_code == 201
         assert complete.status_code == 200

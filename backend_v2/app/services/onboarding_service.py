@@ -20,7 +20,6 @@ from app.schemas.onboarding import (
 )
 from app.services.audit_log import AuditLogService
 from app.services.employee_service import EmployeeService
-from app.services.plans import apply_plan_to_company
 
 
 class OnboardingService:
@@ -46,7 +45,6 @@ class OnboardingService:
             company.company_size = payload.company_size
         if payload.country is not None:
             company.country = payload.country
-        apply_plan_to_company(company, payload.plan_type)
         settings.onboarding_step = _next_step(settings, "employee")
         self.db.add(company)
         self.db.add(settings)

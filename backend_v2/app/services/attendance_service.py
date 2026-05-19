@@ -357,7 +357,7 @@ class AttendanceService:
             session,
             actor=actor,
             close_at=close_at,
-            notes="Cierre automatico de sesion abierta.",
+            notes="Cierre automático de sesión abierta.",
         )
         self.db.flush()
         return None
@@ -417,8 +417,8 @@ class AttendanceService:
             attendance_session_id=session.id,
             type=AttendanceIncidentType.AUTO_CLOCK_OUT,
             status=IncidentStatus.OPEN,
-            title="Desfichaje automatico por olvido",
-            description="La sesion fue cerrada automaticamente al superar la hora limite configurada.",
+            title="Desfichaje automático por olvido",
+            description="La sesión fue cerrada automáticamente al superar la hora límite configurada.",
             metadata_json={
                 "closed_at": close_at.isoformat(),
                 "configured_by_user_id": str(actor.id) if actor else None,

@@ -60,7 +60,7 @@ export default function NewEmployeePage() {
           <CardContent>
             {hasReachedLimit ? (
               <div className="rounded-lg border border-warning-border bg-warning-bg px-4 py-3 text-sm text-warning-DEFAULT">
-                Has alcanzado el limite de {maxEmployees} empleados del plan {me.data?.company.plan_name}. Disponible ampliando plan.
+                Has alcanzado el límite de {maxEmployees} empleados del plan {me.data?.company.plan_name}. Disponible ampliando plan.
               </div>
             ) : (
               <EmployeeForm

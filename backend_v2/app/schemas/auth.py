@@ -120,6 +120,11 @@ class RegisterCompanyRequest(BaseModel):
             raise ValueError("Unknown timezone.") from exc
         return value
 
+    @field_validator("plan_type", mode="after")
+    @classmethod
+    def force_public_registration_to_free(cls, value: PlanType) -> PlanType:
+        return PlanType.FREE
+
 
 class PasswordResetRequest(BaseModel):
     email: str = Field(max_length=255)

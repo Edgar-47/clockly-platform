@@ -85,7 +85,7 @@ PLAN_DEFINITIONS: dict[PlanType, PlanDefinition] = {
     PlanType.BUSINESS: PlanDefinition(
         code=PlanType.BUSINESS,
         name="Business",
-        description="Para operaciones con varias sedes, soporte y crecimiento sin limite.",
+        description="Para operaciones con varias sedes, soporte y crecimiento sin límite.",
         max_employees=None,
         has_exports=True,
         has_advanced_filters=True,
@@ -260,7 +260,7 @@ def check_employee_limit(db: Session, company_id: UUID, *, actor_user_id: UUID |
         },
     )
     raise PlanLimitError(
-        f"Has alcanzado el limite de {company.max_employees} empleados del plan {get_plan_definition(company.plan_type).name}.",
+        f"Has alcanzado el límite de {company.max_employees} empleados del plan {get_plan_definition(company.plan_type).name}.",
         details={
             "limit": "max_employees",
             "active_count": active_count,

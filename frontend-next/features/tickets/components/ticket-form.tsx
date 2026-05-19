@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import type { TicketCreateRequest } from "@/types/ticket";
 
 const schema = z.object({
-  title: z.string().min(1, "Titulo requerido").max(160),
+  title: z.string().min(1, "Título requerido").max(160),
   description: z.string().max(2000).optional(),
   occurred_on: z.string().optional(),
 });

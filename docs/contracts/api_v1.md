@@ -104,13 +104,18 @@ Request:
   "owner_full_name": "Acme Owner",
   "password": "strong-password",
   "timezone": "Europe/Madrid",
-  "plan_type": "pro"
+  "plan_type": "free"
 }
 ```
 
 Creates `Company`, owner `User`, plan-derived company fields, and
 `company_settings` for onboarding. The response is the same session payload as
 login and sets `clockly_access` and `clockly_refresh`.
+
+Public registration always creates a `free` company. If a client sends
+`plan_type=pro` or `plan_type=business`, the backend ignores it and keeps the
+company on `free`; paid plans can only be activated through authorized billing
+subscription handling.
 
 Login, register and refresh responses do not include `access_token` or
 `refresh_token` in JSON. Web clients must use backend-issued HttpOnly cookies
@@ -202,6 +207,10 @@ registration:
 All onboarding endpoints require an authenticated owner/admin session
 (`users:manage`). Completion requires at least one active employee and at least
 one kiosk PIN configured on an employee.
+
+`PUT /onboarding/company` updates company profile fields only. Any `plan_type`
+sent by the client is ignored, so onboarding cannot activate paid plans or
+downgrade a plan already set by billing.
 
 ## Members and invitations
 
@@ -845,7 +854,8 @@ Work-location endpoints:
 - `PATCH /locations/{location_id}`
 - `DELETE /locations/{location_id}`
 
-Creating locations requires `has_multi_location`.
+Reading or mutating work locations requires `has_multi_location`, which is a
+Business-plan capability.
 Attendance-location map endpoints require `has_geolocation`. Clock-in/out with
 coordinates also requires `has_geolocation`; free-plan requests with latitude or
 longitude are rejected by the backend. Clock-in/out never blocks solely because

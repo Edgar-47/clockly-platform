@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
             Email enviado
           </div>
           <p>
-            Si la direccion esta registrada, recibiras un enlace para cambiar tu contrasena.
+            Si la dirección está registrada, recibirás un enlace para cambiar tu contraseña.
           </p>
         </div>
       ) : (
@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
           href="/login"
           className="text-[13px] font-medium text-primary hover:underline"
         >
-          Volver al inicio de sesion
+          Volver al inicio de sesión
         </Link>
       </div>
     </div>

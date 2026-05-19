@@ -18,7 +18,7 @@ import type { TicketCreateRequest, TicketStatus } from "@/types/ticket";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
   open: "Abierta",
-  in_review: "En revision",
+  in_review: "En revisión",
   resolved: "Resuelta",
   rejected: "Rechazada",
 };
@@ -58,7 +58,7 @@ export default function EmployeePage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-bg p-6">
         <div className="max-w-md rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-DEFAULT">
-          No se pudo validar tu sesion. Revisa la conexion con el backend.
+          No se pudo validar tu sesión. Revisa la conexión con el backend.
         </div>
       </div>
     );
@@ -183,7 +183,7 @@ export default function EmployeePage() {
                 {hasGeolocation && (
                   <div className="flex gap-2 rounded-md border border-border bg-surface-bg px-3 py-2 text-[12px] text-ink-muted">
                     <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                    <span>Tu ubicacion se usara solo para validar el fichaje. Puedes denegar el permiso y el fichaje se registrara igualmente.</span>
+                    <span>Tu ubicación se usará solo para validar el fichaje. Puedes denegar el permiso y el fichaje se registrará igualmente.</span>
                   </div>
                 )}
 

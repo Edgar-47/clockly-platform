@@ -61,7 +61,7 @@ class AutoClockOutService:
                 session,
                 actor=actor,
                 close_at=close_at,
-                notes="Desfichaje automatico por olvido.",
+                notes="Desfichaje automático por olvido.",
             )
             incident = self.db.query(AttendanceIncident).filter(
                 AttendanceIncident.company_id == self.company_id,

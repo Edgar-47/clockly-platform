@@ -100,7 +100,7 @@ export function EmployeeForm({ employee, onSubmit, loading, error }: EmployeeFor
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password">{employee ? "Nueva contrasena" : "Contrasena"}</Label>
+          <Label htmlFor="password">{employee ? "Nueva contraseña" : "Contraseña"}</Label>
           <Input id="password" type="password" placeholder="Minimo 8 caracteres" {...register("password")} />
           {errors.password && <p className="text-xs text-danger">{errors.password.message}</p>}
         </div>

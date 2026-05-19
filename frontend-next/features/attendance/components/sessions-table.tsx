@@ -39,6 +39,7 @@ export function SessionsTable({
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const [editing, setEditing] = useState<SessionReport | null>(null);
   const [editValues, setEditValues] = useState({ clock_in: "", clock_out: "", notes: "" });
+  const [editError, setEditError] = useState<string | null>(null);
   const updateSession = useUpdateAttendanceSession();
   const autoClose = useAutoCloseOpenSessions();
 
@@ -65,7 +66,7 @@ export function SessionsTable({
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error((error as Error).message ?? "No se pudo generar la exportacion.");
+      toast.error((error as Error).message ?? "No se pudo generar la exportación.");
     } finally {
       setExporting(null);
     }
@@ -73,6 +74,7 @@ export function SessionsTable({
 
   const startEdit = (session: SessionReport) => {
     setEditing(session);
+    setEditError(null);
     setEditValues({
       clock_in: session.clock_in_time.slice(0, 16),
       clock_out: session.clock_out_time ? session.clock_out_time.slice(0, 16) : "",
@@ -82,6 +84,11 @@ export function SessionsTable({
 
   const saveEdit = () => {
     if (!editing) return;
+    setEditError(null);
+    if (editValues.clock_out && editValues.clock_in && editValues.clock_out < editValues.clock_in) {
+      setEditError("La salida no puede ser anterior a la entrada.");
+      return;
+    }
     updateSession.mutate(
       {
         id: editing.id,
@@ -95,16 +102,21 @@ export function SessionsTable({
       {
         onSuccess: () => {
           toast.success("Fichaje corregido.");
+          setEditError(null);
           setEditing(null);
         },
-        onError: (error) => toast.error((error as Error).message ?? "No se pudo corregir el fichaje."),
+        onError: (error) => {
+          const message = (error as Error).message ?? "No se pudo corregir el fichaje.";
+          setEditError(message);
+          toast.error(message);
+        },
       },
     );
   };
 
   const closeOpenSessions = () => {
     autoClose.mutate(
-      { older_than_hours: 16, notes: "Cierre automatico desde panel admin." },
+      { older_than_hours: 16, notes: "Cierre automático desde panel admin." },
       {
         onSuccess: (result) => toast.success(`${result.closed_count} sesiones cerradas.`),
         onError: (error) => toast.error((error as Error).message ?? "No se pudieron cerrar sesiones."),
@@ -168,7 +180,7 @@ export function SessionsTable({
               <SelectItem value="employee">Normal</SelectItem>
               <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="manual">Manual</SelectItem>
-              <SelectItem value="auto">Automatico</SelectItem>
+              <SelectItem value="auto">Automático</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex flex-wrap gap-2 sm:ml-auto">
@@ -207,7 +219,11 @@ export function SessionsTable({
             <Input
               type="datetime-local"
               value={editValues.clock_in}
-              onChange={(event) => setEditValues((current) => ({ ...current, clock_in: event.target.value }))}
+              aria-invalid={Boolean(editError)}
+              onChange={(event) => {
+                setEditError(null);
+                setEditValues((current) => ({ ...current, clock_in: event.target.value }));
+              }}
             />
           </div>
           <div className="space-y-1">
@@ -215,15 +231,20 @@ export function SessionsTable({
             <Input
               type="datetime-local"
               value={editValues.clock_out}
-              onChange={(event) => setEditValues((current) => ({ ...current, clock_out: event.target.value }))}
+              aria-invalid={Boolean(editError)}
+              onChange={(event) => {
+                setEditError(null);
+                setEditValues((current) => ({ ...current, clock_out: event.target.value }));
+              }}
             />
+            {editError && <p className="text-[12px] text-danger-DEFAULT">{editError}</p>}
           </div>
           <div className="space-y-1">
             <label className="text-[11px] font-semibold uppercase text-ink-muted">Notas</label>
             <Input
               value={editValues.notes}
               onChange={(event) => setEditValues((current) => ({ ...current, notes: event.target.value }))}
-              placeholder="Motivo de la correccion"
+              placeholder="Motivo de la corrección"
             />
           </div>
           <div className="flex gap-2">
@@ -354,7 +375,7 @@ export function SessionsTable({
                       {session.clock_out_source === "admin" && <Badge variant="outline">Admin</Badge>}
                       {session.clock_out_source === "manual" && <Badge variant="outline">Manual</Badge>}
                       {(session.auto_closed || session.clock_out_source === "auto") && (
-                        <Badge variant="warning">Desfichaje automatico</Badge>
+                        <Badge variant="warning">Desfichaje automático</Badge>
                       )}
                     </div>
                   </td>

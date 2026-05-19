@@ -21,7 +21,7 @@ from app.core.security import (
 )
 from app.models.company import Company
 from app.models.company_settings import CompanySettings
-from app.models.enums import UserRole
+from app.models.enums import PlanType, UserRole
 from app.models.password_reset_token import PasswordResetToken
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -76,7 +76,7 @@ class AuthService:
                 timezone=payload.timezone,
                 is_active=True,
             ),
-            payload.plan_type,
+            PlanType.FREE,
         )
         owner = User(
             company_id=company.id,

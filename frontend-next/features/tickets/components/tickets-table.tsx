@@ -8,7 +8,7 @@ import type { Ticket, TicketStatus } from "@/types/ticket";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
   open: "Abierta",
-  in_review: "En revision",
+  in_review: "En revisión",
   resolved: "Resuelta",
   rejected: "Rechazada",
 };
@@ -120,7 +120,7 @@ export function TicketsTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-muted text-left">
-              {["Titulo", "Fecha", "Estado", "Descripcion", ...(showActions ? ["Acciones"] : [])].map((header) => (
+              {["Título", "Fecha", "Estado", "Descripción", ...(showActions ? ["Acciones"] : [])].map((header) => (
                 <th key={header} className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                   {header}
                 </th>

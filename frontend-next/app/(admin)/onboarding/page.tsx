@@ -2,6 +2,7 @@
 
 import { type FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, KeyRound, MailPlus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/shared/topbar";
@@ -21,9 +22,7 @@ import {
   useSkipOnboardingInvitations,
   useUpdateOnboardingCompany,
 } from "@/hooks/use-onboarding";
-import { usePlans } from "@/hooks/use-plans";
 import type { UserRole } from "@/types/auth";
-import type { PlanType } from "@/types/plan";
 
 type StepKey = "company" | "employee" | "kiosk" | "invitations" | "finish";
 
@@ -76,8 +75,8 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export default function OnboardingPage() {
+  const router = useRouter();
   const statusQuery = useOnboardingStatus();
-  const plansQuery = usePlans();
   const employeesQuery = useEmployees();
   const updateCompany = useUpdateOnboardingCompany();
   const createEmployee = useCreateOnboardingEmployee();
@@ -91,7 +90,6 @@ export default function OnboardingPage() {
   const [companyDraft, setCompanyDraft] = useState<{
     companyName?: string;
     timezone?: string;
-    planType?: PlanType;
     sector?: string;
     companySize?: string;
     country?: string;
@@ -120,7 +118,6 @@ export default function OnboardingPage() {
       {
         company_name: companyDraft?.companyName ?? status.company_name,
         timezone: companyDraft?.timezone ?? status.timezone,
-        plan_type: companyDraft?.planType ?? status.plan_type,
         sector: companyDraft?.sector ?? undefined,
         company_size: companyDraft?.companySize ?? undefined,
         country: companyDraft?.country ?? undefined,
@@ -188,7 +185,7 @@ export default function OnboardingPage() {
           setManualStep("finish");
           toast.success("Invitacion enviada.");
         },
-        onError: (error) => toast.error(errorMessage(error, "No se pudo enviar la invitacion.")),
+        onError: (error) => toast.error(errorMessage(error, "No se pudo enviar la invitación.")),
       },
     );
   }
@@ -208,6 +205,7 @@ export default function OnboardingPage() {
       onSuccess: () => {
         setManualStep("finish");
         toast.success("Onboarding completado.");
+        router.replace("/dashboard");
       },
       onError: (error) => toast.error(errorMessage(error, "Completa empleado y PIN antes de finalizar.")),
     });
@@ -241,7 +239,6 @@ export default function OnboardingPage() {
   const progressClass = PROGRESS_CLASSES[Math.min(activeIndex, PROGRESS_CLASSES.length - 1)];
   const companyName = companyDraft?.companyName ?? status.company_name;
   const timezone = companyDraft?.timezone ?? status.timezone;
-  const planType = companyDraft?.planType ?? status.plan_type;
 
   return (
     <>
@@ -335,27 +332,6 @@ export default function OnboardingPage() {
                         <SelectTrigger><SelectValue placeholder="Número de empleados…" /></SelectTrigger>
                         <SelectContent>
                           {COMPANY_SIZES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Plan inicial</Label>
-                      <Select
-                        value={planType}
-                        onValueChange={(value) => setCompanyDraft((draft) => ({ ...(draft ?? {}), planType: value as PlanType }))}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {(plansQuery.data ?? []).map((plan) => (
-                            <SelectItem key={plan.code} value={plan.code}>{plan.name}</SelectItem>
-                          ))}
-                          {!plansQuery.data?.length && (
-                            <>
-                              <SelectItem value="free">Free</SelectItem>
-                              <SelectItem value="pro">Pro</SelectItem>
-                              <SelectItem value="business">Business</SelectItem>
-                            </>
-                          )}
                         </SelectContent>
                       </Select>
                     </div>

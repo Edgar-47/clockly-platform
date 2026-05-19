@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { locationsService } from "@/services/locations.service";
 import type { AttendanceLocationFilters } from "@/services/locations.service";
-import type { WorkLocationCreate, WorkLocationUpdate } from "@/types/location";
+import type { WorkLocation, WorkLocationCreate, WorkLocationUpdate } from "@/types/location";
 
 export const locationKeys = {
   workLocations: (includeInactive?: boolean) => ["locations", "work", includeInactive] as const,
@@ -25,7 +25,19 @@ export function useCreateWorkLocation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: WorkLocationCreate) => locationsService.create(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["locations", "work"] }),
+    onSuccess: (location) => {
+      const appendLocation = (current: WorkLocation[] | undefined) => {
+        if (!current || current.some((item) => item.id === location.id)) return current;
+        return [...current, location].sort((a, b) => a.name.localeCompare(b.name));
+      };
+
+      qc.setQueryData(locationKeys.workLocations(true), appendLocation);
+      if (location.is_active) {
+        qc.setQueryData(locationKeys.workLocations(false), appendLocation);
+      }
+
+      return qc.invalidateQueries({ queryKey: ["locations", "work"] });
+    },
   });
 }
 

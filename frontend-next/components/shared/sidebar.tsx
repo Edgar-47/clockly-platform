@@ -44,7 +44,7 @@ const NAV_MAIN: NavItem[] = [
 ];
 
 const NAV_OPERATIONS: NavItem[] = [
-  { label: "Analiticas", href: "/analytics", icon: BarChart3, permission: "metrics:read" },
+  { label: "Analíticas", href: "/analytics", icon: BarChart3, permission: "metrics:read" },
   { label: "Incidencias", href: "/tickets", icon: TicketCheck, permission: "tickets:read" },
   { label: "Retrasos", href: "/late-arrivals", icon: TimerOff, permission: "late_arrivals:read" },
   { label: "Gastos", href: "/expenses", icon: Receipt, permission: "expense_tickets:read" },
@@ -58,7 +58,7 @@ const NAV_OPERATIONS: NavItem[] = [
 const NAV_CONFIG: NavItem[] = [
   { label: "Centros de trabajo", href: "/work-locations", icon: Building2, permission: "locations:write" },
   { label: "Upgrade", href: "/upgrade", icon: Sparkles, permission: "users:manage" },
-  { label: "Configuracion", href: "/settings", icon: Settings, permission: "settings:read" },
+  { label: "Configuración", href: "/settings", icon: Settings, permission: "settings:read" },
 ];
 
 function NavGroup({
@@ -202,7 +202,7 @@ export function Sidebar() {
           className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] font-medium text-ink-muted transition-all duration-150 hover:bg-danger-bg hover:text-danger-DEFAULT lg:py-2"
         >
           <LogOut className="h-[15px] w-[15px]" />
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </div>
     </aside>

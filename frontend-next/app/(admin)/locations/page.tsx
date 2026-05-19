@@ -58,7 +58,10 @@ export default function LocationsPage() {
       limit: 200,
     });
 
-  const { data: workLocations = [], isLoading: wlLoading } = useWorkLocations();
+  const { data: workLocations = [], isLoading: wlLoading } = useWorkLocations(
+    false,
+    Boolean(me.data?.company.has_multi_location),
+  );
 
   const mapInitialCenter = useMemo<[number, number] | undefined>(() => {
     const wl = workLocations.find((w) => w.latitude != null && w.longitude != null);
