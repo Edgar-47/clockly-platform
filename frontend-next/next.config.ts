@@ -32,12 +32,10 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    // API_URL_INTERNAL: server-to-server proxy destination.
-    //   Production on Fly.io: set to http://clockly-api.internal:8000 (internal network,
-    //   no TLS overhead, no DNS round-trip to the internet).
+    // API_URL_INTERNAL: server-to-server proxy destination (baked at build time via fly.toml build args).
+    //   Production: https://api.clockly.es (public URL — 6PN internal network unreliable).
     // NEXT_PUBLIC_API_URL: public-facing API origin baked into client bundles and CSP.
-    //   Production: https://api.clockly.es
-    // Local dev: neither is set, falls back to http://127.0.0.1:8010.
+    // Local dev: falls back to http://127.0.0.1:8010.
     const apiBase =
       process.env.API_URL_INTERNAL ??
       process.env.NEXT_PUBLIC_API_URL ??

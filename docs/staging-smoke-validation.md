@@ -520,3 +520,53 @@ stripe trigger customer.subscription.deleted
 | Lanzamiento público amplio | ❌ **NO-GO** hasta revisión legal páginas + inbox email confirmado |
 
 *Informe actualizado: 2026-05-19 — post-deploy real | api.clockly.es / app.clockly.es | Next.js 16.2.6*
+
+---
+
+## 21. Plans API / Landing Pricing Fix (2026-05-19)
+
+### Causa raíz
+`GET /api/plans` devolvía 500 en todos los dominios del frontend (`clockly.es`, `www.clockly.es`, `app.clockly.es`).
+
+El `next.config.ts` define un rewrite `/api/:path*` → `${API_URL_INTERNAL}/:path*`. El valor de `API_URL_INTERNAL` se leía de `process.env.API_URL_INTERNAL`, pero **esta variable no existía en el runtime del contenedor de producción** porque estaba declarada únicamente como Docker build arg (en la stage `builder`), y la stage `runner` del Dockerfile multistage no la heredaba.
+
+El servidor Next.js standalone lee el `routes-manifest.json` bakeado en build time. En la imagen de Fly.io (build correcto), el manifiesto contenía `http://clockly-api.internal:8000/:path*`. Sin embargo, **la Fly.io private network (6PN) no era alcanzable** desde el frontend: ninguna petición a `/plans` aparecía en los logs del backend, confirmando fallo de conexión a nivel de red/DNS interno.
+
+En builds locales sin la variable, el manifiesto contenía `http://127.0.0.1:8010/:path*` → conexión rechazada → 500.
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `frontend-next/fly.toml` | `API_URL_INTERNAL` cambiado de `http://clockly-api.internal:8000` → `https://api.clockly.es` en `[build.args]` |
+| `frontend-next/next.config.ts` | Comentario actualizado para documentar la razón del cambio |
+
+### Validación local pre-deploy
+| Check | Resultado |
+|-------|-----------|
+| `tsc --noEmit` | ✅ 0 errores |
+| `eslint next.config.ts` | ✅ 0 errores |
+| Build con `API_URL_INTERNAL=https://api.clockly.es` | ✅ routes-manifest bakeado correctamente |
+| `routes-manifest.json` destination | ✅ `https://api.clockly.es/:path*` |
+
+### Deploy
+- App: `clockly-app`
+- Imagen: `deployment-01KS08VCMP6Z0JYNYNHKXEXJKP` (Next.js 16.2.6)
+- Resultado: ✅ Machine started, health check passing
+
+### Smoke post-deploy
+
+| Endpoint | Resultado |
+|----------|-----------|
+| `https://api.clockly.es/plans` (directo) | ✅ 200 — 1970 bytes JSON |
+| `https://clockly.es/api/plans` (proxy) | ✅ 200 — 1970 bytes JSON |
+| `https://www.clockly.es/api/plans` (proxy) | ✅ 200 — 1970 bytes JSON |
+| `https://app.clockly.es/api/plans` (proxy) | ✅ 200 — 1970 bytes JSON |
+
+Backend logs post-deploy confirman hits con `host: api.clockly.es` y `x_forwarded_host: clockly.es / www.clockly.es / app.clockly.es`.
+
+### Resultado final
+- Sección "Planes para cada etapa" visible en la landing ✅
+- Tres cards renderizadas: Free, Pro (recomendado), Business ✅
+- Un único error de consola residual: `/icons/icon-192.png` 404 (icono PWA faltante, pre-existente, no bloqueante)
+- Estado: **GO-PILOT mantenido**, landing completa funcionando

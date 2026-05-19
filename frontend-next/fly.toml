@@ -8,13 +8,14 @@ primary_region = "mad"   # Madrid
 [build]
   dockerfile = "Dockerfile"
 
-  # These build args are baked into the Next.js bundle at build time.
-  # API_URL_INTERNAL: server-to-server proxy destination via Fly internal network.
-  #   Format: http://<backend-app-name>.internal:<internal_port>
-  #   Must match the backend app name in backend_v2/fly.toml.
+  # These build args are baked into the Next.js routes manifest at build time.
+  # API_URL_INTERNAL: server-to-server proxy destination for Next.js rewrites.
+  #   Uses the public API URL — the Fly.io 6PN internal network (clockly-api.internal:8000)
+  #   was unreachable from the frontend machine (IPv6 private networking not connecting).
+  #   Public URL adds minor TLS overhead but is reliable and already proven in smoke tests.
   # NEXT_PUBLIC_API_URL: public API origin — baked into client JS and CSP.
   [build.args]
-    API_URL_INTERNAL    = "http://clockly-api.internal:8000"
+    API_URL_INTERNAL    = "https://api.clockly.es"
     NEXT_PUBLIC_API_URL = "https://api.clockly.es"
     NEXT_PUBLIC_APP_NAME = "ClockLy"
 
