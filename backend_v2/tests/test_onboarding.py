@@ -116,7 +116,7 @@ class TestOnboardingWizard:
 
         company = client.put(
             "/onboarding/company",
-            json={"company_name": "Acme Clinic Madrid", "timezone": "Europe/Madrid", "plan_type": "business"},
+            json={"company_name": "Acme Clinic Madrid", "timezone": "Europe/Madrid"},
         )
         employee = client.post(
             "/onboarding/first-employee",

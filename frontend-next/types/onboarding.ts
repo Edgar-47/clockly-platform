@@ -20,7 +20,6 @@ export interface OnboardingStatus {
 export interface OnboardingCompanyUpdateRequest {
   company_name: string;
   timezone: string;
-  plan_type?: PlanType | null;
   sector?: string | null;
   company_size?: string | null;
   country?: string | null;

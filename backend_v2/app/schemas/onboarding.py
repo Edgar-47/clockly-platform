@@ -26,7 +26,6 @@ class OnboardingStatusResponse(BaseModel):
 class OnboardingCompanyUpdate(BaseModel):
     company_name: str = Field(min_length=2, max_length=160)
     timezone: str = Field(min_length=1, max_length=80)
-    plan_type: PlanType | None = None
     sector: str | None = Field(default=None, max_length=100)
     company_size: str | None = Field(default=None, max_length=40)
     country: str | None = Field(default=None, max_length=80)
@@ -47,11 +46,6 @@ class OnboardingCompanyUpdate(BaseModel):
         except ZoneInfoNotFoundError as exc:
             raise ValueError("Unknown timezone.") from exc
         return value
-
-    @field_validator("plan_type", mode="after")
-    @classmethod
-    def ignore_public_plan_changes(cls, value: PlanType | None) -> None:
-        return None
 
 
 class OnboardingFirstEmployeeCreate(BaseModel):
