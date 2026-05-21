@@ -5,12 +5,17 @@ import { attendanceService } from "./attendance.service";
 import { employeesService } from "./employees.service";
 
 export const dashboardService = {
-  summary: async (): Promise<DashboardSummary> => {
-    // Fetch session, metrics, employees and session history in parallel (4 requests).
-    // Then derive attendance statuses from the already-fetched employee list
-    // to avoid a redundant GET /employees inside attendanceService.current().
+  // cachedSession: pass the already-cached /auth/me data to skip the extra HTTP
+  // request. The hook passes it from React Query's in-memory cache.
+  summary: async (cachedSession?: MePayload | null): Promise<DashboardSummary> => {
+    // Fetch metrics, employees and session history in parallel.
+    // /auth/me is reused from cache — no extra round-trip when session is fresh.
+    const mePromise = cachedSession
+      ? Promise.resolve(cachedSession)
+      : api.get<MePayload>("/auth/me");
+
     const [me, metrics, employees, sessions] = await Promise.all([
-      api.get<MePayload>("/auth/me"),
+      mePromise,
       api.get<MetricsOverview>("/metrics/overview"),
       employeesService.list(),
       attendanceService.history(),

@@ -14,9 +14,11 @@ export function useEmployees(enabled = true) {
     queryKey: employeeKeys.all,
     queryFn: employeesService.list,
     enabled,
-    // Employee list changes infrequently. 5-minute cache avoids redundant
-    // requests on tab focus, navigation, and concurrent component mounts.
+    // Employee list changes infrequently — 5-minute stale window.
     staleTime: 5 * 60 * 1000,
+    // Keep in memory for 15 minutes after last use to avoid re-fetching
+    // when navigating back to employee-dependent pages.
+    gcTime: 15 * 60 * 1000,
   });
 }
 

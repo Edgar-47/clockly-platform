@@ -13,7 +13,6 @@ from app.models.company import Company
 from app.models.employee import Employee
 from app.models.enums import UserRole
 from app.models.user import User
-from app.repositories.company_repository import CompanyRepository
 from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.user_repository import UserRepository
 from app.services.permissions import is_admin_role, permissions_for_role, role_has_permission
@@ -61,10 +60,10 @@ def get_current_context(
     except (KeyError, ValueError, TokenDecodeError) as exc:
         raise AuthenticationError("Invalid authentication token.") from exc
 
-    user = UserRepository(db).get_active(user_id, company_id)
-    company = CompanyRepository(db).get(company_id)
-    if user is None or company is None:
+    result = UserRepository(db).get_active_with_company(user_id, company_id)
+    if result is None:
         raise AuthenticationError("User or company is not active.")
+    user, company = result
     employee = _active_employee_context(db, user)
     return TenantContext(user=user, company=company, employee=employee)
 

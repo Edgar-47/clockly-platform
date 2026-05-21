@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import cast, Date, func, select
@@ -161,67 +161,84 @@ class AnalyticsService:
     def anomalies(self, days: int = 30) -> AnomaliesResponse:
         date_from = datetime.now(UTC) - timedelta(days=days)
         found: list[Anomaly] = []
-        names = self._employee_names()
+        employee_name_col = (
+            func.coalesce(Employee.first_name, "") + " " + func.coalesce(Employee.last_name, "")
+        ).label("employee_name")
 
-        # 1. Frequent late arrivals (≥ 3 in period)
+        # 1. Frequent late arrivals (≥ 3 in period) — JOIN to get name in same query
         late_counts = self.db.execute(
-            select(LateArrival.employee_id, func.count(LateArrival.id).label("n"))
+            select(
+                LateArrival.employee_id,
+                func.count(LateArrival.id).label("n"),
+                employee_name_col,
+            )
+            .join(Employee, Employee.id == LateArrival.employee_id)
             .where(
                 LateArrival.company_id == self.company_id,
                 LateArrival.date >= date_from.date(),
             )
-            .group_by(LateArrival.employee_id)
+            .group_by(LateArrival.employee_id, Employee.first_name, Employee.last_name)
             .having(func.count(LateArrival.id) >= 3)
         ).fetchall()
         for row in late_counts:
             found.append(
                 Anomaly(
                     employee_id=row.employee_id,
-                    employee_name=names.get(row.employee_id, "Desconocido"),
+                    employee_name=row.employee_name.strip() or "Desconocido",
                     anomaly_type="frequent_late",
                     count=row.n,
                     description=f"{row.n} retrasos en los últimos {days} días.",
                 )
             )
 
-        # 2. Very long sessions (> 12 hours)
+        # 2. Very long sessions (> 12 hours) — JOIN to get name in same query
         long_sessions = self.db.execute(
-            select(AttendanceSession.employee_id, func.count(AttendanceSession.id).label("n"))
+            select(
+                AttendanceSession.employee_id,
+                func.count(AttendanceSession.id).label("n"),
+                employee_name_col,
+            )
+            .join(Employee, Employee.id == AttendanceSession.employee_id)
             .where(
                 AttendanceSession.company_id == self.company_id,
                 AttendanceSession.status == AttendanceStatus.CLOSED,
                 AttendanceSession.duration_seconds > 12 * 3600,
                 AttendanceSession.clock_in >= date_from,
             )
-            .group_by(AttendanceSession.employee_id)
+            .group_by(AttendanceSession.employee_id, Employee.first_name, Employee.last_name)
         ).fetchall()
         for row in long_sessions:
             found.append(
                 Anomaly(
                     employee_id=row.employee_id,
-                    employee_name=names.get(row.employee_id, "Desconocido"),
+                    employee_name=row.employee_name.strip() or "Desconocido",
                     anomaly_type="long_session",
                     count=row.n,
                     description=f"{row.n} jornada(s) de más de 12h en los últimos {days} días.",
                 )
             )
 
-        # 3. Frequent auto clock-outs (≥ 2 in period)
+        # 3. Frequent auto clock-outs (≥ 2 in period) — JOIN to get name in same query
         auto_out = self.db.execute(
-            select(AttendanceSession.employee_id, func.count(AttendanceSession.id).label("n"))
+            select(
+                AttendanceSession.employee_id,
+                func.count(AttendanceSession.id).label("n"),
+                employee_name_col,
+            )
+            .join(Employee, Employee.id == AttendanceSession.employee_id)
             .where(
                 AttendanceSession.company_id == self.company_id,
                 AttendanceSession.clock_out_source == ClockOutSource.AUTO,
                 AttendanceSession.clock_in >= date_from,
             )
-            .group_by(AttendanceSession.employee_id)
+            .group_by(AttendanceSession.employee_id, Employee.first_name, Employee.last_name)
             .having(func.count(AttendanceSession.id) >= 2)
         ).fetchall()
         for row in auto_out:
             found.append(
                 Anomaly(
                     employee_id=row.employee_id,
-                    employee_name=names.get(row.employee_id, "Desconocido"),
+                    employee_name=row.employee_name.strip() or "Desconocido",
                     anomaly_type="auto_clockout",
                     count=row.n,
                     description=f"{row.n} salida(s) automática(s) sin fichar en los últimos {days} días.",
@@ -229,11 +246,3 @@ class AnalyticsService:
             )
 
         return AnomaliesResponse(anomalies=found, period_days=days)
-
-    def _employee_names(self) -> dict[UUID, str]:
-        rows = self.db.execute(
-            select(Employee.id, Employee.first_name, Employee.last_name).where(
-                Employee.company_id == self.company_id
-            )
-        ).fetchall()
-        return {row.id: f"{row.first_name} {row.last_name}".strip() for row in rows}

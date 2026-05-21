@@ -29,8 +29,9 @@ export function useAttendanceHistory(filters: AttendanceHistoryFilters = {}) {
   return useQuery({
     queryKey: attendanceKeys.history(filters),
     queryFn: () => attendanceService.history(filters),
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    // Session history is not real-time — it refreshes after mutations and on
+    // focus. Polling every 30 s is unnecessary and generates excessive load.
+    staleTime: 60_000,
   });
 }
 

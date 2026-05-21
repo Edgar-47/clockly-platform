@@ -2,9 +2,10 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.refresh_token import RefreshToken
+from app.models.company import Company
 from app.models.enums import UserRole
 from app.models.user import User
 
@@ -38,6 +39,28 @@ class UserRepository:
                 User.is_deleted.is_(False),
             )
         )
+
+    def get_active_with_company(self, user_id: UUID, company_id: UUID) -> tuple[User, Company] | None:
+        """Return (user, company) in a single JOIN query instead of two round-trips.
+
+        The Company must be active (is_active=True). Returns None if the user or
+        company is not found/active.
+        """
+        user = self.db.scalar(
+            select(User)
+            .options(joinedload(User.company))
+            .where(
+                User.id == user_id,
+                User.company_id == company_id,
+                User.is_active.is_(True),
+                User.is_deleted.is_(False),
+            )
+        )
+        if user is None:
+            return None
+        if user.company is None or not user.company.is_active:
+            return None
+        return user, user.company
 
     def get_by_email(self, email: str, *, include_deleted: bool = False) -> User | None:
         stmt = select(User).where(User.email == email.lower())

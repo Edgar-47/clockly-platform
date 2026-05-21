@@ -34,11 +34,13 @@ class ExportService:
     ) -> list[AttendanceSession]:
         date_from_utc = ensure_utc(date_from, default_timezone=self.company.timezone) if date_from else None
         date_to_utc = ensure_utc(date_to, default_timezone=self.company.timezone) if date_to else None
+        # Hard cap at 5 000 rows to prevent OOM on large date ranges.
+        # For larger exports, narrow the date range or filter by employee_id.
         return self.attendance.list_sessions(
             employee_id=employee_id,
             status=status,
             clock_out_source=clock_out_source,
             date_from=date_from_utc,
             date_to=date_to_utc,
-            limit=10_000,
+            limit=5_000,
         )

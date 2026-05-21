@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,15 +42,24 @@ export function SessionsTable({
   const [editError, setEditError] = useState<string | null>(null);
   const updateSession = useUpdateAttendanceSession();
   const autoClose = useAutoCloseOpenSessions();
+  const dateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const applyFilter = (update: Partial<AttendanceHistoryFilters>) => {
+  const applyFilter = useCallback((update: Partial<AttendanceHistoryFilters>, debounce = false) => {
     if (!canUseAdvancedFilters && (update.date_from || update.date_to || update.employee_id)) {
       return;
     }
-    const next = { ...filters, ...update };
-    setFilters(next);
-    onFilterChange(next);
-  };
+    setFilters((prev) => {
+      const next = { ...prev, ...update };
+      if (debounce) {
+        // Date inputs fire on every keystroke — debounce to avoid a query per character
+        if (dateDebounceRef.current) clearTimeout(dateDebounceRef.current);
+        dateDebounceRef.current = setTimeout(() => onFilterChange(next), 400);
+      } else {
+        onFilterChange(next);
+      }
+      return next;
+    });
+  }, [canUseAdvancedFilters, onFilterChange]);
 
   const handleExport = async (format: "excel" | "pdf") => {
     if (!canExport) return;
@@ -140,14 +149,14 @@ export function SessionsTable({
             className="w-full sm:w-auto"
             disabled={!canUseAdvancedFilters}
             title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
-            onChange={(event) => applyFilter({ date_from: event.target.value || undefined })}
+            onChange={(event) => applyFilter({ date_from: event.target.value || undefined }, true)}
           />
           <Input
             type="date"
             className="w-full sm:w-auto"
             disabled={!canUseAdvancedFilters}
             title={!canUseAdvancedFilters ? "Disponible en Pro" : undefined}
-            onChange={(event) => applyFilter({ date_to: event.target.value || undefined })}
+            onChange={(event) => applyFilter({ date_to: event.target.value || undefined }, true)}
           />
           <Select
             onValueChange={(value) =>
