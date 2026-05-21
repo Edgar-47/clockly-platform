@@ -6,6 +6,7 @@ import {
   BarChart3,
   Banknote,
   Building2,
+  CalendarDays,
   Clock,
   Landmark,
   LayoutDashboard,
@@ -58,6 +59,7 @@ const NAV_OPERATIONS: NavItem[] = [
 ];
 
 const NAV_CONFIG: NavItem[] = [
+  { label: "Horarios", href: "/schedules", icon: CalendarDays, permission: "schedules:read" },
   { label: "Centros de trabajo", href: "/work-locations", icon: Building2, permission: "locations:write" },
   { label: "Upgrade", href: "/upgrade", icon: Sparkles, permission: "users:manage" },
   { label: "Configuración", href: "/settings", icon: Settings, permission: "settings:read" },

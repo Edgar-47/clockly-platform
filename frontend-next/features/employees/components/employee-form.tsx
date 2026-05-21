@@ -1,12 +1,46 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useSchedules } from "@/hooks/use-schedules";
 import type { Employee, EmployeeCreateRequest, EmployeeUpdateRequest } from "@/types/employee";
+
+const DAY_SHORT: Record<string, string> = {
+  monday: "L", tuesday: "M", wednesday: "X",
+  thursday: "J", friday: "V", saturday: "S", sunday: "D",
+};
+const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+function fmtTime(t: string) { return t.slice(0, 5); }
+
+function ScheduleLabel({ name, entry_time, exit_time, monday, tuesday, wednesday, thursday, friday, saturday, sunday }: {
+  name: string; entry_time: string; exit_time: string;
+  monday: boolean; tuesday: boolean; wednesday: boolean; thursday: boolean;
+  friday: boolean; saturday: boolean; sunday: boolean;
+}) {
+  const days: Record<string, boolean> = { monday, tuesday, wednesday, thursday, friday, saturday, sunday };
+  const activeDays = DAY_KEYS.filter((d) => days[d]).map((d) => DAY_SHORT[d]).join("");
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="font-medium">{name}</span>
+      <span className="text-ink-muted text-[11px]">
+        ({activeDays} · {fmtTime(entry_time)}–{fmtTime(exit_time)})
+      </span>
+    </span>
+  );
+}
 
 const schema = z.object({
   first_name: z.string().min(1, "Nombre requerido"),
@@ -24,6 +58,7 @@ const schema = z.object({
     .or(z.literal("")),
   hired_on: z.string().optional(),
   is_active: z.boolean().default(true),
+  schedule_id: z.string().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -36,9 +71,12 @@ interface EmployeeFormProps {
 }
 
 export function EmployeeForm({ employee, onSubmit, loading, error }: EmployeeFormProps) {
+  const { data: schedules = [] } = useSchedules(false); // only active
+
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -52,8 +90,9 @@ export function EmployeeForm({ employee, onSubmit, loading, error }: EmployeeFor
           role_title: employee.role_title ?? "",
           hired_on: employee.hired_on ?? "",
           is_active: employee.is_active,
+          schedule_id: employee.schedule_id ?? null,
         }
-      : { is_active: true },
+      : { is_active: true, schedule_id: null },
   });
 
   const handleFormSubmit = (values: FormValues) => {
@@ -68,6 +107,7 @@ export function EmployeeForm({ employee, onSubmit, loading, error }: EmployeeFor
       password: values.password || undefined,
       pin: values.pin || undefined,
       is_active: values.is_active,
+      schedule_id: values.schedule_id ?? null,
     });
   };
 
@@ -136,6 +176,41 @@ export function EmployeeForm({ employee, onSubmit, loading, error }: EmployeeFor
           <Label htmlFor="hired_on">Fecha de alta</Label>
           <Input id="hired_on" type="date" {...register("hired_on")} />
         </div>
+      </div>
+
+      {/* Schedule selector */}
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5">
+          <CalendarDays className="h-3.5 w-3.5 text-primary" />
+          Horario de trabajo
+        </Label>
+        <Controller
+          name="schedule_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value ?? "__none__"}
+              onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
+            >
+              <SelectTrigger className="h-10 rounded-xl">
+                <SelectValue placeholder="Sin horario asignado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">
+                  <span className="text-ink-muted">Sin horario</span>
+                </SelectItem>
+                {schedules.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    <ScheduleLabel {...s} />
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        <p className="text-[11px] text-ink-xmuted">
+          El horario activa el control de retrasos y el cálculo de horas semanales.
+        </p>
       </div>
 
       <div className="flex justify-end gap-3 pt-2">

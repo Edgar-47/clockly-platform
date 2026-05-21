@@ -15,6 +15,7 @@ export interface Employee {
   hired_on: string | null;
   is_active: boolean;
   has_pin: boolean;
+  schedule_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,4 +57,5 @@ export interface EmployeeUpdateRequest {
   password?: string;
   pin?: string | null;
   is_active?: boolean;
+  schedule_id?: string | null;
 }
