@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Banknote,
+  BookOpenCheck,
   Building2,
   CalendarDays,
   Clock,
@@ -61,6 +62,7 @@ const NAV_OPERATIONS: NavItem[] = [
 const NAV_CONFIG: NavItem[] = [
   { label: "Horarios", href: "/schedules", icon: CalendarDays, permission: "schedules:read" },
   { label: "Centros de trabajo", href: "/work-locations", icon: Building2, permission: "locations:write" },
+  { label: "Tutoriales", href: "/tutorials", icon: BookOpenCheck, roles: ["owner", "admin", "hr_manager", "manager"] },
   { label: "Upgrade", href: "/upgrade", icon: Sparkles, permission: "users:manage" },
   { label: "Configuración", href: "/settings", icon: Settings, permission: "settings:read" },
 ];

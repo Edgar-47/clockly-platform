@@ -45,6 +45,7 @@ Owner / admin / manager
   -> /cash-closures
   -> /settings
   -> /upgrade
+  -> /tutorials
   -> /kiosk (abierto desde sesion admin)
 
 Owner / admin
@@ -60,6 +61,7 @@ HR manager
   -> /board
   -> /tickets
   -> /salaries
+  -> /tutorials
   -> sin acceso a /settings, billing, planes ni configuracion sensible
 
 Invited user
@@ -104,6 +106,8 @@ Rutas web activas y defendibles:
 - `/salaries` salarios estimados y calculo de pagos por periodo
 - `/locations` mapa/listado de eventos de geolocalizacion de fichajes
 - `/work-locations` gestion de centros de trabajo
+- `/tutorials` centro de ayuda interno con tutoriales por categoria
+- `/tutorials/{slug}` articulo detallado de cada tutorial
 - `/settings` contexto de empresa y plan actual
 - `/settings` miembros e invitaciones para owner/admin
 - `/settings` desfichaje automatico para owner/admin
@@ -111,6 +115,11 @@ Rutas web activas y defendibles:
 - `/employee` autoservicio del empleado autenticado
 - `/kiosk` kiosk real, protegido y con PIN validado en backend
 - `/accept-invitation/{token}` aceptacion publica de invitacion
+
+El centro de ayuda vive dentro del layout administrativo y queda disponible para
+owner, admin, HR manager y manager. El rol employee mantiene por ahora su portal
+propio en `/employee` hasta que exista una superficie de ayuda especifica para
+autoservicio.
 
 Superficies retiradas del flujo principal:
 

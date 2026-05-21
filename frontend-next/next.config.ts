@@ -14,6 +14,7 @@ const NOINDEX_ROUTES = [
   "/work-locations/:path*",
   "/settings/:path*",
   "/upgrade/:path*",
+  "/tutorials/:path*",
   "/kiosk/:path*",
   "/employee/:path*",
   "/businesses/:path*",
