@@ -14,6 +14,7 @@ from app.models.types import enum_column
 
 if TYPE_CHECKING:
     from app.models.attendance_session import AttendanceSession
+    from app.models.board import BoardLabel, BoardNote
     from app.models.employee import Employee
     from app.models.company_location import CompanyLocation
     from app.models.company_settings import CompanySettings
@@ -74,6 +75,8 @@ class Company(TimestampMixin, Base):
     schedules: Mapped[list[Schedule]] = relationship(back_populates="company", cascade="all, delete-orphan")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="company")
     tickets: Mapped[list[Ticket]] = relationship(back_populates="company")
+    board_notes: Mapped[list[BoardNote]] = relationship(back_populates="company", cascade="all, delete-orphan")
+    board_labels: Mapped[list[BoardLabel]] = relationship(back_populates="company", cascade="all, delete-orphan")
     invitations: Mapped[list[UserInvitation]] = relationship(back_populates="company", cascade="all, delete-orphan")
     salary_profiles: Mapped[list[SalaryProfile]] = relationship(back_populates="company", cascade="all, delete-orphan")
     salary_calculations: Mapped[list[SalaryCalculation]] = relationship(

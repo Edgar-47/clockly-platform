@@ -40,6 +40,7 @@ Owner / admin / manager
   -> /employees
   -> /sessions
   -> /analytics
+  -> /board
   -> /tickets
   -> /cash-closures
   -> /settings
@@ -56,6 +57,7 @@ HR manager
   -> /employees
   -> /sessions
   -> /analytics
+  -> /board
   -> /tickets
   -> /salaries
   -> sin acceso a /settings, billing, planes ni configuracion sensible
@@ -96,6 +98,7 @@ Rutas web activas y defendibles:
 - `/employees` gestion de empleados
 - `/sessions` historial de fichajes y exportaciones
 - `/analytics` metricas conectadas al backend
+- `/board` tablero interno de notas, recordatorios y tareas operativas
 - `/tickets` incidencias conectadas al backend
 - `/cash-closures` cierre de caja con efectivo, datafonos, analitica y exportaciones
 - `/salaries` salarios estimados y calculo de pagos por periodo
@@ -311,10 +314,28 @@ con esa misma key antes de cortar produccion.
   integraciones, owner, roles superiores ni ajustes sensibles.
 - `manager` actua como encargado operativo: puede crear y consultar cierres de
   caja, pero no puede exportar, ver analitica avanzada ni editar historico.
+- `owner`, `admin`, `hr_manager` y `manager` pueden usar el tablero operativo
+  (`board:read`, `board:write`). `employee` no tiene acceso al tablero.
 - `owner` y `admin` tienen control completo de cierres de caja, incluido
   historico editable, analitica y exportaciones CSV/XLSX.
 - La seguridad se aplica en backend por permisos; el frontend solo oculta rutas
   no permitidas.
+
+## Tablero operativo
+
+- Pantalla activa: `/board`.
+- Endpoints: `/board/notes` y `/board/labels`.
+- Uso previsto: comentarios internos, tareas pendientes, recordatorios, avisos
+  de equipo, notas rapidas del dia e incidencias operativas no criticas.
+- Acceso backend por permisos `board:read` y `board:write`, concedidos a
+  `owner`, `admin`, `hr_manager` y `manager`. `employee` queda fuera.
+- Las notas y etiquetas son multi-tenant por `company_id`; una empresa no puede
+  ver, usar ni modificar etiquetas o notas de otra empresa.
+- Las etiquetas son personalizables por empresa y usan una paleta cerrada de
+  colores visualmente seguros: azul, verde, naranja, rojo, morado, rosa, gris,
+  amarillo y cyan.
+- Si una etiqueta esta en uso, el backend impide borrarla para preservar el
+  contexto historico de las notas.
 
 ## Cierre de caja
 
@@ -397,6 +418,7 @@ Estado de bloqueadores de publicacion:
 - [x] Exportaciones XLSX/PDF con formato de informe.
 - [x] Stripe Checkout, Billing Portal y webhooks de suscripcion.
 - [x] Cierre de caja multi-tenant con incidencias, firma, analitica y export.
+- [x] Tablero operativo multi-tenant para notas, tareas y recordatorios.
 - [ ] Checklist legal listo antes de clientes reales.
 
 Staging real debe usar PostgreSQL gestionado, `alembic upgrade head`, SMTP real

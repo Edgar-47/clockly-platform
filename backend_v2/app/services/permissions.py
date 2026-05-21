@@ -38,6 +38,8 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "cash_closures:manage",
         "cash_closures:analytics",
         "cash_closures:export",
+        "board:read",
+        "board:write",
         "gdpr:export",
     },
     UserRole.ADMIN: {
@@ -73,6 +75,8 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "cash_closures:manage",
         "cash_closures:analytics",
         "cash_closures:export",
+        "board:read",
+        "board:write",
         "gdpr:export",
     },
     UserRole.HR_MANAGER: {
@@ -95,6 +99,8 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "late_arrivals:read",
         "late_arrivals:manage",
         "late_arrivals:export",
+        "board:read",
+        "board:write",
     },
     UserRole.MANAGER: {
         "employees:read",
@@ -113,6 +119,8 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
         "late_arrivals:manage",
         "cash_closures:read",
         "cash_closures:write",
+        "board:read",
+        "board:write",
     },
     UserRole.EMPLOYEE: {
         "attendance:read",

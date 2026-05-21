@@ -3,6 +3,7 @@ from app.models.attendance_session import AttendanceSession
 from app.models.late_arrival import LateArrival
 from app.models.attendance_incident import AttendanceIncident
 from app.models.audit_log import AuditLog
+from app.models.board import BoardLabel, BoardNote
 from app.models.cash_closure import CashClosure, CashClosureCardTerminal, CashClosureDrawer
 from app.models.company import Company
 from app.models.company_location import CompanyLocation
@@ -16,6 +17,8 @@ from app.models.enums import (
     AttendanceIncidentType,
     AttendanceMethod,
     AttendanceStatus,
+    BoardNotePriority,
+    BoardNoteStatus,
     CashClosureShift,
     ClockOutSource,
     IncidentStatus,
@@ -44,6 +47,10 @@ __all__ = [
     "LateArrival",
     "AttendanceStatus",
     "AuditLog",
+    "BoardLabel",
+    "BoardNote",
+    "BoardNotePriority",
+    "BoardNoteStatus",
     "CashClosure",
     "CashClosureCardTerminal",
     "CashClosureDrawer",

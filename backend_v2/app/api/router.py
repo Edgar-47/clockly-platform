@@ -7,6 +7,7 @@ from app.api.routes import (
     attendance_locations,
     auth,
     billing,
+    board,
     businesses,
     cash_closures,
     employees,
@@ -33,6 +34,7 @@ api_router.include_router(auth.router)
 api_router.include_router(analytics.router)
 api_router.include_router(affiliates.router)
 api_router.include_router(billing.router)
+api_router.include_router(board.router)
 api_router.include_router(users.router)
 api_router.include_router(businesses.router)
 api_router.include_router(invitations.router)

@@ -16,6 +16,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  StickyNote,
   TicketCheck,
   TimerOff,
   Users,
@@ -45,6 +46,7 @@ const NAV_MAIN: NavItem[] = [
 
 const NAV_OPERATIONS: NavItem[] = [
   { label: "Analíticas", href: "/analytics", icon: BarChart3, permission: "metrics:read" },
+  { label: "Tablero", href: "/board", icon: StickyNote, permission: "board:read" },
   { label: "Incidencias", href: "/tickets", icon: TicketCheck, permission: "tickets:read" },
   { label: "Retrasos", href: "/late-arrivals", icon: TimerOff, permission: "late_arrivals:read" },
   { label: "Gastos", href: "/expenses", icon: Receipt, permission: "expense_tickets:read" },

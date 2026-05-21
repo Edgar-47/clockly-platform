@@ -137,3 +137,17 @@ class CashClosureShift(StrEnum):
     AFTERNOON = "afternoon"
     NIGHT = "night"
     CUSTOM = "custom"
+
+
+class BoardNoteStatus(StrEnum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
+class BoardNotePriority(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"

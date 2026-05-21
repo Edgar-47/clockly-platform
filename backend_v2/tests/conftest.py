@@ -46,6 +46,7 @@ from app.db.base import Base
 from app.models.attendance_incident import AttendanceIncident  # noqa: F401
 from app.models.attendance_session import AttendanceSession
 from app.models.audit_log import AuditLog  # noqa: F401
+from app.models.board import BoardLabel, BoardNote  # noqa: F401
 from app.models.cash_closure import CashClosure, CashClosureCardTerminal, CashClosureDrawer  # noqa: F401
 from app.models.company import Company
 from app.models.company_location import CompanyLocation  # noqa: F401

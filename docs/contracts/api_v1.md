@@ -721,6 +721,97 @@ Kiosk/PIN rules:
 - Kiosk attempts are rate limited and return `429` with a clear message when
   too many PIN attempts are made.
 
+## Board
+
+Visible in the current web UI under `/board`.
+
+The board is an internal company surface for operational notes, pending work,
+reminders, team notices, quick daily notes and non-critical operational
+incidents.
+
+Endpoints:
+
+- `GET /board/notes`
+- `POST /board/notes`
+- `GET /board/notes/{note_id}`
+- `PATCH /board/notes/{note_id}`
+- `DELETE /board/notes/{note_id}`
+- `PATCH /board/notes/{note_id}/complete`
+- `PATCH /board/notes/{note_id}/archive`
+- `GET /board/labels`
+- `POST /board/labels`
+- `PATCH /board/labels/{label_id}`
+- `DELETE /board/labels/{label_id}`
+
+Permissions:
+
+- `owner`, `admin`, `hr_manager`, `manager`: `board:read`, `board:write`
+- `employee`: no board permissions
+
+`GET /board/notes` query parameters:
+
+- `status`: `pending`, `in_progress`, `completed`, `archived`
+- `priority`: `low`, `medium`, `high`, `urgent`
+- `label_id`
+- `search`
+- `include_archived`
+- `limit`, `offset`
+
+Create note request:
+
+```json
+{
+  "title": "Preparar turnos del viernes",
+  "content": "Revisar bajas, cambios y confirmaciones antes de las 18:00.",
+  "status": "pending",
+  "priority": "high",
+  "label_ids": ["uuid"],
+  "reminder_at": "2026-05-22T16:00:00Z"
+}
+```
+
+Note response includes `author`, `labels`, `created_at`, `updated_at`,
+optional `reminder_at`, optional `completed_at` and optional `archived_at`.
+
+Create label request:
+
+```json
+{
+  "name": "Operacion diaria",
+  "color": "green",
+  "description": "Notas rapidas del dia a dia"
+}
+```
+
+Label colors are constrained to:
+
+- `blue`
+- `green`
+- `orange`
+- `red`
+- `purple`
+- `pink`
+- `gray`
+- `yellow`
+- `cyan`
+
+Rules:
+
+- Every note and label is scoped by `company_id`.
+- A note may only attach labels from the same company. Cross-tenant label IDs
+  return `404`.
+- Fetching or mutating a note or label from another tenant returns `404`.
+- Label names are unique per company case-insensitively. The same label name is
+  allowed in different companies.
+- `GET /board/labels` seeds the default tenant labels when none exist:
+  Recordatorio, Trabajo pendiente, Incidencia, Importante and Operacion diaria.
+- Deleting a label that is already attached to notes returns `409`; this keeps
+  historical note context intact. Unused labels can be deleted.
+- `PATCH /board/notes/{note_id}/complete` sets `status=completed` and
+  `completed_at`.
+- `PATCH /board/notes/{note_id}/archive` sets `status=archived` and
+  `archived_at`.
+
 ## Expense ticket attachments
 
 Expense tickets can store one private attachment per ticket through the backend.

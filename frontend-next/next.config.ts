@@ -6,6 +6,7 @@ const NOINDEX_ROUTES = [
   "/employees/:path*",
   "/sessions/:path*",
   "/analytics/:path*",
+  "/board/:path*",
   "/tickets/:path*",
   "/cash-closures/:path*",
   "/salaries/:path*",
