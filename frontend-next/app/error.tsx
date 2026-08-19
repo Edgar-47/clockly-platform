@@ -13,7 +13,7 @@ export default function AppError({
     <RouteErrorFallback
       error={error}
       reset={reset}
-      title="No se pudo cargar la pagina"
+      title="No se pudo cargar la página"
       description="Ha ocurrido un error inesperado. Puedes reintentar la carga o volver a una zona estable de ClockLy."
       homeHref="/dashboard"
       homeLabel="Ir al dashboard"

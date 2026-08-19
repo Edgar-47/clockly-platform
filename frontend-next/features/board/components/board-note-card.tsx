@@ -59,7 +59,7 @@ export function BoardNoteCard({
       </div>
 
       <p className="mt-3 line-clamp-4 min-h-[72px] text-[13px] leading-6 text-ink-muted">
-        {note.content || "Sin descripcion. Usa esta nota como recordatorio rapido del equipo."}
+        {note.content || "Sin descripción. Usa esta nota como recordatorio rápido del equipo."}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-1.5">

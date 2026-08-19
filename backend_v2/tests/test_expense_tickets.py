@@ -143,6 +143,65 @@ class TestEmployeeExpenseScoping:
         resp = client.get("/expense-tickets", headers=auth_headers(user))
         assert resp.json()["total"] == 0
 
+    def test_employee_without_profile_gets_empty_summary(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        user = make_user(db, company=company, email="u@test.com", role=UserRole.EMPLOYEE)
+        emp = make_employee(db, company=company)
+        _make_expense(db, company=company, employee=emp, user=admin, amount="99.00")
+        db.commit()
+
+        resp = client.get("/expense-tickets/summary", headers=auth_headers(user))
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_count"] == 0
+        assert data["total_amount"] == 0.0
+
+    def test_employee_without_profile_cannot_create_expense(self, client, db):
+        company = make_company(db)
+        user = make_user(db, company=company, email="u@test.com", role=UserRole.EMPLOYEE)
+        db.commit()
+
+        resp = client.post(
+            "/expense-tickets",
+            headers=auth_headers(user),
+            json={
+                "title": "Orphan expense",
+                "category": "supplies",
+                "purchase_date": "2026-04-01",
+                "amount": "25.50",
+                "payment_source": "personal_money",
+            },
+        )
+
+        assert resp.status_code == 404
+
+    def test_employee_without_profile_cannot_read_unassigned_expense(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        user = make_user(db, company=company, email="u@test.com", role=UserRole.EMPLOYEE)
+        ticket = ExpenseTicket(
+            id=uuid.uuid4(),
+            company_id=company.id,
+            employee_id=None,
+            created_by_user_id=admin.id,
+            title="Unassigned",
+            category=ExpenseCategory.SUPPLIES,
+            purchase_date=date(2026, 4, 1),
+            amount="25.50",
+            currency="EUR",
+            payment_source=PaymentSource.PERSONAL_MONEY,
+            requires_reimbursement=False,
+            status=ExpenseStatus.PENDING,
+        )
+        db.add(ticket)
+        db.commit()
+
+        resp = client.get(f"/expense-tickets/{ticket.id}", headers=auth_headers(user))
+
+        assert resp.status_code == 403
+
     def test_employee_creates_expense_against_own_profile(self, client, db):
         company = make_company(db)
         user = make_user(db, company=company, email="u@test.com", role=UserRole.EMPLOYEE)
@@ -457,6 +516,21 @@ class TestExpenseValidation:
                 "payment_source": "personal_money",
             },
         )
+        assert resp.status_code == 422
+
+    def test_update_purchase_date_cannot_be_future(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        ticket = _make_expense(db, company=company, employee=emp, user=admin)
+        db.commit()
+
+        resp = client.patch(
+            f"/expense-tickets/{ticket.id}",
+            headers=auth_headers(admin),
+            json={"purchase_date": "2099-12-31"},
+        )
+
         assert resp.status_code == 422
 
     def test_title_required(self, client, db):

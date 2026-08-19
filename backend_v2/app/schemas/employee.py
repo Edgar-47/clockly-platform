@@ -63,7 +63,14 @@ class EmployeeUpdate(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    @field_validator("first_name", "last_name", "email", "phone", "dni", "role_title", mode="before")
+    @field_validator("first_name", "last_name", mode="before")
+    @classmethod
+    def strip_required_strings(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    @field_validator("email", "phone", "dni", "role_title", mode="before")
     @classmethod
     def strip_strings(cls, value: object) -> object:
         if isinstance(value, str):

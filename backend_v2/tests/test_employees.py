@@ -6,8 +6,11 @@ password reset, User/Employee consistency, plan limits.
 
 from datetime import date
 
+from sqlalchemy import select
+
 from tests.conftest import auth_headers, make_company, make_employee, make_user
 from app.models.enums import UserRole
+from app.models.refresh_token import RefreshToken
 
 
 class TestCreateEmployee:
@@ -214,6 +217,52 @@ class TestUpdateEmployee:
         db.refresh(emp_user)
         assert emp_user.is_active is False
 
+    def test_deactivate_employee_revokes_refresh_tokens(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp_user = make_user(db, company=company, email="emp@test.com", role=UserRole.EMPLOYEE)
+        emp = make_employee(db, company=company, user=emp_user)
+        db.commit()
+
+        login = client.post("/auth/login", json={"email": "emp@test.com", "password": "test-password-123"})
+        assert login.status_code == 200
+        token = db.scalar(select(RefreshToken).where(RefreshToken.user_id == emp_user.id))
+        assert token is not None
+        assert token.revoked_at is None
+
+        resp = client.patch(
+            f"/employees/{emp.id}",
+            headers=auth_headers(admin),
+            json={"is_active": False},
+        )
+
+        assert resp.status_code == 200
+        db.refresh(token)
+        assert token.revoked_at is not None
+
+    def test_password_update_revokes_refresh_tokens(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp_user = make_user(db, company=company, email="emp@test.com", role=UserRole.EMPLOYEE)
+        emp = make_employee(db, company=company, user=emp_user)
+        db.commit()
+
+        login = client.post("/auth/login", json={"email": "emp@test.com", "password": "test-password-123"})
+        assert login.status_code == 200
+        token = db.scalar(select(RefreshToken).where(RefreshToken.user_id == emp_user.id))
+        assert token is not None
+        assert token.revoked_at is None
+
+        resp = client.patch(
+            f"/employees/{emp.id}",
+            headers=auth_headers(admin),
+            json={"password": "new-password-123"},
+        )
+
+        assert resp.status_code == 200
+        db.refresh(token)
+        assert token.revoked_at is not None
+
     def test_reactivate_employee_also_reactivates_user(self, client, db):
         company = make_company(db)
         admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
@@ -271,6 +320,20 @@ class TestUpdateEmployee:
             json={"first_name": "Ghost"},
         )
         assert resp.status_code == 404
+
+    def test_blank_employee_name_is_rejected_on_update(self, client, db):
+        company = make_company(db)
+        admin = make_user(db, company=company, email="admin@test.com", role=UserRole.ADMIN)
+        emp = make_employee(db, company=company)
+        db.commit()
+
+        resp = client.patch(
+            f"/employees/{emp.id}",
+            headers=auth_headers(admin),
+            json={"first_name": "   "},
+        )
+
+        assert resp.status_code == 422
 
 
 class TestEmployeePagination:

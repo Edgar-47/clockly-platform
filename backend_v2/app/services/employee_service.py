@@ -154,6 +154,7 @@ class EmployeeService:
             if linked_user is None:
                 raise NotFoundError("Linked user account not found.")
             linked_user.password_hash = hash_password(new_password)
+            self.users.revoke_active_refresh_tokens_for_user(linked_user.id)
             self.db.add(linked_user)
             logger.info("[EmployeeService] Password updated for user_id=%s (employee=%s)", employee.user_id, employee_id)
 
@@ -177,6 +178,8 @@ class EmployeeService:
             linked_user = self.users.get_by_id_in_company(employee.user_id, self.company_id)
             if linked_user is not None and linked_user.is_active != new_is_active:
                 linked_user.is_active = new_is_active
+                if new_is_active is False:
+                    self.users.revoke_active_refresh_tokens_for_user(linked_user.id)
                 self.db.add(linked_user)
                 logger.info(
                     "[EmployeeService] Synced User.is_active=%s for user_id=%s (employee=%s)",

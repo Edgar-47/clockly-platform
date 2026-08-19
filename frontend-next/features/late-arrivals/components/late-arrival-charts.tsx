@@ -15,7 +15,7 @@ function BarChart({
 }) {
   if (data.length === 0) {
     return (
-      <p className="py-6 text-center text-[12px] text-ink-muted">Sin datos para este periodo</p>
+      <p className="py-6 text-center text-[12px] text-ink-muted">Sin datos para este período</p>
     );
   }
 
@@ -47,7 +47,7 @@ function BarChart({
 function EmployeeRankCard({ employees }: { employees: LateArrivalEmployeeRank[] }) {
   if (employees.length === 0) {
     return (
-      <p className="py-6 text-center text-[12px] text-ink-muted">Sin datos para este periodo</p>
+      <p className="py-6 text-center text-[12px] text-ink-muted">Sin datos para este período</p>
     );
   }
 

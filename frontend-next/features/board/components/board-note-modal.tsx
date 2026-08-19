@@ -40,8 +40,8 @@ import type {
 } from "@/types/board";
 
 const formSchema = z.object({
-  title: z.string().min(1, "Titulo requerido").max(180, "Maximo 180 caracteres"),
-  content: z.string().max(5000, "Maximo 5000 caracteres").optional(),
+  title: z.string().min(1, "Título requerido").max(180, "Máximo 180 caracteres"),
+  content: z.string().max(5000, "Máximo 5000 caracteres").optional(),
   status: z.enum(["pending", "in_progress", "completed", "archived"]),
   priority: z.enum(["low", "medium", "high", "urgent"]),
   label_ids: z.array(z.string()).max(12),
@@ -117,7 +117,7 @@ export function BoardNoteModal({
         <form id="board-note-form" className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6" onSubmit={handleSubmit(submit)}>
           <div className="space-y-1.5">
             <Label htmlFor="board-note-title" className="text-[13px]">
-              Titulo
+              Título
             </Label>
             <Input
               id="board-note-title"
@@ -130,12 +130,12 @@ export function BoardNoteModal({
 
           <div className="space-y-1.5">
             <Label htmlFor="board-note-content" className="text-[13px]">
-              Descripcion
+              Descripción
             </Label>
             <textarea
               id="board-note-content"
               className="min-h-[150px] w-full resize-none rounded-lg border border-border-strong bg-white px-3 py-2 text-sm leading-6 text-ink shadow-inner-sm outline-none transition-all duration-150 placeholder:text-ink-xmuted focus:border-primary focus:ring-2 focus:ring-primary/15 focus:shadow-none"
-              placeholder="Anade el contexto necesario para que cualquiera del equipo lo entienda rapido."
+              placeholder="Añade el contexto necesario para que cualquiera del equipo lo entienda rápido."
               {...register("content")}
             />
             {errors.content && <p className="text-[12px] text-danger-DEFAULT">{errors.content.message}</p>}

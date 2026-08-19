@@ -58,7 +58,9 @@ def create_ticket(
     if ctx.user.role == UserRole.EMPLOYEE:
         # Employees must create tickets against their own employee profile.
         own = employee_repo.get_by_user_id(ctx.user.id)
-        employee_id = own.id if own else None
+        if own is None:
+            raise NotFoundError("Employee profile not found for this user.")
+        employee_id = own.id
     elif employee_id is not None:
         # Admins/managers providing employee_id must own that employee (same company).
         if employee_repo.get(employee_id) is None:

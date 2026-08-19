@@ -253,6 +253,21 @@ class TestLateArrivalStats:
         assert data["justified_count"] == 1
         assert data["pending_count"] == 1
 
+    def test_employee_without_profile_gets_empty_stats(self, client, db):
+        company = make_company(db)
+        user = make_user(db, company=company, email="e@t.com", role=UserRole.EMPLOYEE)
+        emp = make_employee(db, company=company)
+        session = make_session(db, company=company, employee=emp)
+        make_late_arrival(db, company=company, employee=emp, session=session, delay_total=20)
+        db.commit()
+
+        resp = client.get("/late-arrivals/stats", headers=auth_headers(user))
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_count"] == 0
+        assert data["total_delay_minutes"] == 0
+
 
 # ── Detail ────────────────────────────────────────────────────────────────────
 
@@ -500,6 +515,42 @@ class TestLateArrivalCharts:
         data = resp.json()
         assert len(data["by_day"]) >= 1
         assert len(data["top_employees"]) >= 1
+
+    def test_employee_charts_scope_top_employees_to_self(self, client, db):
+        company = make_company(db)
+        user1 = make_user(db, company=company, email="e1@t.com", role=UserRole.EMPLOYEE)
+        user2 = make_user(db, company=company, email="e2@t.com", role=UserRole.EMPLOYEE)
+        emp1 = make_employee(db, company=company, user=user1)
+        emp2 = make_employee(db, company=company, user=user2)
+        session1 = make_session(db, company=company, employee=emp1)
+        session2 = make_session(db, company=company, employee=emp2)
+        make_late_arrival(db, company=company, employee=emp1, session=session1, delay_total=12)
+        make_late_arrival(db, company=company, employee=emp2, session=session2, delay_total=30)
+        db.commit()
+
+        resp = client.get("/late-arrivals/charts", headers=auth_headers(user1))
+
+        assert resp.status_code == 200
+        top_employees = resp.json()["top_employees"]
+        assert top_employees
+        assert {item["employee_id"] for item in top_employees} == {str(emp1.id)}
+
+    def test_employee_without_profile_gets_empty_charts(self, client, db):
+        company = make_company(db)
+        user = make_user(db, company=company, email="e@t.com", role=UserRole.EMPLOYEE)
+        emp = make_employee(db, company=company)
+        session = make_session(db, company=company, employee=emp)
+        make_late_arrival(db, company=company, employee=emp, session=session, delay_total=12)
+        db.commit()
+
+        resp = client.get("/late-arrivals/charts", headers=auth_headers(user))
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["by_day"] == []
+        assert data["by_weekday"] == []
+        assert data["by_month"] == []
+        assert data["top_employees"] == []
 
 
 # ── Export ────────────────────────────────────────────────────────────────────

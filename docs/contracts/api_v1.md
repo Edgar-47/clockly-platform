@@ -373,6 +373,8 @@ Visible in the current web UI under `/settings` for `owner` and `admin`:
 
 - `GET /settings/auto-clock-out`
 - `PUT /settings/auto-clock-out`
+- `GET /settings/company`
+- `PATCH /settings/company`
 
 Requires `settings:read` to view and `settings:write` to modify. The
 `hr_manager`, `manager`, and `employee` roles receive `403`.
@@ -394,6 +396,8 @@ Validation:
 - Timezone must be a valid IANA timezone.
 - The backend stores `auto_clock_out_updated_by_user_id` and
   `auto_clock_out_updated_at`.
+- Company profile `name` is required when supplied and blank names return
+  `422` instead of clearing the tenant name.
 
 ## Employees
 
@@ -416,6 +420,11 @@ Contract notes:
 - Employee creation can include login credentials and a 4-digit kiosk PIN.
 - Employee updates accept `hired_on`, so the web field "Fecha de alta"
   persists through `PATCH /employees/{employee_id}`.
+- Employee updates reject blank `first_name` and `last_name` with `422`.
+- Updating the linked employee login password revokes active refresh tokens for
+  that user.
+- Deactivating an employee also deactivates the linked user and revokes active
+  refresh tokens for that user.
 - Admins can reset or clear kiosk PINs with `POST /employees/{employee_id}/pin`.
 - Employees can change their own PIN with `POST /employees/me/pin`.
 - Deleting an employee is soft-delete. It sets `is_deleted`, `deleted_at`,
@@ -441,6 +450,8 @@ Contract notes:
 - Normal reads exclude soft-deleted users.
 - Deleting a user is soft-delete. It sets `is_active=false`, `is_deleted`,
   `deleted_at`, `deleted_by` and revokes active refresh tokens.
+- Deactivating a user through `PATCH /users/{user_id}/deactivate` also revokes
+  active refresh tokens.
 - Owner and superadmin protections remain enforced; users cannot delete their
   own account through tenant member management.
 
@@ -814,6 +825,21 @@ Rules:
 
 ## Expense ticket attachments
 
+General expense-ticket endpoints are tenant-scoped:
+
+- `GET /expense-tickets`
+- `GET /expense-tickets/summary`
+- `GET /expense-tickets/{ticket_id}`
+- `POST /expense-tickets`
+- `PATCH /expense-tickets/{ticket_id}`
+- `DELETE /expense-tickets/{ticket_id}`
+
+Employee users are always scoped to their linked employee profile. If an
+employee-role user has no linked employee profile, list and summary endpoints
+return empty results and create/read/update/delete attempts cannot create or
+access unassigned expense tickets. Purchase dates cannot be future dates on
+create or update, and long descriptions/internal notes are rejected with `422`.
+
 Expense tickets can store one private attachment per ticket through the backend.
 The active persistence field is `attachment_key`; it is a private object key,
 not a filesystem path and not a public URL.
@@ -900,6 +926,8 @@ Visible in the current web UI (`/tickets`, `/employee`):
 Contract notes:
 
 - Employees can only read and create tickets for themselves.
+- Employee-role users without a linked employee profile receive an empty list
+  and cannot create unassigned tickets.
 - Admin users may filter by `employee_id`, `date_from`, `date_to`, `limit`,
   and `offset`.
 - All users may filter by `status`.
@@ -926,6 +954,21 @@ Request:
 ```
 
 Invalid status values return `422`. Invalid transitions return `409`.
+
+## Late arrivals
+
+Visible in the current web UI under analytics/reporting surfaces:
+
+- `GET /late-arrivals`
+- `GET /late-arrivals/stats`
+- `GET /late-arrivals/charts`
+- `GET /late-arrivals/{late_arrival_id}`
+- `PATCH /late-arrivals/{late_arrival_id}/status`
+- `GET /late-arrivals/export?format=xlsx`
+
+Employee users are scoped to their linked employee profile. If an employee-role
+user has no linked employee profile, list, stats and charts return empty
+results and direct record access is denied.
 
 ## Locations
 

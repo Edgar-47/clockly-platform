@@ -302,7 +302,7 @@ export default function SalariesPage() {
 
             {calculationQuery.error && (
               <div className="rounded-md border border-warning-border bg-warning-bg px-3.5 py-2.5 text-[13px] text-warning-DEFAULT">
-                No hay un perfil salarial aplicable o el periodo no es valido.
+                No hay un perfil salarial aplicable o el período no es válido.
               </div>
             )}
 

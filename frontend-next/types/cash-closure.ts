@@ -152,7 +152,7 @@ export interface CashClosurePrefillResponse {
 }
 
 export const CASH_CLOSURE_SHIFT_LABELS: Record<CashClosureShift, string> = {
-  morning: "Manana",
+  morning: "Mañana",
   afternoon: "Tarde",
   night: "Noche",
   custom: "Personalizado",

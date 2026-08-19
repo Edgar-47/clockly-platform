@@ -286,7 +286,7 @@ export default function OnboardingPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Datos de empresa</CardTitle>
-                  <CardDescription>Confirma la informacion base del tenant.</CardDescription>
+                  <CardDescription>Confirma la información base del tenant.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleCompany} className="grid gap-4 md:grid-cols-2">

@@ -1,5 +1,7 @@
 from tests.conftest import auth_headers, make_company, make_employee, make_open_session, make_user
 from app.models.enums import UserRole
+from app.models.refresh_token import RefreshToken
+from sqlalchemy import select
 
 
 def test_soft_delete_employee_excludes_normal_queries_but_keeps_attendance(client, db):
@@ -60,6 +62,28 @@ def test_soft_delete_user_excludes_normal_user_queries(client, db):
     assert deleted_response.status_code == 200
     emails = [item["email"] for item in deleted_response.json()["items"]]
     assert "manager@test.com" in emails
+
+
+def test_deactivate_user_revokes_refresh_tokens(client, db):
+    company = make_company(db)
+    owner = make_user(db, company=company, email="owner@test.com", role=UserRole.OWNER)
+    target = make_user(db, company=company, email="manager@test.com", role=UserRole.MANAGER)
+    db.commit()
+
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "manager@test.com", "password": "test-password-123"},
+    )
+    assert login_response.status_code == 200
+    token = db.scalar(select(RefreshToken).where(RefreshToken.user_id == target.id))
+    assert token is not None
+    assert token.revoked_at is None
+
+    deactivate_response = client.patch(f"/users/{target.id}/deactivate", headers=auth_headers(owner))
+
+    assert deactivate_response.status_code == 200
+    db.refresh(token)
+    assert token.revoked_at is not None
 
 
 def test_inactive_linked_employee_invalidates_existing_user_session(client, db):

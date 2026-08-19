@@ -46,7 +46,7 @@ class ExpenseTicketCreate(BaseModel):
 
 class ExpenseTicketUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     category: ExpenseCategory | None = None
     purchase_date: date | None = None
     amount: Decimal | None = Field(default=None, gt=0, decimal_places=2)
@@ -54,8 +54,19 @@ class ExpenseTicketUpdate(BaseModel):
     payment_source: PaymentSource | None = None
     requires_reimbursement: bool | None = None
     reimbursement_amount: Decimal | None = Field(default=None, ge=0, decimal_places=2)
-    internal_notes: str | None = None
+    internal_notes: str | None = Field(default=None, max_length=2000)
     location_id: UUID | None = None
+
+    @field_validator("purchase_date")
+    @classmethod
+    def purchase_date_not_future(cls, v: date | None) -> date | None:
+        if v is None:
+            return v
+        from datetime import date as date_type
+        today = date_type.today()
+        if v > today:
+            raise ValueError("La fecha de compra no puede ser futura.")
+        return v
 
 
 # ── Action payloads ───────────────────────────────────────────────────────────

@@ -97,6 +97,20 @@ def _own_employee_id(db: Session, ctx: TenantContext) -> UUID | None:
     return own.id if own else None
 
 
+def _empty_summary() -> ExpenseTicketSummary:
+    return ExpenseTicketSummary(
+        total_count=0,
+        total_amount=0.0,
+        pending_amount=0.0,
+        in_review_amount=0.0,
+        approved_amount=0.0,
+        rejected_amount=0.0,
+        paid_amount=0.0,
+        pending_reimbursement_amount=0.0,
+        avg_amount=0.0,
+    )
+
+
 # ── Allowed status transitions ────────────────────────────────────────────────
 
 _ALLOWED_TRANSITIONS: dict[ExpenseStatus, set[ExpenseStatus]] = {
@@ -161,6 +175,8 @@ def expense_ticket_summary(
 ) -> ExpenseTicketSummary:
     if ctx.user.role == UserRole.EMPLOYEE:
         employee_id = _own_employee_id(db, ctx)
+        if employee_id is None:
+            return _empty_summary()
 
     data = ExpenseTicketRepository(db, company_id=ctx.company_id).summary(
         date_from=date_from,
@@ -226,7 +242,9 @@ def create_expense_ticket(
 
     if ctx.user.role == UserRole.EMPLOYEE:
         own = employee_repo.get_by_user_id(ctx.user.id)
-        employee_id = own.id if own else None
+        if own is None:
+            raise NotFoundError("Employee profile not found for this user.")
+        employee_id = own.id
     else:
         employee_id = payload.employee_id
         if employee_id is not None and employee_repo.get(employee_id) is None:
@@ -586,7 +604,7 @@ def _get_and_scope(ticket_id: UUID, db: Session, ctx: TenantContext) -> ExpenseT
 
     if ctx.user.role == UserRole.EMPLOYEE:
         own_id = _own_employee_id(db, ctx)
-        if ticket.employee_id != own_id:
+        if own_id is None or ticket.employee_id != own_id:
             raise PermissionDenied("No tienes permiso para ver este gasto.")
 
     return ticket

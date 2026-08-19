@@ -50,13 +50,35 @@ def _own_employee_id(db: Session, ctx: TenantContext) -> UUID | None:
     return own.id if own else None
 
 
+def _empty_stats() -> LateArrivalStats:
+    return LateArrivalStats(
+        total_count=0,
+        pending_count=0,
+        justified_count=0,
+        unjustified_count=0,
+        ignored_count=0,
+        total_delay_minutes=0,
+        avg_delay_minutes=0.0,
+        punctuality_rate=0.0,
+    )
+
+
+def _empty_charts() -> LateArrivalChartsResponse:
+    return LateArrivalChartsResponse(
+        by_day=[],
+        by_weekday=[],
+        by_month=[],
+        top_employees=[],
+    )
+
+
 def _get_and_scope(late_arrival_id: UUID, db: Session, ctx: TenantContext):
     record = LateArrivalRepository(db, company_id=ctx.company_id).get(late_arrival_id)
     if record is None:
         raise NotFoundError("Retraso no encontrado.")
     if ctx.user.role == UserRole.EMPLOYEE:
         own_id = _own_employee_id(db, ctx)
-        if record.employee_id != own_id:
+        if own_id is None or record.employee_id != own_id:
             raise PermissionDenied("No tienes permiso para ver este retraso.")
     return record
 
@@ -114,6 +136,8 @@ def get_late_arrival_stats(
 
     if ctx.user.role == UserRole.EMPLOYEE:
         employee_id = _own_employee_id(db, ctx)
+        if employee_id is None:
+            return _empty_stats()
 
     date_from_parsed = date_type.fromisoformat(date_from) if date_from else None
     date_to_parsed = date_type.fromisoformat(date_to) if date_to else None
@@ -140,6 +164,8 @@ def get_late_arrival_charts(
 
     if ctx.user.role == UserRole.EMPLOYEE:
         employee_id = _own_employee_id(db, ctx)
+        if employee_id is None:
+            return _empty_charts()
 
     date_from_parsed = date_type.fromisoformat(date_from) if date_from else None
     date_to_parsed = date_type.fromisoformat(date_to) if date_to else None
@@ -147,7 +173,7 @@ def get_late_arrival_charts(
     repo = LateArrivalRepository(db, company_id=ctx.company_id)
     by_day = repo.chart_by_day(employee_id=employee_id, date_from=date_from_parsed, date_to=date_to_parsed)
     by_month = repo.chart_by_month(employee_id=employee_id, date_from=date_from_parsed, date_to=date_to_parsed)
-    top_employees = repo.top_employees(date_from=date_from_parsed, date_to=date_to_parsed)
+    top_employees = repo.top_employees(employee_id=employee_id, date_from=date_from_parsed, date_to=date_to_parsed)
 
     # Build weekday distribution from the by_day data (Mon–Sun)
     weekday_buckets: dict[int, dict] = {

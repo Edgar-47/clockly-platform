@@ -21,7 +21,14 @@ class CompanyProfileUpdate(BaseModel):
     company_size: str | None = Field(default=None, max_length=40)
     country: str | None = Field(default=None, max_length=80)
 
-    @field_validator("name", "cif", "sector", "company_size", "country", mode="before")
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_required_name(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    @field_validator("cif", "sector", "company_size", "country", mode="before")
     @classmethod
     def strip_strings(cls, value: object) -> object:
         if isinstance(value, str):

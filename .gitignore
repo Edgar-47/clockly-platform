@@ -23,16 +23,20 @@ venv/
 .idea/
 .vscode/
 .claude/
+.claire/
 
 # Runtime data
 exports/
 uploads/
+.qa-exports/
+output/
 
 # Generated files
 *.xlsx
 *.pdf
 *.log
 .next/
+.next-playwright/
 node_modules/
 playwright-report/
 test-results/

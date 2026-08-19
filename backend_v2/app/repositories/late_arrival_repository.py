@@ -247,6 +247,7 @@ class LateArrivalRepository:
     def top_employees(
         self,
         *,
+        employee_id: UUID | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
         limit: int = 10,
@@ -254,6 +255,8 @@ class LateArrivalRepository:
         from app.models.employee import Employee
 
         base_where = [LateArrival.company_id == self.company_id]
+        if employee_id:
+            base_where.append(LateArrival.employee_id == employee_id)
         if date_from:
             base_where.append(LateArrival.date >= date_from)
         if date_to:

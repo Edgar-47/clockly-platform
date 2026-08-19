@@ -123,6 +123,19 @@ class TestEmployeeTicketScoping:
         assert data["items"] == []
         assert data["total"] == 0
 
+    def test_employee_without_profile_cannot_create_ticket(self, client, db):
+        company = make_company(db)
+        user = make_user(db, company=company, email="emp@test.com", role=UserRole.EMPLOYEE)
+        db.commit()
+
+        resp = client.post(
+            "/tickets",
+            headers=auth_headers(user),
+            json={"title": "Orphan ticket", "description": "No employee profile"},
+        )
+
+        assert resp.status_code == 404
+
     def test_employee_creates_ticket_against_own_profile(self, client, db):
         company = make_company(db)
         user = make_user(db, company=company, email="emp@test.com", role=UserRole.EMPLOYEE)

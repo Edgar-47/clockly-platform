@@ -1,3 +1,0 @@
-﻿Empleado,DNI / ID,Fecha entrada,Hora entrada,Fecha salida,Hora salida,Duración (hh:mm),Estado,Origen salida,Incidencia,Notas
-Sergio Navarro Ruiz,10000004Q,2026-05-18,11:32,2026-05-18,11:41,00:08,Cerrado,Admin,No,QA cierre para generar retraso controlado
-Adrián Torres Gil,10000002B,2026-05-18,11:32,2026-05-18,11:32,00:00,Cerrado,Manual,No,QA cierre corto para validar histórico y cálculo

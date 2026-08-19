@@ -145,6 +145,8 @@ class UserService:
         _assert_can_manage_user(actor, target)
 
         target.is_active = is_active
+        if not is_active:
+            self.repo.revoke_active_refresh_tokens_for_user(target.id)
         self.db.add(target)
         self.db.commit()
         logger.info(

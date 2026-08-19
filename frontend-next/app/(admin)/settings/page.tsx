@@ -298,7 +298,7 @@ export default function SettingsPage() {
             )}
             {autoClockOutQuery.data?.auto_clock_out_updated_at && (
               <p className="mt-3 text-[12px] text-ink-muted">
-                Ultima actualizacion: {new Date(autoClockOutQuery.data.auto_clock_out_updated_at).toLocaleString()}
+                Última actualización: {new Date(autoClockOutQuery.data.auto_clock_out_updated_at).toLocaleString()}
               </p>
             )}
           </CardContent>
